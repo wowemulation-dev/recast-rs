@@ -1,0 +1,29 @@
+[package]
+name = "detour-crowd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Multi-agent crowd simulation on navigation meshes"
+keywords = ["crowd", "simulation", "detour", "agents", "ai"]
+categories = ["game-development", "simulation"]
+
+[dependencies]
+recast-common = { workspace = true }
+detour = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+fastrand = { workspace = true }
+bitflags = { workspace = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+
+[features]
+default = []
+
+[lints]
+workspace = true

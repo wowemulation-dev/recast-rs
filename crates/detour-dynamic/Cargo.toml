@@ -1,0 +1,31 @@
+[package]
+name = "detour-dynamic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Dynamic navigation mesh generation for Recast and Detour"
+keywords = ["pathfinding", "navigation", "mesh", "dynamic", "navmesh"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+recast-common = { workspace = true }
+recast = { workspace = true }
+detour = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+lz4_flex = { workspace = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+
+[features]
+default = []
+
+[lints]
+workspace = true

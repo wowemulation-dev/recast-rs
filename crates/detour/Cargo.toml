@@ -1,0 +1,35 @@
+[package]
+name = "detour"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pathfinding and spatial queries on navigation meshes"
+keywords = ["pathfinding", "detour", "navmesh", "astar", "navigation"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+recast-common = { workspace = true }
+recast = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+bitflags = { workspace = true }
+ordered-float = { workspace = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+postcard = { workspace = true, optional = true }
+byteorder = { workspace = true, optional = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+tempfile = { workspace = true }
+
+[features]
+default = []
+serialization = ["serde", "serde_json", "postcard", "byteorder"]
+
+[lints]
+workspace = true

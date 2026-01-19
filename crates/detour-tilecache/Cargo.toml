@@ -1,0 +1,33 @@
+[package]
+name = "detour-tilecache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Dynamic obstacle management and tile caching for navigation meshes"
+keywords = ["tilecache", "detour", "navmesh", "dynamic", "obstacles"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+recast-common = { workspace = true }
+recast = { workspace = true }
+detour = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+lz4 = { workspace = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+postcard = { workspace = true, optional = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+
+[features]
+default = []
+serialization = ["serde", "serde_json", "postcard", "detour/serialization"]
+
+[lints]
+workspace = true

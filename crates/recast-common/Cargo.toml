@@ -1,0 +1,29 @@
+[package]
+name = "recast-common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Common utilities and types for Recast navigation mesh generation"
+keywords = ["navmesh", "recast", "utilities", "math", "geometry"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+glam = { workspace = true }
+thiserror = { workspace = true }
+bytemuck = { workspace = true }
+log = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true, optional = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+
+[features]
+default = []
+async = ["tokio"]
+
+[lints]
+workspace = true

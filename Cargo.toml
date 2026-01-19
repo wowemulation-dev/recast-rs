@@ -1,0 +1,125 @@
+[workspace]
+members = [
+    "crates/recast-common",
+    "crates/recast",
+    "crates/detour",
+    "crates/detour-crowd",
+    "crates/detour-tilecache",
+    "crates/detour-dynamic",
+    "crates/recast-cli",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Daniel S. Reichenbach <daniel@kogito.network>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/wowemulation-dev/recast-rs"
+homepage = "https://github.com/wowemulation-dev/recast-rs"
+keywords = ["game", "pathfinding", "navmesh", "recast", "detour"]
+categories = ["game-development", "algorithms"]
+
+[workspace.dependencies]
+# Internal workspace dependencies
+recast-common = { path = "crates/recast-common", version = "0.1.0" }
+recast = { path = "crates/recast", version = "0.1.0" }
+detour = { path = "crates/detour", version = "0.1.0" }
+detour-crowd = { path = "crates/detour-crowd", version = "0.1.0" }
+detour-tilecache = { path = "crates/detour-tilecache", version = "0.1.0" }
+detour-dynamic = { path = "crates/detour-dynamic", version = "0.1.0" }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Math
+glam = { version = "0.29", features = ["serde"] }
+
+# Utilities
+bitflags = { version = "2.9", features = ["serde"] }
+bytemuck = "1.23"
+byteorder = "1.5"
+log = "0.4"
+ordered-float = "5.0"
+
+# Parallel processing
+rayon = "1.10"
+
+# Async runtime (optional)
+tokio = { version = "1.45", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+postcard = { version = "1.1", features = ["alloc"] }
+
+# Compression
+lz4 = "1.28"
+lz4_flex = "0.11"
+
+# Testing
+criterion = { version = "0.6", features = ["html_reports"] }
+assert_approx_eq = "1.1"
+tempfile = "3.20"
+fastrand = "2.3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[workspace.lints.rust]
+# Allow unsafe code - navigation library uses unsafe for performance-critical paths
+unsafe_code = "allow"
+
+[workspace.lints.clippy]
+# Lint groups at low priority
+# All lints relaxed for initial port - enable incrementally
+all = { level = "allow", priority = -1 }
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+cargo = { level = "allow", priority = -1 }
+
+# Safety lints (allow for initial port, tighten later)
+unwrap_used = { level = "allow", priority = 2 }
+panic = { level = "allow", priority = 2 }
+todo = { level = "warn", priority = 2 }
+unimplemented = { level = "warn", priority = 2 }
+expect_used = { level = "allow", priority = 2 }
+
+# Specific allows at higher priority to override group lints
+module_name_repetitions = { level = "allow", priority = 1 }
+multiple_crate_versions = { level = "allow", priority = 1 }
+missing_errors_doc = { level = "allow", priority = 1 }
+missing_const_for_fn = { level = "allow", priority = 1 }
+must_use_candidate = { level = "allow", priority = 1 }
+missing_panics_doc = { level = "allow", priority = 1 }
+too_many_lines = { level = "allow", priority = 1 }
+cast_sign_loss = { level = "allow", priority = 1 }
+cast_possible_truncation = { level = "allow", priority = 1 }
+option_if_let_else = { level = "allow", priority = 1 }
+doc_markdown = { level = "allow", priority = 1 }
+unreadable_literal = { level = "allow", priority = 1 }
+similar_names = { level = "allow", priority = 1 }
+# Mathematical code patterns
+many_single_char_names = { level = "allow", priority = 1 }
+redundant_else = { level = "allow", priority = 1 }
+suspicious_operation_groupings = { level = "allow", priority = 1 }
+cast_precision_loss = { level = "allow", priority = 1 }
+suboptimal_flops = { level = "allow", priority = 1 }
+use_self = { level = "allow", priority = 1 }
+float_cmp = { level = "allow", priority = 1 }
+cast_possible_wrap = { level = "allow", priority = 1 }
+cast_lossless = { level = "allow", priority = 1 }
+if_not_else = { level = "allow", priority = 1 }
+struct_excessive_bools = { level = "allow", priority = 1 }
+# Port-specific allows (can be refined later)
+cargo_common_metadata = { level = "allow", priority = 1 }
+unnecessary_wraps = { level = "allow", priority = 1 }
+# Allow indexing for algorithm code (already have bounds checks where needed)
+indexing_slicing = { level = "allow", priority = 1 }
+# Allow items after test module (file organization)
+items_after_test_module = { level = "allow", priority = 1 }
+comparison_chain = { level = "allow", priority = 1 }
