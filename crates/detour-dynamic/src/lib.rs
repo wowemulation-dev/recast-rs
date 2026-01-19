@@ -38,34 +38,34 @@
 //!     walkable_radius: 0.6,
 //!     walkable_climb: 0.9,
 //!     walkable_slope_angle: 45.0,
-//!     // ... other parameters
 //!     ..Default::default()
 //! };
 //!
 //! // Create dynamic navmesh with tile grid
 //! let mut dynamic_navmesh = DynamicNavMesh::with_tile_grid(config, 3, 3)?;
 //!
-//! // Add a dynamic obstacle
+//! // Add a dynamic obstacle (area=0 for walkable, flag_merge_threshold=1.0)
 //! let box_collider = Arc::new(BoxCollider::new(
-//!     Vec3::new(5.0, 0.0, 5.0), // center
-//!     Vec3::new(1.0, 2.0, 1.0), // half extents
+//!     Vec3::new(5.0, 0.0, 5.0),  // center
+//!     Vec3::new(1.0, 2.0, 1.0),  // half extents
+//!     0,                          // area type
+//!     1.0,                        // flag merge threshold
 //! ));
 //! dynamic_navmesh.add_collider(box_collider)?;
 //!
 //! // Update navmesh to process changes
 //! dynamic_navmesh.update()?;
 //!
-//! // Perform voxel raycasting
-//! let voxel_query = VoxelQuery::new(
-//!     Vec3::new(-10.0, -5.0, -10.0), // min bounds
-//!     Vec3::new(10.0, 5.0, 10.0),    // max bounds
-//!     0.3, // cell size
-//!     0.2  // cell height
+//! // Perform voxel raycasting using a simple heightfield query
+//! let voxel_query = VoxelQuery::from_single_heightfield(
+//!     Vec3::new(-10.0, 0.0, -10.0),  // origin
+//!     10.0,                           // tile width
+//!     10.0,                           // tile depth
 //! );
 //!
 //! if let Some(hit) = voxel_query.raycast(
-//!     Vec3::new(0.0, 1.0, 0.0), // start
-//!     Vec3::new(5.0, 1.0, 5.0)  // end
+//!     Vec3::new(0.0, 1.0, 0.0),  // start
+//!     Vec3::new(5.0, 1.0, 5.0),  // end
 //! ) {
 //!     println!("Hit obstacle at {:?}", hit.position);
 //! }

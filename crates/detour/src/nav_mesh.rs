@@ -3341,13 +3341,14 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::{NavMesh, PolyFlags};
-    /// # let mut nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyFlags, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &mut NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// // Mark a polygon as non-walkable (e.g., for temporary obstacles)
     /// nav_mesh.set_poly_flags(poly_ref, PolyFlags::empty())?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3392,15 +3393,16 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::{NavMesh, PolyFlags};
-    /// # let nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyFlags, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// let flags = nav_mesh.get_poly_flags(poly_ref)?;
-    /// if flags.contains(PolyFlags::WALKABLE) {
+    /// if flags.contains(PolyFlags::WALK) {
     ///     println!("Polygon is walkable");
     /// }
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3445,13 +3447,14 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::NavMesh;
-    /// # let mut nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &mut NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// // Set polygon to grass area type (higher movement cost)
     /// nav_mesh.set_poly_area(poly_ref, 2)?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3496,10 +3499,10 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::NavMesh;
-    /// # let nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// let area = nav_mesh.get_poly_area(poly_ref)?;
     /// match area {
     ///     0 => println!("Unwalkable area"),
@@ -3507,7 +3510,8 @@ impl NavMesh {
     ///     2 => println!("Grass area"),
     ///     _ => println!("Custom area type: {}", area),
     /// }
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
