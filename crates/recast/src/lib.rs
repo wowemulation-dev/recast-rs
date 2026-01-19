@@ -28,22 +28,22 @@ pub use config::RecastConfig;
 pub use context::{LogEntry, LogLevel, ProgressInfo, RecastContext, TimerCategory, TimerGuard};
 pub use contour::{BuildContoursFlags, Contour, ContourSet, ContourVertex};
 pub use convex_volume::{ConvexVolume, ConvexVolumeSet, MAX_CONVEX_VOLUME_VERTS};
-pub use detail_mesh::{merge_poly_mesh_details, PolyMeshDetail};
+pub use detail_mesh::{PolyMeshDetail, merge_poly_mesh_details};
 pub use distance_field::{build_layer_regions, build_regions_monotone, build_regions_watershed};
 // Region building functions are not exported directly - use CompactHeightfield methods instead
 pub use heightfield::{Heightfield, Span};
 pub use heightfield_layers::{HeightfieldLayer, LayerConnection, LayeredHeightfield};
-pub use mesh_merging::{copy_poly_mesh, MergeResult, MergeStats, MeshMergeConfig, MeshMerger};
-pub use polymesh::{PolyMesh, MESH_NULL_IDX};
+pub use mesh_merging::{MergeResult, MergeStats, MeshMergeConfig, MeshMerger, copy_poly_mesh};
+pub use polymesh::{MESH_NULL_IDX, PolyMesh};
 pub use rasterization::{
     add_span, rasterize_triangle, rasterize_triangle_soup, rasterize_triangles,
     rasterize_triangles_u16,
 };
 pub use triangle_utils::{
-    array_to_vec3, calc_bounds, calc_bounds_vec3, calc_grid_size, clear_unwalkable_triangles,
-    get_dir_for_offset, get_dir_offset_x, get_dir_offset_y, get_heightfield_span_count,
-    mark_walkable_triangles, vadd, vcopy, vcross, vdist, vdist_sqr, vdot, vec3_to_array, vmad,
-    vmax, vmin, vnormalize, vsub, RC_NULL_AREA, RC_WALKABLE_AREA,
+    RC_NULL_AREA, RC_WALKABLE_AREA, array_to_vec3, calc_bounds, calc_bounds_vec3, calc_grid_size,
+    clear_unwalkable_triangles, get_dir_for_offset, get_dir_offset_x, get_dir_offset_y,
+    get_heightfield_span_count, mark_walkable_triangles, vadd, vcopy, vcross, vdist, vdist_sqr,
+    vdot, vec3_to_array, vmad, vmax, vmin, vnormalize, vsub,
 };
 
 /// Builder for Recast navigation mesh generation

@@ -1,6 +1,6 @@
-//! Triangle mesh collider implementation matching 
+//! Triangle mesh collider implementation matching
 
-use super::{base::ColliderBase, Collider, ColliderType};
+use super::{Collider, ColliderType, base::ColliderBase};
 use glam::Vec3;
 use recast::Heightfield;
 use recast_common::Result;
@@ -20,7 +20,12 @@ pub struct TrimeshCollider {
 
 impl TrimeshCollider {
     /// Create a new triangle mesh collider matching 's constructor
-    pub fn new(vertices: Vec<Vec3>, indices: Vec<u32>, area: i32, flag_merge_threshold: f32) -> Self {
+    pub fn new(
+        vertices: Vec<Vec3>,
+        indices: Vec<u32>,
+        area: i32,
+        flag_merge_threshold: f32,
+    ) -> Self {
         let bounds = Self::compute_bounds(&vertices);
         Self {
             base: ColliderBase::new(area, flag_merge_threshold, bounds),
@@ -28,25 +33,25 @@ impl TrimeshCollider {
             indices,
         }
     }
-    
+
     /// Create with default area and flag merge threshold for backwards compatibility
     pub fn new_simple(vertices: Vec<Vec3>, indices: Vec<u32>) -> Self {
         Self::new(vertices, indices, 0, 1.0)
     }
-    
+
     /// Compute bounds for the trimesh
     fn compute_bounds(vertices: &[Vec3]) -> [f32; 6] {
         if vertices.is_empty() {
             return [0.0; 6];
         }
-        
+
         let mut min_x = vertices[0].x;
         let mut min_y = vertices[0].y;
         let mut min_z = vertices[0].z;
         let mut max_x = vertices[0].x;
         let mut max_y = vertices[0].y;
         let mut max_z = vertices[0].z;
-        
+
         for vertex in vertices.iter().skip(1) {
             min_x = min_x.min(vertex.x);
             min_y = min_y.min(vertex.y);
@@ -55,14 +60,12 @@ impl TrimeshCollider {
             max_y = max_y.max(vertex.y);
             max_z = max_z.max(vertex.z);
         }
-        
+
         [min_x, min_y, min_z, max_x, max_y, max_z]
     }
 
     /// Get triangles as triplets of vertices
-    pub fn triangles(
-        &self,
-    ) -> impl Iterator<Item = (Vec3, Vec3, Vec3)> + '_ {
+    pub fn triangles(&self) -> impl Iterator<Item = (Vec3, Vec3, Vec3)> + '_ {
         self.indices.chunks(3).filter_map(|chunk| {
             if chunk.len() == 3 {
                 let i0 = chunk[0] as usize;
@@ -114,13 +117,13 @@ impl Collider for TrimeshCollider {
         // In , this calls RcFilledVolumeRasterization.RasterizeTrimesh
         // Calculate flag merge threshold in heightfield units
         let flag_merge_threshold = (self.base.flag_merge_threshold / cell_height).floor() as i32;
-        
+
         // Rasterize each triangle
         for triangle in self.triangles() {
             let v0 = triangle.0;
             let v1 = triangle.1;
             let v2 = triangle.2;
-            
+
             // Use Recast's rasterize_triangle function
             recast::rasterize_triangle(
                 &v0,
@@ -131,7 +134,7 @@ impl Collider for TrimeshCollider {
                 flag_merge_threshold,
             )?;
         }
-        
+
         Ok(())
     }
 
@@ -142,11 +145,11 @@ impl Collider for TrimeshCollider {
     fn clone_box(&self) -> Box<dyn Collider> {
         Box::new(self.clone())
     }
-    
+
     fn area(&self) -> i32 {
         self.base.area
     }
-    
+
     fn flag_merge_threshold(&self) -> f32 {
         self.base.flag_merge_threshold
     }

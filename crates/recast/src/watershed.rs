@@ -116,7 +116,6 @@ fn sort_cells_by_level(
             }
         }
     }
-
 }
 
 /// Appends one stack to another, filtering out assigned regions

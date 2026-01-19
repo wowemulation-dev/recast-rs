@@ -1,6 +1,6 @@
-//! Sphere collider implementation matching 
+//! Sphere collider implementation matching
 
-use super::{base::ColliderBase, utils, Collider, ColliderType};
+use super::{Collider, ColliderType, base::ColliderBase, utils};
 use glam::Vec3;
 use recast::Heightfield;
 use recast_common::Result;
@@ -28,12 +28,12 @@ impl SphereCollider {
             radius,
         }
     }
-    
+
     /// Create with default area and flag merge threshold for backwards compatibility
     pub fn new_simple(center: Vec3, radius: f32) -> Self {
         Self::new(center, radius, 0, 1.0)
     }
-    
+
     /// Compute bounds for the sphere
     fn compute_bounds(center: &Vec3, radius: f32) -> [f32; 6] {
         [
@@ -88,7 +88,7 @@ impl Collider for SphereCollider {
                 let world_x = world_min.x + (x as f32 + 0.5) * cell_size;
                 let world_z = world_min.z + (z as f32 + 0.5) * cell_size;
 
-            // Can have multiple heights within the sphere's Y range
+                // Can have multiple heights within the sphere's Y range
                 let y_start = (min_y as f32 * cell_height + world_min.y).max(world_min.y);
                 let y_end = (max_y as f32 * cell_height + world_min.y)
                     .min(world_min.y + heightfield.height as f32 * cell_height);
@@ -121,11 +121,11 @@ impl Collider for SphereCollider {
     fn clone_box(&self) -> Box<dyn Collider> {
         Box::new(self.clone())
     }
-    
+
     fn area(&self) -> i32 {
         self.base.area
     }
-    
+
     fn flag_merge_threshold(&self) -> f32 {
         self.base.flag_merge_threshold
     }

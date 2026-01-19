@@ -1,6 +1,6 @@
-//! Convex triangle mesh collider implementation matching 
+//! Convex triangle mesh collider implementation matching
 
-use super::{base::ColliderBase, Collider, ColliderType};
+use super::{Collider, ColliderType, base::ColliderBase};
 use glam::Vec3;
 use recast::Heightfield;
 use recast_common::Result;
@@ -35,7 +35,7 @@ impl ConvexTrimeshCollider {
             triangles,
         }
     }
-    
+
     /// Create with explicit bounds
     pub fn with_bounds(
         vertices: Vec<f32>,
@@ -61,13 +61,17 @@ impl Collider for ConvexTrimeshCollider {
         // For a convex mesh, we can use a simpler algorithm
         // Check if point is inside the bounding box first
         let (min, max) = self.bounds();
-        if point.x < min.x || point.x > max.x ||
-           point.y < min.y || point.y > max.y ||
-           point.z < min.z || point.z > max.z {
+        if point.x < min.x
+            || point.x > max.x
+            || point.y < min.y
+            || point.y > max.y
+            || point.z < min.z
+            || point.z > max.z
+        {
             return false;
         }
-        
-        // For actual convex test, we'd need to check if the point is on the 
+
+        // For actual convex test, we'd need to check if the point is on the
         // correct side of all faces. For now, use bounding box as approximation.
         true
     }
@@ -82,26 +86,39 @@ impl Collider for ConvexTrimeshCollider {
         // In , this calls RcFilledVolumeRasterization.RasterizeConvex
         // This is optimized for convex meshes
         let flag_merge_threshold = (self.base.flag_merge_threshold / cell_height).floor() as i16;
-        
+
         // For now, we'll rasterize each triangle individually
         // A proper implementation would use the convex hull optimization
         for i in (0..self.triangles.len()).step_by(3) {
             let i0 = self.triangles[i] as usize * 3;
             let i1 = self.triangles[i + 1] as usize * 3;
             let i2 = self.triangles[i + 2] as usize * 3;
-            
-            if i0 + 2 < self.vertices.len() && 
-               i1 + 2 < self.vertices.len() && 
-               i2 + 2 < self.vertices.len() {
-                let v0 = [self.vertices[i0], self.vertices[i0 + 1], self.vertices[i0 + 2]];
-                let v1 = [self.vertices[i1], self.vertices[i1 + 1], self.vertices[i1 + 2]];
-                let v2 = [self.vertices[i2], self.vertices[i2 + 1], self.vertices[i2 + 2]];
-                
+
+            if i0 + 2 < self.vertices.len()
+                && i1 + 2 < self.vertices.len()
+                && i2 + 2 < self.vertices.len()
+            {
+                let v0 = [
+                    self.vertices[i0],
+                    self.vertices[i0 + 1],
+                    self.vertices[i0 + 2],
+                ];
+                let v1 = [
+                    self.vertices[i1],
+                    self.vertices[i1 + 1],
+                    self.vertices[i1 + 2],
+                ];
+                let v2 = [
+                    self.vertices[i2],
+                    self.vertices[i2 + 1],
+                    self.vertices[i2 + 2],
+                ];
+
                 // Convert arrays to glam vectors
                 let v0_vec = Vec3::new(v0[0], v0[1], v0[2]);
                 let v1_vec = Vec3::new(v1[0], v1[1], v1[2]);
                 let v2_vec = Vec3::new(v2[0], v2[1], v2[2]);
-                
+
                 // Rasterize the triangle
                 recast::rasterize_triangle(
                     &v0_vec,
@@ -113,7 +130,7 @@ impl Collider for ConvexTrimeshCollider {
                 )?;
             }
         }
-        
+
         Ok(())
     }
 
@@ -124,11 +141,11 @@ impl Collider for ConvexTrimeshCollider {
     fn clone_box(&self) -> Box<dyn Collider> {
         Box::new(self.clone())
     }
-    
+
     fn area(&self) -> i32 {
         self.base.area
     }
-    
+
     fn flag_merge_threshold(&self) -> f32 {
         self.base.flag_merge_threshold
     }
@@ -146,14 +163,14 @@ mod tests {
     fn test_convex_trimesh_collider() {
         // Create a simple triangle
         let vertices = vec![
-            0.0, 0.0, 0.0,  // Vertex 0
-            1.0, 0.0, 0.0,  // Vertex 1
-            0.5, 1.0, 0.0,  // Vertex 2
+            0.0, 0.0, 0.0, // Vertex 0
+            1.0, 0.0, 0.0, // Vertex 1
+            0.5, 1.0, 0.0, // Vertex 2
         ];
         let triangles = vec![0, 1, 2];
-        
+
         let collider = ConvexTrimeshCollider::new(vertices, triangles, 1, 1.0);
-        
+
         let (min, max) = collider.bounds();
         assert_eq!(min.x, 0.0);
         assert_eq!(min.y, 0.0);

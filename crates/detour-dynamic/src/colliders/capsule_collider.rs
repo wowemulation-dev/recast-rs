@@ -1,6 +1,6 @@
-//! Capsule collider implementation matching 
+//! Capsule collider implementation matching
 
-use super::{base::ColliderBase, Collider, ColliderType};
+use super::{Collider, ColliderType, base::ColliderBase};
 use glam::Vec3;
 use recast::Heightfield;
 use recast_common::Result;
@@ -31,12 +31,12 @@ impl CapsuleCollider {
             radius,
         }
     }
-    
+
     /// Create with default area and flag merge threshold for backwards compatibility
     pub fn new_simple(start: Vec3, end: Vec3, radius: f32) -> Self {
         Self::new(start, end, radius, 0, 1.0)
     }
-    
+
     fn compute_bounds(start: &Vec3, end: &Vec3, radius: f32) -> [f32; 6] {
         [
             start.x.min(end.x) - radius,
@@ -89,36 +89,36 @@ impl Collider for CapsuleCollider {
         // In , this calls RcFilledVolumeRasterization.RasterizeCapsule
         // For now, we'll use a simple voxel-based approach
         // TODO: Implement proper capsule rasterization in recast crate
-        
+
         let (aabb_min, aabb_max) = self.bounds();
-        
+
         // Convert bounds to grid coordinates
         let min_x = ((aabb_min.x - world_min.x) / cell_size).floor() as i32;
         let max_x = ((aabb_max.x - world_min.x) / cell_size).ceil() as i32;
         let min_z = ((aabb_min.z - world_min.z) / cell_size).floor() as i32;
         let max_z = ((aabb_max.z - world_min.z) / cell_size).ceil() as i32;
-        
+
         // Clamp to heightfield bounds
         let grid_min_x = min_x.max(0);
         let grid_max_x = max_x.min(heightfield.width - 1);
         let grid_min_z = min_z.max(0);
         let grid_max_z = max_z.min(heightfield.height - 1);
-        
+
         // Rasterize each cell
         for z in grid_min_z..=grid_max_z {
             for x in grid_min_x..=grid_max_x {
                 let world_x = world_min.x + (x as f32 + 0.5) * cell_size;
                 let world_z = world_min.z + (z as f32 + 0.5) * cell_size;
-                
+
                 // Check multiple points vertically
                 let min_y = aabb_min.y;
                 let max_y = aabb_max.y;
                 let y_steps = ((max_y - min_y) / cell_height).ceil() as i32 + 1;
-                
+
                 for i in 0..y_steps {
                     let world_y = min_y + i as f32 * cell_height;
                     let test_point = Vec3::new(world_x, world_y, world_z);
-                    
+
                     if self.contains_point(&test_point) {
                         let span_min = ((world_y - world_min.y) / cell_height).floor() as i16;
                         let span_max = span_min;
@@ -127,7 +127,7 @@ impl Collider for CapsuleCollider {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -138,11 +138,11 @@ impl Collider for CapsuleCollider {
     fn clone_box(&self) -> Box<dyn Collider> {
         Box::new(self.clone())
     }
-    
+
     fn area(&self) -> i32 {
         self.base.area
     }
-    
+
     fn flag_merge_threshold(&self) -> f32 {
         self.base.flag_merge_threshold
     }

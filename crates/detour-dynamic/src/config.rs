@@ -159,9 +159,10 @@ impl DynamicNavMeshConfig {
         if self.walkable_climb < 0.0 {
             return Err("Walkable climb cannot be negative".to_string());
         }
-        if self.world_min.x >= self.world_max.x || 
-           self.world_min.y >= self.world_max.y || 
-           self.world_min.z >= self.world_max.z {
+        if self.world_min.x >= self.world_max.x
+            || self.world_min.y >= self.world_max.y
+            || self.world_min.z >= self.world_max.z
+        {
             return Err("World bounds invalid: min must be less than max".to_string());
         }
         Ok(())

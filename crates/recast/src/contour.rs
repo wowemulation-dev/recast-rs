@@ -829,8 +829,15 @@ impl ContourSet {
             }
         }
 
-        log::debug!("build_contours summary: spans_checked={}, skipped_no_boundary={}, skipped_no_region={}, contours_attempted={}, empty_contours={}, final_contours={}",
-                   spans_checked, spans_skipped_no_boundary, spans_skipped_no_region, contours_attempted, empty_contours, contours.len());
+        log::debug!(
+            "build_contours summary: spans_checked={}, skipped_no_boundary={}, skipped_no_region={}, contours_attempted={}, empty_contours={}, final_contours={}",
+            spans_checked,
+            spans_skipped_no_boundary,
+            spans_skipped_no_region,
+            contours_attempted,
+            empty_contours,
+            contours.len()
+        );
 
         Ok(())
     }

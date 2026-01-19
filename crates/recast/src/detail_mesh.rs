@@ -6,7 +6,7 @@
 use glam::Vec3;
 
 use super::compact_heightfield::CompactHeightfield;
-use super::polymesh::{PolyMesh, MESH_NULL_IDX};
+use super::polymesh::{MESH_NULL_IDX, PolyMesh};
 use recast_common::{Error, Result};
 
 /// Unset height marker (matches C++ RC_UNSET_HEIGHT)

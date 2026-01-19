@@ -403,19 +403,11 @@ impl PolyMesh {
 
     /// Helper functions for triangulation (following C++ implementation)
     fn prev(i: usize, n: usize) -> usize {
-        if i >= 1 {
-            i - 1
-        } else {
-            n - 1
-        }
+        if i >= 1 { i - 1 } else { n - 1 }
     }
 
     fn next(i: usize, n: usize) -> usize {
-        if i + 1 < n {
-            i + 1
-        } else {
-            0
-        }
+        if i + 1 < n { i + 1 } else { 0 }
     }
 
     fn area2(a: &[i32], b: &[i32], c: &[i32]) -> i32 {

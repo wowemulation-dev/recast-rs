@@ -4,7 +4,7 @@ use std::io::Result as IoResult;
 pub trait VoxelCompressor {
     /// Compress the input data
     fn compress(&self, data: &[u8]) -> IoResult<Vec<u8>>;
-    
+
     /// Decompress the input data
     fn decompress(&self, data: &[u8]) -> IoResult<Vec<u8>>;
 }

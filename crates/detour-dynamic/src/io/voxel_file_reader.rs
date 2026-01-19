@@ -1,6 +1,9 @@
-use std::io::{Read, Result as IoResult, Error, ErrorKind};
+use crate::io::{
+    VERSION_COMPRESSION_LZ4, VERSION_COMPRESSION_MASK, VERSION_EXPORTER_MASK, VOXEL_FILE_MAGIC,
+    VoxelCompressor, VoxelFile, VoxelTile,
+};
 use glam::Vec3;
-use crate::io::{VoxelFile, VoxelTile, VoxelCompressor, VOXEL_FILE_MAGIC, VERSION_EXPORTER_MASK, VERSION_COMPRESSION_MASK, VERSION_COMPRESSION_LZ4};
+use std::io::{Error, ErrorKind, Read, Result as IoResult};
 
 pub struct VoxelFileReader {
     compressor: Option<Box<dyn VoxelCompressor>>,
@@ -14,9 +17,7 @@ impl Default for VoxelFileReader {
 
 impl VoxelFileReader {
     pub fn new() -> Self {
-        VoxelFileReader {
-            compressor: None,
-        }
+        VoxelFileReader { compressor: None }
     }
 
     pub fn with_compressor(compressor: Box<dyn VoxelCompressor>) -> Self {
@@ -27,16 +28,19 @@ impl VoxelFileReader {
 
     pub fn read<R: Read>(&self, reader: &mut R) -> IoResult<VoxelFile> {
         let mut buffer = [0u8; 4];
-        
+
         // Read and validate magic number
         reader.read_exact(&mut buffer)?;
         let mut magic = u32::from_be_bytes(buffer);
         let mut big_endian = true;
-        
+
         if magic != VOXEL_FILE_MAGIC {
             magic = u32::from_le_bytes(buffer);
             if magic != VOXEL_FILE_MAGIC {
-                return Err(Error::new(ErrorKind::InvalidData, "Invalid voxel file magic"));
+                return Err(Error::new(
+                    ErrorKind::InvalidData,
+                    "Invalid voxel file magic",
+                ));
             }
             big_endian = false;
         }
@@ -81,11 +85,11 @@ impl VoxelFileReader {
         file.use_tiles = self.read_u8(reader)? != 0;
         file.tile_size_x = self.read_i32(reader, big_endian)?;
         file.tile_size_z = self.read_i32(reader, big_endian)?;
-        
+
         file.rotation.x = self.read_f32(reader, big_endian)?;
         file.rotation.y = self.read_f32(reader, big_endian)?;
         file.rotation.z = self.read_f32(reader, big_endian)?;
-        
+
         for i in 0..6 {
             file.bounds[i] = self.read_f32(reader, big_endian)?;
         }
@@ -108,13 +112,13 @@ impl VoxelFileReader {
             let width = self.read_i32(reader, big_endian)?;
             let depth = self.read_i32(reader, big_endian)?;
             let border_size = self.read_i32(reader, big_endian)?;
-            
+
             let mut bounds_min = Vec3::new(
                 self.read_f32(reader, big_endian)?,
                 self.read_f32(reader, big_endian)?,
                 self.read_f32(reader, big_endian)?,
             );
-            
+
             let mut bounds_max = Vec3::new(
                 self.read_f32(reader, big_endian)?,
                 self.read_f32(reader, big_endian)?,

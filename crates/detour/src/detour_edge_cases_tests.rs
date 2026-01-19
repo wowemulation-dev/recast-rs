@@ -3,12 +3,14 @@
 //! This module tests boundary conditions, numerical edge cases, and
 //! unusual but valid scenarios that might occur in production use.
 
+#![allow(unused)]
+
 #[cfg(test)]
 mod tests {
     use crate::test_mesh_helpers::create_minimal_test_navmesh;
     use crate::{
-        nav_mesh::encode_poly_ref_with_salt, NavMesh, NavMeshParams, NavMeshQuery, PolyFlags,
-        PolyRef, QueryFilter, MAX_VERTS_PER_POLY,
+        MAX_VERTS_PER_POLY, NavMesh, NavMeshParams, NavMeshQuery, PolyFlags, PolyRef, QueryFilter,
+        nav_mesh::encode_poly_ref_with_salt,
     };
     use recast_common::Result;
 

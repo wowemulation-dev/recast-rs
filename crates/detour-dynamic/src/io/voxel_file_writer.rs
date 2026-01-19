@@ -1,5 +1,8 @@
-use std::io::{Write, Result as IoResult, Error, ErrorKind};
-use crate::io::{VoxelFile, VoxelCompressor, VOXEL_FILE_MAGIC, VERSION_EXPORTER_RECAST4J, VERSION_COMPRESSION_LZ4};
+use crate::io::{
+    VERSION_COMPRESSION_LZ4, VERSION_EXPORTER_RECAST4J, VOXEL_FILE_MAGIC, VoxelCompressor,
+    VoxelFile,
+};
+use std::io::{Error, ErrorKind, Result as IoResult, Write};
 
 pub struct VoxelFileWriter {
     compressor: Option<Box<dyn VoxelCompressor>>,
@@ -13,9 +16,7 @@ impl Default for VoxelFileWriter {
 
 impl VoxelFileWriter {
     pub fn new() -> Self {
-        VoxelFileWriter {
-            compressor: None,
-        }
+        VoxelFileWriter { compressor: None }
     }
 
     pub fn with_compressor(compressor: Box<dyn VoxelCompressor>) -> Self {
@@ -24,7 +25,12 @@ impl VoxelFileWriter {
         }
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W, file: &VoxelFile, use_compression: bool) -> IoResult<()> {
+    pub fn write<W: Write>(
+        &self,
+        writer: &mut W,
+        file: &VoxelFile,
+        use_compression: bool,
+    ) -> IoResult<()> {
         // Write magic number (big-endian)
         writer.write_all(&VOXEL_FILE_MAGIC.to_be_bytes())?;
 
@@ -72,7 +78,7 @@ impl VoxelFileWriter {
 
         // Write tiles
         writer.write_all(&(file.tiles.len() as i32).to_be_bytes())?;
-        
+
         for tile in &file.tiles {
             writer.write_all(&tile.tile_x.to_be_bytes())?;
             writer.write_all(&tile.tile_z.to_be_bytes())?;

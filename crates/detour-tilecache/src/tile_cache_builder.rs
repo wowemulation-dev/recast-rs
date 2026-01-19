@@ -6,11 +6,11 @@
 use super::tile_cache::{Obstacle, ObstacleData, ObstacleState, TileCache};
 use super::tile_cache_data::{TileCacheBuilderConfig, TileCacheLayer};
 use detour::nav_mesh::{MeshTile, Poly, PolyDetail, TileHeader};
-use detour::{PolyFlags, PolyType, MAX_VERTS_PER_POLY};
+use detour::{MAX_VERTS_PER_POLY, PolyFlags, PolyType};
 use glam::Vec3;
 use recast::{
-    CompactHeightfield, ContourSet, Heightfield, PolyMesh, PolyMeshDetail, RecastConfig,
-    MESH_NULL_IDX,
+    CompactHeightfield, ContourSet, Heightfield, MESH_NULL_IDX, PolyMesh, PolyMeshDetail,
+    RecastConfig,
 };
 use recast_common::{Error, Result};
 
@@ -32,8 +32,8 @@ impl TileCacheBuilder {
             height: 0, // Will be set per tile
             cs: config.cs,
             ch: config.ch,
-            bmin: Vec3::ZERO,     // Will be set per tile
-            bmax: Vec3::ZERO,     // Will be set per tile
+            bmin: Vec3::ZERO,           // Will be set per tile
+            bmax: Vec3::ZERO,           // Will be set per tile
             walkable_slope_angle: 45.0, // Default, could be added to config
             walkable_height: config.walkable_height,
             walkable_climb: config.walkable_climb,

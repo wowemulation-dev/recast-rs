@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::binary_format::{DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION};
-    use crate::{NavMesh, NavMeshCreateParams, NavMeshParams, PolyFlags, PolyRef};
+    use crate::{NavMeshParams, PolyFlags, PolyRef};
     use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
     use recast_common::Result;
     use std::io::Cursor;

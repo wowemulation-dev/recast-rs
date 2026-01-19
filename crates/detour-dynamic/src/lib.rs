@@ -2,6 +2,10 @@
 //!
 //! This crate provides dynamic navigation mesh generation capabilities, allowing for
 //! real-time modification of navigation meshes by adding and removing obstacles.
+
+// Allow unused code in tests - test code often has intentionally unused variables
+// for demonstration or future use
+#![cfg_attr(test, allow(unused))]
 //! This is particularly useful for games with destructible environments, moving
 //! platforms, or procedurally generated content.
 //!
@@ -83,7 +87,7 @@ pub mod jobs;
 pub mod voxel_query;
 
 // Re-export main types
-pub use checkpoint::{DynamicTileCheckpoint, CheckpointManager};
+pub use checkpoint::{CheckpointManager, DynamicTileCheckpoint};
 pub use config::DynamicNavMeshConfig;
 pub use dynamic_navmesh::{DynamicNavMesh, DynamicNavMeshStatistics};
 pub use dynamic_tile::{DynamicTile, DynamicTileManager, TileCheckpoint, TileStatus};

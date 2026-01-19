@@ -11,8 +11,8 @@ use super::nav_mesh::{MeshTile, Poly};
 use super::raycast_hit::{RaycastHit, RaycastOptions, RaycastResult};
 use super::sliced_pathfinding::SlicedPathState;
 use super::{NavMesh, Path, PolyFlags, PolyRef, PolyType, QueryFilter, Status};
-use recast_common::{Error, Result};
 use glam::Vec3;
+use recast_common::{Error, Result};
 
 /// Maximum number of nodes in the search pool
 const DT_MAX_NODES: usize = 4096;
@@ -425,7 +425,6 @@ impl<'a> NavMeshQuery<'a> {
         let goal_node_idx = 1;
         self.node_pool[goal_node_idx].poly = end_ref;
 
-
         // Iterate through the A* search
         let mut best_node_idx = start_node_idx;
         let mut best_node_cost = self.node_pool[start_node_idx].h;
@@ -640,7 +639,6 @@ impl<'a> NavMeshQuery<'a> {
     ) -> Result<()> {
         let current_node = &self.node_pool[current_idx];
         let current_poly = current_node.poly;
-
 
         // Get the tile and poly for the current node
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(current_poly)?;
@@ -1211,7 +1209,7 @@ impl<'a> NavMeshQuery<'a> {
     /// # Performance
     /// Time complexity: O(n) where n is the number of polygons within search radius (max 16)
     /// Space complexity: O(n) for the node storage and traversal queue
-    /// 
+    ///
     /// Uses VecDeque for efficient O(1) front operations during BFS traversal.
     pub fn move_along_surface(
         &self,
@@ -4199,10 +4197,10 @@ impl<'a> NavMeshQuery<'a> {
 #[cfg(test)]
 mod tests {
     use super::super::{
-        encode_poly_ref, NavMeshBuilder, NavMeshCreateParams, NavMeshParams, PolyFlags,
+        NavMeshBuilder, NavMeshCreateParams, NavMeshParams, PolyFlags, encode_poly_ref,
     };
     use super::*;
-    use crate::{nav_mesh::encode_poly_ref_with_salt, CollectPolysQuery, FindNearestPolyQuery};
+    use crate::{CollectPolysQuery, FindNearestPolyQuery, nav_mesh::encode_poly_ref_with_salt};
     use recast::MESH_NULL_IDX;
 
     #[test]
@@ -4587,7 +4585,7 @@ mod tests {
         };
 
         let tile = NavMeshBuilder::build_tile(&params)?;
-        let tile_ref = nav_mesh.add_mesh_tile(tile)?;
+        let _tile_ref = nav_mesh.add_mesh_tile(tile)?;
 
         // Create query
         let query = NavMeshQuery::new(&nav_mesh);
@@ -4649,8 +4647,8 @@ mod tests {
     }
 
     #[test]
-    fn test_get_poly_wall_segments_with_neighbors(
-    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    fn test_get_poly_wall_segments_with_neighbors()
+    -> std::result::Result<(), Box<dyn std::error::Error>> {
         // Create a 2-tile navigation mesh to test cross-tile neighbor detection
         let nav_params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
@@ -5166,7 +5164,7 @@ mod tests {
         for row in 0..3 {
             for col in 0..3 {
                 let base_idx = row * 4 + col;
-                let poly_idx = row * 3 + col;
+                let _poly_idx = row * 3 + col;
 
                 // Add polygon vertices (counter-clockwise)
                 polys.push(base_idx as u16);
@@ -5428,20 +5426,26 @@ mod tests {
                 // This ensures API compatibility even if we don't have proper test data
 
                 // These should fail gracefully but the APIs should exist
-                assert!(query
-                    .find_nearest_poly(&center, &half_extents, &filter)
-                    .is_err());
-                assert!(query
-                    .find_nearest_poly_extended(&center, &half_extents, &filter)
-                    .is_err());
+                assert!(
+                    query
+                        .find_nearest_poly(&center, &half_extents, &filter)
+                        .is_err()
+                );
+                assert!(
+                    query
+                        .find_nearest_poly_extended(&center, &half_extents, &filter)
+                        .is_err()
+                );
 
                 // Test straight path methods with empty path (should handle gracefully)
                 let empty_path = vec![];
                 let pos = [0.0, 0.0, 0.0];
                 assert!(query.find_straight_path(&pos, &pos, &empty_path).is_err());
-                assert!(query
-                    .find_straight_path_with_options(&pos, &pos, &empty_path, 0)
-                    .is_err());
+                assert!(
+                    query
+                        .find_straight_path_with_options(&pos, &pos, &empty_path, 0)
+                        .is_err()
+                );
             }
         }
 

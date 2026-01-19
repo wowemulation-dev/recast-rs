@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::nav_mesh_query::NavMeshQuery;
-    use crate::{NavMesh, NavMeshParams, PolyRef, QueryFilter, Status};
+    use crate::{NavMesh, NavMeshParams, PolyRef, QueryFilter};
     use recast_common::Result;
 
     #[test]
@@ -74,9 +74,11 @@ mod tests {
         let dir = [1.0, 0.0, 0.0];
 
         // All these should return proper errors, not crash
-        assert!(query
-            .raycast(invalid_ref, &pos, &dir, 10.0, &filter)
-            .is_err());
+        assert!(
+            query
+                .raycast(invalid_ref, &pos, &dir, 10.0, &filter)
+                .is_err()
+        );
         assert!(query.closest_point_on_poly(invalid_ref, &pos).is_err());
 
         // Test with very large polygon reference (invalid)

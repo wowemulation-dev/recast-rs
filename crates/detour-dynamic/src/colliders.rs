@@ -15,9 +15,11 @@ use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 // Re-export collider types
-pub use base::{ColliderBase, SAMPLE_POLYAREA_TYPE_GROUND, SAMPLE_POLYAREA_TYPE_WATER, 
-              SAMPLE_POLYAREA_TYPE_ROAD, SAMPLE_POLYAREA_TYPE_DOOR,
-              SAMPLE_POLYAREA_TYPE_GRASS, SAMPLE_POLYAREA_TYPE_JUMP};
+pub use base::{
+    ColliderBase, SAMPLE_POLYAREA_TYPE_DOOR, SAMPLE_POLYAREA_TYPE_GRASS,
+    SAMPLE_POLYAREA_TYPE_GROUND, SAMPLE_POLYAREA_TYPE_JUMP, SAMPLE_POLYAREA_TYPE_ROAD,
+    SAMPLE_POLYAREA_TYPE_WATER,
+};
 pub use box_collider::BoxCollider;
 pub use capsule_collider::CapsuleCollider;
 pub use composite_collider::CompositeCollider;
@@ -128,14 +130,18 @@ impl SerializableCollider {
             ColliderType::Trimesh => any
                 .downcast_ref::<TrimeshCollider>()
                 .map(|trimesh_collider| SerializableCollider::Trimesh(trimesh_collider.clone())),
-            ColliderType::ConvexTrimesh => any
-                .downcast_ref::<ConvexTrimeshCollider>()
-                .map(|convex_trimesh_collider| SerializableCollider::ConvexTrimesh(convex_trimesh_collider.clone())),
-            ColliderType::Composite => any
-                .downcast_ref::<CompositeCollider>()
-                .map(|composite_collider| {
-                    SerializableCollider::Composite(composite_collider.clone())
-                }),
+            ColliderType::ConvexTrimesh => {
+                any.downcast_ref::<ConvexTrimeshCollider>()
+                    .map(|convex_trimesh_collider| {
+                        SerializableCollider::ConvexTrimesh(convex_trimesh_collider.clone())
+                    })
+            }
+            ColliderType::Composite => {
+                any.downcast_ref::<CompositeCollider>()
+                    .map(|composite_collider| {
+                        SerializableCollider::Composite(composite_collider.clone())
+                    })
+            }
         }
     }
 }
@@ -161,11 +167,7 @@ pub mod utils {
     }
 
     /// Expand an AABB by a given margin
-    pub fn expand_aabb(
-        min: &Vec3,
-        max: &Vec3,
-        margin: f32,
-    ) -> (Vec3, Vec3) {
+    pub fn expand_aabb(min: &Vec3, max: &Vec3, margin: f32) -> (Vec3, Vec3) {
         let margin_vec = Vec3::new(margin, margin, margin);
         (min - margin_vec, max + margin_vec)
     }
@@ -188,11 +190,7 @@ pub mod utils {
     }
 
     /// Convert world coordinates to heightfield grid coordinates
-    pub fn world_to_grid(
-        world_pos: &Vec3,
-        world_min: &Vec3,
-        cell_size: f32,
-    ) -> (i32, i32, i32) {
+    pub fn world_to_grid(world_pos: &Vec3, world_min: &Vec3, cell_size: f32) -> (i32, i32, i32) {
         let x = ((world_pos.x - world_min.x) / cell_size).floor() as i32;
         let y = ((world_pos.y - world_min.y) / cell_size).floor() as i32;
         let z = ((world_pos.z - world_min.z) / cell_size).floor() as i32;
@@ -225,11 +223,7 @@ mod tests {
         let max = Vec3::new(10.0, 10.0, 10.0);
 
         // Point inside
-        assert!(utils::point_in_aabb(
-            &Vec3::new(5.0, 5.0, 5.0),
-            &min,
-            &max
-        ));
+        assert!(utils::point_in_aabb(&Vec3::new(5.0, 5.0, 5.0), &min, &max));
 
         // Point outside
         assert!(!utils::point_in_aabb(

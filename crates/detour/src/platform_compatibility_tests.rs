@@ -5,7 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{NavMesh, NavMeshCreateParams, NavMeshParams, PolyFlags, PolyRef, QueryFilter};
+    use crate::{NavMesh, NavMeshParams, PolyFlags, PolyRef, QueryFilter};
     use recast_common::Result;
     use std::mem;
     use std::path::{Path, PathBuf};
@@ -227,8 +227,10 @@ mod tests {
         // Test target OS
         let os = std::env::consts::OS;
         assert!(
-            ["linux", "windows", "macos", "ios", "android", "freebsd", "openbsd", "netbsd"]
-                .contains(&os),
+            [
+                "linux", "windows", "macos", "ios", "android", "freebsd", "openbsd", "netbsd"
+            ]
+            .contains(&os),
             "Unexpected OS: {}",
             os
         );

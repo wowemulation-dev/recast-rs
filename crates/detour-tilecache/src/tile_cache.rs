@@ -1126,8 +1126,8 @@ impl TileCache {
     /// Saves the tile cache to a file in binary format
     #[cfg(feature = "serialization")]
     pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
-        let encoded = postcard::to_allocvec(self)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let encoded =
+            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
 
         std::fs::write(path, encoded).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
 
@@ -1139,8 +1139,8 @@ impl TileCache {
     pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
 
-        let tile_cache = postcard::from_bytes(&data)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let tile_cache =
+            postcard::from_bytes(&data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
 
         Ok(tile_cache)
     }
@@ -1164,16 +1164,16 @@ impl TileCache {
     /// Serializes the tile cache to binary bytes
     #[cfg(feature = "serialization")]
     pub fn to_binary_bytes(&self) -> Result<Vec<u8>> {
-        let data = postcard::to_allocvec(self)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let data =
+            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         Ok(data)
     }
 
     /// Deserializes a tile cache from binary bytes
     #[cfg(feature = "serialization")]
     pub fn from_binary_bytes(data: &[u8]) -> Result<Self> {
-        let tile_cache = postcard::from_bytes(data)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let tile_cache =
+            postcard::from_bytes(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         Ok(tile_cache)
     }
 }

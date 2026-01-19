@@ -5,12 +5,12 @@
 
 use std::f32;
 
+use super::PathCorridor;
 use super::formation::{FormationConfig, FormationManager, FormationRole};
 use super::proximity_grid::{GridAgent, ProximityGrid};
 use super::rvo::{
-    position_3d_to_2d, velocity_2d_to_3d, velocity_3d_to_2d, RVOConfig, RVOSimulator,
+    RVOConfig, RVOSimulator, position_3d_to_2d, velocity_2d_to_3d, velocity_3d_to_2d,
 };
-use super::PathCorridor;
 use detour::{NavMesh, NavMeshQuery, PolyRef, QueryFilter, Status};
 use recast_common::{Error, Result};
 
@@ -48,8 +48,7 @@ const DEFAULT_AGENT_MAX_ACCELERATION: f32 = 8.0;
 const DEFAULT_AGENT_MAX_SPEED: f32 = 3.5;
 
 /// The type of navigation mesh polygon the agent is currently traversing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CrowdAgentState {
     /// The agent is not in a valid state.
     #[default]
@@ -60,10 +59,8 @@ pub enum CrowdAgentState {
     OffMesh = 2,
 }
 
-
 /// Move request state for agents
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MoveRequestState {
     #[default]
     None = 0,
@@ -74,7 +71,6 @@ pub enum MoveRequestState {
     WaitingForPath,
     Velocity,
 }
-
 
 /// Agent state in the crowd
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -571,7 +567,10 @@ impl<'a> Crowd<'a> {
                                     &mut self.query,
                                     &filter,
                                 ) {
-                                    eprintln!("DEBUG: Corridor move_position fallback also failed for agent {}: {:?}", agent_idx, e2);
+                                    eprintln!(
+                                        "DEBUG: Corridor move_position fallback also failed for agent {}: {:?}",
+                                        agent_idx, e2
+                                    );
                                     // If both fail, mark agent as failed
                                     agent.state = AgentState::Failed;
                                 }

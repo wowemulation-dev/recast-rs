@@ -199,14 +199,7 @@ pub struct LayeredHeightfield {
 
 impl LayeredHeightfield {
     /// Creates a new layered heightfield
-    pub fn new(
-        width: i32,
-        height: i32,
-        bmin: Vec3,
-        bmax: Vec3,
-        cs: f32,
-        ch: f32,
-    ) -> Self {
+    pub fn new(width: i32, height: i32, bmin: Vec3, bmax: Vec3, cs: f32, ch: f32) -> Self {
         Self {
             width,
             height,

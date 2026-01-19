@@ -7,10 +7,10 @@ use std::collections::HashMap;
 
 use super::bvh_tree::{Aabb, BVHItem, BVHTree};
 use super::{
-    NavMeshFlags, NavMeshParams, PolyFlags, PolyRef, PolyType, QueryFilter, Status,
-    MAX_VERTS_PER_POLY,
+    MAX_VERTS_PER_POLY, NavMeshFlags, NavMeshParams, PolyFlags, PolyRef, PolyType, QueryFilter,
+    Status,
 };
-use recast::{PolyMesh, PolyMeshDetail, MESH_NULL_IDX};
+use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
 use recast_common::{Error, Result};
 
 /// Maximum number of nodes in the navigation mesh node pool
@@ -652,7 +652,7 @@ impl NavMesh {
 
     /// Initializes the navigation mesh with tiles
     pub fn init(&mut self, nav_data: &[u8]) -> Result<()> {
-        use super::binary_format::{load_tile_from_binary, DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION};
+        use super::binary_format::{DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION, load_tile_from_binary};
         use byteorder::{NativeEndian, ReadBytesExt};
         use std::io::Cursor;
 
@@ -2043,7 +2043,8 @@ impl NavMesh {
                 for layer in 0..self.max_tiles {
                     if let Some(tile) = self.get_tile_at(x, y, layer) {
                         // Query polygons in this tile
-                        let tile_polys = self.query_polygons_in_tile_internal(tile, bmin, bmax, filter)?;
+                        let tile_polys =
+                            self.query_polygons_in_tile_internal(tile, bmin, bmax, filter)?;
                         result.extend(tile_polys);
 
                         // Query off-mesh connections in this tile
@@ -3093,16 +3094,16 @@ impl NavMesh {
     /// Serializes the navigation mesh to binary bytes
     #[cfg(feature = "serialization")]
     pub fn to_binary_bytes(&self) -> Result<Vec<u8>> {
-        let data = postcard::to_allocvec(self)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let data =
+            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         Ok(data)
     }
 
     /// Deserializes a navigation mesh from binary bytes
     #[cfg(feature = "serialization")]
     pub fn from_binary_bytes(data: &[u8]) -> Result<Self> {
-        let nav_mesh = postcard::from_bytes(data)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let nav_mesh =
+            postcard::from_bytes(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         Ok(nav_mesh)
     }
 
@@ -3305,7 +3306,7 @@ impl NavMesh {
         if let Some(Some(tile)) = self.tiles.get_mut(tile_idx) {
             tile.header = Some(TileHeader::new(x, y, layer));
             tile.next = None; // No longer in free list
-                              // Clear any existing data
+            // Clear any existing data
             tile.polys.clear();
             tile.verts.clear();
             tile.links.clear();
@@ -3966,7 +3967,6 @@ impl NavMesh {
         actual_tile_id: u32,
         params: &super::NavMeshCreateParams,
     ) -> Result<()> {
-
         // Get tile data first
         let tile_data = {
             let tile = self

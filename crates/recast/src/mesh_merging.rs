@@ -3,7 +3,7 @@
 //! This module provides functionality to merge multiple polygon meshes into a single
 //! unified navigation mesh, handling vertex welding, polygon connectivity, and topology.
 
-use super::polymesh::{PolyMesh, MESH_NULL_IDX};
+use super::polymesh::{MESH_NULL_IDX, PolyMesh};
 use glam::Vec3;
 use recast_common::{Error, Result};
 use std::collections::HashMap;
@@ -459,11 +459,7 @@ impl MeshMerger {
 
     /// Creates a copy of a mesh with transformed vertices
     /// Applies scale first, then translation (standard transform order)
-    pub fn transform_mesh(
-        mesh: &PolyMesh,
-        translation: Vec3,
-        scale: Vec3,
-    ) -> Result<PolyMesh> {
+    pub fn transform_mesh(mesh: &PolyMesh, translation: Vec3, scale: Vec3) -> Result<PolyMesh> {
         let mut transformed = mesh.clone();
         Self::scale_mesh(&mut transformed, scale)?;
         Self::translate_mesh(&mut transformed, translation)?;

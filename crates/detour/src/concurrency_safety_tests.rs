@@ -4,8 +4,10 @@
 //! including concurrent read operations and proper synchronization for
 //! write operations (poly flags/area modifications).
 
+#![allow(unused)]
+
 use crate::test_mesh_helpers::*;
-use crate::{NavMeshQuery, QueryFilter, PolyFlags, PolyRef};
+use crate::{NavMeshQuery, PolyFlags, PolyRef, QueryFilter};
 use recast_common::Result;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
@@ -31,7 +33,8 @@ mod concurrent_read_tests {
                     // Find starting position
                     let start_pos = get_test_position_complex();
                     let extents = get_test_extents();
-                    let (start_ref, actual_start_pos) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
+                    let (start_ref, actual_start_pos) =
+                        query.find_nearest_poly(&start_pos, &extents, &filter)?;
 
                     // Perform many operations
                     for i in 0..operations_per_thread {
@@ -41,13 +44,22 @@ mod concurrent_read_tests {
                             actual_start_pos[1],
                             actual_start_pos[2] + offset,
                         ];
-                        
+
                         let mut visited = Vec::new();
-                        query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter, &mut visited)?;
+                        query.move_along_surface(
+                            start_ref,
+                            &actual_start_pos,
+                            &end_pos,
+                            &filter,
+                            &mut visited,
+                        )?;
 
                         // Verify results are consistent
                         assert!(!visited.is_empty(), "Should visit at least one polygon");
-                        assert!(visited[0] == start_ref, "First visited should be start polygon");
+                        assert!(
+                            visited[0] == start_ref,
+                            "First visited should be start polygon"
+                        );
                     }
 
                     Ok(())
@@ -57,7 +69,10 @@ mod concurrent_read_tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().expect("Thread panicked").expect("Thread operation failed");
+            handle
+                .join()
+                .expect("Thread panicked")
+                .expect("Thread operation failed");
         }
 
         Ok(())
@@ -79,7 +94,8 @@ mod concurrent_read_tests {
                     // Find starting position
                     let center_pos = get_test_position_complex();
                     let extents = get_test_extents();
-                    let (start_ref, actual_center_pos) = query.find_nearest_poly(&center_pos, &extents, &filter)?;
+                    let (start_ref, actual_center_pos) =
+                        query.find_nearest_poly(&center_pos, &extents, &filter)?;
 
                     // Perform operations with varying parameters
                     for i in 0..operations_per_thread {
@@ -96,9 +112,16 @@ mod concurrent_read_tests {
 
                         // Verify results are consistent
                         assert!(!polys.is_empty(), "Should find at least one polygon");
-                        assert_eq!(polys.len(), parents.len(), "Polys and parents should be same length");
+                        assert_eq!(
+                            polys.len(),
+                            parents.len(),
+                            "Polys and parents should be same length"
+                        );
                         assert_eq!(polys[0], start_ref, "First polygon should be start");
-                        assert!(!parents[0].is_valid(), "Start polygon should have no parent");
+                        assert!(
+                            !parents[0].is_valid(),
+                            "Start polygon should have no parent"
+                        );
                     }
 
                     Ok(())
@@ -108,7 +131,10 @@ mod concurrent_read_tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().expect("Thread panicked").expect("Thread operation failed");
+            handle
+                .join()
+                .expect("Thread panicked")
+                .expect("Thread operation failed");
         }
 
         Ok(())
@@ -128,7 +154,8 @@ mod concurrent_read_tests {
 
                     let start_pos = get_test_position_large();
                     let extents = [5.0, 5.0, 5.0];
-                    let (start_ref, actual_start_pos) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
+                    let (start_ref, actual_start_pos) =
+                        query.find_nearest_poly(&start_pos, &extents, &filter)?;
 
                     // Mix different types of read operations
                     for i in 0..50 {
@@ -141,13 +168,25 @@ mod concurrent_read_tests {
                                     actual_start_pos[2] + (i as f32 * 0.1),
                                 ];
                                 let mut visited = Vec::new();
-                                query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter, &mut visited)?;
-                            },
+                                query.move_along_surface(
+                                    start_ref,
+                                    &actual_start_pos,
+                                    &end_pos,
+                                    &filter,
+                                    &mut visited,
+                                )?;
+                            }
                             1 => {
                                 // findLocalNeighbourhood
                                 let radius = 1.0 + (i as f32 * 0.1);
-                                query.find_local_neighbourhood(start_ref, &actual_start_pos, radius, &filter, 10)?;
-                            },
+                                query.find_local_neighbourhood(
+                                    start_ref,
+                                    &actual_start_pos,
+                                    radius,
+                                    &filter,
+                                    10,
+                                )?;
+                            }
                             2 => {
                                 // find_nearest_poly (baseline operation)
                                 let test_pos = [
@@ -156,7 +195,7 @@ mod concurrent_read_tests {
                                     actual_start_pos[2] + (i as f32 * 0.05),
                                 ];
                                 query.find_nearest_poly(&test_pos, &extents, &filter)?;
-                            },
+                            }
                             _ => unreachable!(),
                         }
                     }
@@ -168,7 +207,10 @@ mod concurrent_read_tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().expect("Thread panicked").expect("Thread operation failed");
+            handle
+                .join()
+                .expect("Thread panicked")
+                .expect("Thread operation failed");
         }
 
         Ok(())
@@ -202,7 +244,7 @@ mod concurrent_write_tests {
                 thread::spawn(move || -> Result<()> {
                     for i in 0..operations_per_thread {
                         let mut mesh = nav_mesh_clone.lock().unwrap();
-                        
+
                         // Each thread sets different flags to test concurrent access
                         let flags = match thread_id % 3 {
                             0 => PolyFlags::WALK,
@@ -213,11 +255,13 @@ mod concurrent_write_tests {
 
                         mesh.set_poly_flags(poly_ref, flags)?;
                         let retrieved_flags = mesh.get_poly_flags(poly_ref)?;
-                        
+
                         // The retrieved flags should be some valid flag combination
                         // (exact value depends on thread scheduling)
-                        assert!(!retrieved_flags.is_empty() || retrieved_flags.is_empty(), 
-                               "Flags should be in a valid state");
+                        assert!(
+                            !retrieved_flags.is_empty() || retrieved_flags.is_empty(),
+                            "Flags should be in a valid state"
+                        );
 
                         // Small delay to increase chance of contention
                         if i % 10 == 0 {
@@ -233,7 +277,10 @@ mod concurrent_write_tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().expect("Thread panicked").expect("Thread operation failed");
+            handle
+                .join()
+                .expect("Thread panicked")
+                .expect("Thread operation failed");
         }
 
         Ok(())
@@ -262,13 +309,13 @@ mod concurrent_write_tests {
                 thread::spawn(move || -> Result<()> {
                     for i in 0..operations_per_thread {
                         let mut mesh = nav_mesh_clone.lock().unwrap();
-                        
+
                         // Each thread sets different areas
                         let area = ((thread_id * 50) + (i % 50)) as u8;
 
                         mesh.set_poly_area(poly_ref, area)?;
                         let retrieved_area = mesh.get_poly_area(poly_ref)?;
-                        
+
                         // The retrieved area should be some valid area value
                         assert!(retrieved_area <= 255, "Area should be valid u8 value");
 
@@ -286,7 +333,10 @@ mod concurrent_write_tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().expect("Thread panicked").expect("Thread operation failed");
+            handle
+                .join()
+                .expect("Thread panicked")
+                .expect("Thread operation failed");
         }
 
         Ok(())
@@ -321,7 +371,8 @@ mod concurrent_write_tests {
 
                         let start_pos = get_test_position_complex();
                         let extents = get_test_extents();
-                        let (start_ref, actual_start_pos) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
+                        let (start_ref, actual_start_pos) =
+                            query.find_nearest_poly(&start_pos, &extents, &filter)?;
 
                         // Perform read operations
                         match i % 2 {
@@ -332,11 +383,23 @@ mod concurrent_write_tests {
                                     actual_start_pos[2] + 0.1,
                                 ];
                                 let mut visited = Vec::new();
-                                query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter, &mut visited)?;
-                            },
+                                query.move_along_surface(
+                                    start_ref,
+                                    &actual_start_pos,
+                                    &end_pos,
+                                    &filter,
+                                    &mut visited,
+                                )?;
+                            }
                             1 => {
-                                query.find_local_neighbourhood(start_ref, &actual_start_pos, 0.5, &filter, 5)?;
-                            },
+                                query.find_local_neighbourhood(
+                                    start_ref,
+                                    &actual_start_pos,
+                                    0.5,
+                                    &filter,
+                                    5,
+                                )?;
+                            }
                             _ => unreachable!(),
                         }
 
@@ -359,12 +422,12 @@ mod concurrent_write_tests {
                 thread::spawn(move || -> Result<()> {
                     for i in 0..50 {
                         let mut mesh = nav_mesh_clone.write().unwrap();
-                        
+
                         // Perform write operations
-                        let flags = if thread_id == 0 { 
-                            PolyFlags::WALK 
-                        } else { 
-                            PolyFlags::SWIM 
+                        let flags = if thread_id == 0 {
+                            PolyFlags::WALK
+                        } else {
+                            PolyFlags::SWIM
                         };
                         let area = ((thread_id * 100) + i) as u8;
 
@@ -374,9 +437,11 @@ mod concurrent_write_tests {
                         // Verify writes
                         let retrieved_flags = mesh.get_poly_flags(poly_ref)?;
                         let retrieved_area = mesh.get_poly_area(poly_ref)?;
-                        
-                        assert!(!retrieved_flags.is_empty() || retrieved_flags.is_empty(), 
-                               "Flags should be in valid state");
+
+                        assert!(
+                            !retrieved_flags.is_empty() || retrieved_flags.is_empty(),
+                            "Flags should be in valid state"
+                        );
                         assert!(retrieved_area <= 255, "Area should be valid");
 
                         // Delay to allow readers to interleave
@@ -393,10 +458,16 @@ mod concurrent_write_tests {
 
         // Wait for all threads to complete
         for handle in reader_handles {
-            handle.join().expect("Reader thread panicked").expect("Reader operation failed");
+            handle
+                .join()
+                .expect("Reader thread panicked")
+                .expect("Reader operation failed");
         }
         for handle in writer_handles {
-            handle.join().expect("Writer thread panicked").expect("Writer operation failed");
+            handle
+                .join()
+                .expect("Writer thread panicked")
+                .expect("Writer operation failed");
         }
 
         Ok(())
@@ -407,7 +478,7 @@ mod concurrent_write_tests {
 mod stress_concurrency_tests {
     use super::*;
 
-    #[test] 
+    #[test]
     fn test_high_contention_scenario() -> Result<()> {
         let nav_mesh = Arc::new(Mutex::new(create_large_test_navmesh()?));
         let num_threads = 16;
@@ -418,7 +489,7 @@ mod stress_concurrency_tests {
             let mesh = nav_mesh.lock().unwrap();
             let query = NavMeshQuery::new(&mesh);
             let filter = QueryFilter::default();
-            
+
             let mut refs = Vec::new();
             for i in 0..10 {
                 let pos = [5.0 + (i as f32), 0.0, 5.0 + (i as f32)];
@@ -436,32 +507,33 @@ mod stress_concurrency_tests {
             .map(|thread_id| {
                 let nav_mesh_clone = Arc::clone(&nav_mesh);
                 let poly_refs_clone = Arc::clone(&poly_refs);
-                
+
                 thread::spawn(move || -> Result<()> {
                     for i in 0..operations_per_thread {
                         let mut mesh = nav_mesh_clone.lock().unwrap();
-                        
+
                         // Randomly select a polygon to modify
                         let poly_idx = (thread_id + i) % poly_refs_clone.len();
                         if poly_idx < poly_refs_clone.len() {
                             let poly_ref = poly_refs_clone[poly_idx];
-                            
+
                             // Perform random operations
                             match i % 4 {
                                 0 => {
-                                    let flags = PolyFlags::from_bits_truncate(thread_id as u16 + i as u16);
+                                    let flags =
+                                        PolyFlags::from_bits_truncate(thread_id as u16 + i as u16);
                                     mesh.set_poly_flags(poly_ref, flags)?;
-                                },
+                                }
                                 1 => {
                                     let area = ((thread_id + i) % 256) as u8;
                                     mesh.set_poly_area(poly_ref, area)?;
-                                },
+                                }
                                 2 => {
                                     mesh.get_poly_flags(poly_ref)?;
-                                },
+                                }
                                 3 => {
                                     mesh.get_poly_area(poly_ref)?;
-                                },
+                                }
                                 _ => unreachable!(),
                             }
                         }
@@ -480,7 +552,10 @@ mod stress_concurrency_tests {
 
         // Wait for all threads to complete
         for handle in handles {
-            handle.join().expect("High contention thread panicked").expect("High contention operation failed");
+            handle
+                .join()
+                .expect("High contention thread panicked")
+                .expect("High contention operation failed");
         }
 
         Ok(())
@@ -495,12 +570,12 @@ mod stress_concurrency_tests {
         let handles: Vec<_> = (0..num_threads)
             .map(|thread_id| {
                 let nav_mesh_clone = Arc::clone(&nav_mesh);
-                
+
                 thread::spawn(move || -> Result<()> {
                     for i in 0..100 {
                         // Different threads acquire locks in different patterns
                         // to test for potential deadlocks
-                        
+
                         if thread_id % 2 == 0 {
                             // Even threads: short operations with frequent lock release
                             for _ in 0..5 {
@@ -509,13 +584,15 @@ mod stress_concurrency_tests {
                                 let filter = QueryFilter::default();
                                 let pos = get_test_position_complex();
                                 let extents = get_test_extents();
-                                
-                                if let Ok((poly_ref, _)) = query.find_nearest_poly(&pos, &extents, &filter) {
+
+                                if let Ok((poly_ref, _)) =
+                                    query.find_nearest_poly(&pos, &extents, &filter)
+                                {
                                     drop(mesh); // Release lock early
                                     let mut mesh = nav_mesh_clone.lock().unwrap();
                                     mesh.get_poly_flags(poly_ref)?;
                                 }
-                                
+
                                 thread::sleep(Duration::from_nanos(500));
                             }
                         } else {
@@ -527,29 +604,31 @@ mod stress_concurrency_tests {
                                     get_test_position_complex()[2] + (j as f32 * 0.1),
                                 ];
                                 let extents = get_test_extents();
-                                
+
                                 // Acquire lock for read operation
                                 let poly_ref = {
                                     let mesh = nav_mesh_clone.lock().unwrap();
                                     let query = NavMeshQuery::new(&mesh);
                                     let filter = QueryFilter::default();
-                                    
-                                    if let Ok((poly_ref, _)) = query.find_nearest_poly(&pos, &extents, &filter) {
+
+                                    if let Ok((poly_ref, _)) =
+                                        query.find_nearest_poly(&pos, &extents, &filter)
+                                    {
                                         poly_ref
                                     } else {
                                         continue;
                                     }
                                 };
-                                
+
                                 // Acquire lock for write operations
                                 {
                                     let mut mesh = nav_mesh_clone.lock().unwrap();
                                     mesh.set_poly_flags(poly_ref, PolyFlags::WALK)?;
                                 }
-                                
+
                                 // Brief delay to allow other threads
                                 thread::sleep(Duration::from_millis(1));
-                                
+
                                 // Acquire lock for second write operation
                                 {
                                     let mut mesh = nav_mesh_clone.lock().unwrap();
@@ -557,7 +636,7 @@ mod stress_concurrency_tests {
                                 }
                             }
                         }
-                        
+
                         // Random delay to vary timing
                         thread::sleep(Duration::from_nanos((thread_id * 1000) as u64));
                     }
@@ -575,8 +654,9 @@ mod stress_concurrency_tests {
             if start_time.elapsed() > timeout {
                 panic!("Potential deadlock detected - test took too long");
             }
-            
-            handle.join()
+
+            handle
+                .join()
                 .map_err(|_| format!("Thread {} panicked", i))
                 .expect("Thread join failed")
                 .expect("Thread operation failed");

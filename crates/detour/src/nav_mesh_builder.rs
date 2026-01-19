@@ -5,10 +5,10 @@
 
 use super::nav_mesh::encode_poly_ref;
 use super::{
-    BVNode, MeshTile, NavMeshCreateParams, NavMeshParams, OffMeshConnection, Poly, PolyDetail,
-    PolyFlags, PolyType, Status, TileHeader, DT_EXT_LINK,
+    BVNode, DT_EXT_LINK, MeshTile, NavMeshCreateParams, NavMeshParams, OffMeshConnection, Poly,
+    PolyDetail, PolyFlags, PolyType, Status, TileHeader,
 };
-use recast::{PolyMesh, PolyMeshDetail, MESH_NULL_IDX};
+use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
 use recast_common::{Error, Result};
 
 /// Request for creating an external link between tiles

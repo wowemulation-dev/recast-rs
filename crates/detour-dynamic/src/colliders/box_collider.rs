@@ -1,6 +1,6 @@
-//! Box collider implementation matching 
+//! Box collider implementation matching
 
-use super::{base::ColliderBase, utils, Collider, ColliderType};
+use super::{Collider, ColliderType, base::ColliderBase, utils};
 use glam::{Mat3, Vec3};
 use recast::Heightfield;
 use recast_common::Result;
@@ -51,7 +51,7 @@ impl BoxCollider {
             rotation,
         }
     }
-    
+
     /// Create with default area and flag merge threshold for backwards compatibility
     pub fn axis_aligned(center: Vec3, half_extents: Vec3) -> Self {
         Self::new(center, half_extents, 0, 1.0)
@@ -63,7 +63,7 @@ impl BoxCollider {
         let half_extents = (max - min) * 0.5;
         Self::new(center, half_extents, area, flag_merge_threshold)
     }
-    
+
     /// Compute bounds for the box
     fn compute_bounds(center: &Vec3, half_extents: &Vec3, rotation: &Mat3) -> [f32; 6] {
         // For axis-aligned box
@@ -77,7 +77,7 @@ impl BoxCollider {
                 center.z + half_extents.z,
             ];
         }
-        
+
         // For oriented box, compute AABB of rotated corners
         let corners = [
             Vec3::new(-half_extents.x, -half_extents.y, -half_extents.z),
@@ -89,10 +89,10 @@ impl BoxCollider {
             Vec3::new(-half_extents.x, half_extents.y, half_extents.z),
             Vec3::new(half_extents.x, half_extents.y, half_extents.z),
         ];
-        
+
         let mut min = Vec3::new(f32::MAX, f32::MAX, f32::MAX);
         let mut max = Vec3::new(f32::MIN, f32::MIN, f32::MIN);
-        
+
         for corner in &corners {
             let world_corner = *rotation * *corner + *center;
             min.x = min.x.min(world_corner.x);
@@ -102,7 +102,7 @@ impl BoxCollider {
             max.y = max.y.max(world_corner.y);
             max.z = max.z.max(world_corner.z);
         }
-        
+
         [min.x, min.y, min.z, max.x, max.y, max.z]
     }
 
@@ -195,7 +195,7 @@ impl Collider for BoxCollider {
                 let world_x = world_min.x + (x as f32 + 0.5) * cell_size;
                 let world_z = world_min.z + (z as f32 + 0.5) * cell_size;
 
-            // Can have multiple heights within the box's Y range
+                // Can have multiple heights within the box's Y range
                 let y_start = (min_y as f32 * cell_height + world_min.y).max(world_min.y);
                 let y_end = (max_y as f32 * cell_height + world_min.y)
                     .min(world_min.y + heightfield.height as f32 * cell_height);
@@ -228,11 +228,11 @@ impl Collider for BoxCollider {
     fn clone_box(&self) -> Box<dyn Collider> {
         Box::new(self.clone())
     }
-    
+
     fn area(&self) -> i32 {
         self.base.area
     }
-    
+
     fn flag_merge_threshold(&self) -> f32 {
         self.base.flag_merge_threshold
     }
