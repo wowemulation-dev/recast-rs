@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+#### recast-common
+
+- Added `std` feature flag (enabled by default) to gate file I/O operations
+- Moved `Error::Io` variant behind `std` feature for WASM compatibility
+- Moved `TriMesh::from_obj()` behind `std` feature for WASM compatibility
+
+### Added
+
+#### recast-common
+
+- Added `TriMesh::from_obj_str()` for parsing OBJ content from strings (WASM-compatible)
+
 ## [0.1.0] - 2026-01-19
 
 Initial release. This is a Rust port of [RecastNavigation][recast-cpp].

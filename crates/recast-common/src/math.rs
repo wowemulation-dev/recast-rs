@@ -1,4 +1,4 @@
-//! Math utilities for 
+//! Math utilities for
 
 use glam::Vec3;
 use std::f32::consts::PI;
@@ -30,12 +30,7 @@ pub fn triangle_area(a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
 }
 
 /// Checks if a point is inside a triangle
-pub fn point_in_triangle(
-    p: &Vec3,
-    a: &Vec3,
-    b: &Vec3,
-    c: &Vec3,
-) -> bool {
+pub fn point_in_triangle(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> bool {
     // Compute vectors
     let v0 = *c - *a;
     let v1 = *b - *a;
@@ -211,12 +206,7 @@ pub fn vnormalize(dest: &mut Vec3) {
 }
 
 /// Find the closest point on a triangle to a given point
-pub fn closest_point_on_triangle(
-    p: &Vec3,
-    a: &Vec3,
-    b: &Vec3,
-    c: &Vec3,
-) -> Vec3 {
+pub fn closest_point_on_triangle(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> Vec3 {
     // Check if P in vertex region outside A
     let ab = *b - *a;
     let ac = *c - *a;
@@ -272,12 +262,7 @@ pub fn closest_point_on_triangle(
 }
 
 /// Calculate the squared distance from a point to a triangle
-pub fn distance_point_triangle_squared(
-    p: &Vec3,
-    a: &Vec3,
-    b: &Vec3,
-    c: &Vec3,
-) -> f32 {
+pub fn distance_point_triangle_squared(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
     let closest = closest_point_on_triangle(p, a, b, c);
     (*p - closest).length_squared()
 }
