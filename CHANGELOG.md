@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `std::time::Instant` with `web-time` crate for WASM compatibility
 - `RecastContext` timing now works on both native and WASM targets
 
+#### detour
+
+- Verified WASM compatibility (file I/O already feature-gated behind `serialization`)
+- Added to CI WASM compilation checks
+
 ### Added
 
 #### recast-common
