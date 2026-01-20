@@ -59,6 +59,10 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
+      # Ensure target is installed (workaround for cross-compilation on macOS)
+      - name: Ensure target is installed
+        run: rustup target add ${{ matrix.target }}
+
       - name: Cache cross-compilation dependencies
         uses: Swatinem/rust-cache@v2
         with:
