@@ -103,6 +103,7 @@ impl NavMeshBuilder {
     }
 
     /// Validates input parameters
+    #[cfg(feature = "serialization")]
     fn validate_params(params: &NavMeshCreateParams) -> Result<()> {
         if params.vert_count < 3 {
             return Err(Error::Detour(Status::InvalidParam.to_string()));
@@ -986,8 +987,11 @@ mod tests {
         assert_eq!(tile.verts.len(), 12);
         assert!(!tile.bvh_nodes.is_empty());
 
-        // Test binary data creation
-        let data = NavMeshBuilder::create_nav_mesh_data(&params).unwrap();
-        assert!(!data.is_empty());
+        // Test binary data creation (requires serialization feature)
+        #[cfg(feature = "serialization")]
+        {
+            let data = NavMeshBuilder::create_nav_mesh_data(&params).unwrap();
+            assert!(!data.is_empty());
+        }
     }
 }
