@@ -771,7 +771,10 @@ impl NavMesh {
         Ok(())
     }
 
-    /// Adds a tile to the navigation mesh from raw data
+    /// Adds a tile to the navigation mesh from raw binary data
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn add_tile(
         &mut self,
         data: &[u8],
@@ -3006,6 +3009,9 @@ impl NavMesh {
     }
 
     /// Saves the navigation mesh to a file in C++ compatible binary format
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn save_to_cpp_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
         // For now, only support single-tile meshes
         if self.tiles.len() != 1 {
@@ -3026,6 +3032,9 @@ impl NavMesh {
     }
 
     /// Loads a navigation mesh from C++ compatible binary format
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn load_from_cpp_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         let tile = super::binary_format::load_tile_from_binary(&data)?;
@@ -3067,12 +3076,18 @@ impl NavMesh {
     }
 
     /// Loads a navigation mesh from a binary file (C++ compatible format)
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         super::binary_format::load_nav_mesh_from_binary(&data)
     }
 
     /// Saves the navigation mesh to a binary file (C++ compatible format)
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
         let data = super::binary_format::save_nav_mesh_to_binary(self)?;
         std::fs::write(path, data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;

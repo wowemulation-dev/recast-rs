@@ -35,6 +35,9 @@ impl NavMeshBuilder {
     /// This is the main entry point for building navigation mesh tiles.
     /// It takes polygon mesh data and creates a properly formatted tile
     /// that can be added to a NavMesh.
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn create_nav_mesh_data(params: &NavMeshCreateParams) -> Result<Vec<u8>> {
         // Validate input parameters
         Self::validate_params(params)?;
