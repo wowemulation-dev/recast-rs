@@ -13,7 +13,7 @@ categories = ["game-development", "algorithms"]
 [dependencies]
 recast-common = { workspace = true }
 recast = { workspace = true }
-detour = { workspace = true }
+detour = { workspace = true, features = ["serialization"] }
 glam = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
