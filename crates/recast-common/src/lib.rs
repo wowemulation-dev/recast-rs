@@ -16,7 +16,7 @@ pub use vector::*;
 /// Represents a 3D position
 pub type Vec3 = glam::Vec3;
 
-/// Error types for the  library
+/// Error types for the library
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invalid input mesh: {0}")]
@@ -31,6 +31,7 @@ pub enum Error {
     #[error("recast error: {0}")]
     Recast(String),
 
+    #[cfg(feature = "std")]
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 

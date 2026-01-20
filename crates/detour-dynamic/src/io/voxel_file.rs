@@ -1,7 +1,8 @@
-use glam::Vec3;
 use super::VoxelTile;
+use glam::Vec3;
 
-pub const VOXEL_FILE_MAGIC: u32 = (b'V' as u32) << 24 | (b'O' as u32) << 16 | (b'X' as u32) << 8 | (b'L' as u32);
+pub const VOXEL_FILE_MAGIC: u32 =
+    (b'V' as u32) << 24 | (b'O' as u32) << 16 | (b'X' as u32) << 8 | (b'L' as u32);
 pub const VERSION_EXPORTER_MASK: u32 = 0xF000;
 pub const VERSION_COMPRESSION_MASK: u32 = 0x0F00;
 pub const VERSION_EXPORTER_RECAST4J: u32 = 0x1000;
@@ -74,5 +75,4 @@ impl VoxelFile {
     pub fn add_tile(&mut self, tile: VoxelTile) {
         self.tiles.push(tile);
     }
-
 }

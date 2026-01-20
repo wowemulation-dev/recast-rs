@@ -521,11 +521,7 @@ impl HierarchicalPathfinder {
             && point.z <= bounds.max.z
     }
 
-    fn find_nearest_cluster(
-        &self,
-        level: &HierarchyLevel,
-        position: Vec3,
-    ) -> Result<usize> {
+    fn find_nearest_cluster(&self, level: &HierarchyLevel, position: Vec3) -> Result<usize> {
         let mut nearest_idx = 0;
         let mut nearest_distance = f32::INFINITY;
 

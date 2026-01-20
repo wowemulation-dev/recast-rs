@@ -1,6 +1,6 @@
 use glam::Vec3;
 use recast::Heightfield;
-use std::io::{Read, Write, Result as IoResult};
+use std::io::{Read, Result as IoResult, Write};
 
 const SERIALIZED_SPAN_COUNT_BYTES: usize = 2;
 const SERIALIZED_SPAN_BYTES: usize = 12;
@@ -48,7 +48,7 @@ impl VoxelTile {
 
     pub fn from_heightfield(tile_x: i32, tile_z: i32, heightfield: &Heightfield) -> Self {
         let span_data = Self::serialize_spans(heightfield);
-        
+
         VoxelTile {
             tile_x,
             tile_z,
@@ -71,7 +71,7 @@ impl VoxelTile {
         // Count spans per cell
         let mut counts = vec![0u16; (heightfield.width * heightfield.height) as usize];
         let mut total_count = 0usize;
-        
+
         for z in 0..heightfield.height {
             for x in 0..heightfield.width {
                 let index = (z * heightfield.width + x) as usize;
@@ -87,16 +87,17 @@ impl VoxelTile {
         }
 
         // Serialize spans
-        let data_size = total_count * SERIALIZED_SPAN_BYTES + counts.len() * SERIALIZED_SPAN_COUNT_BYTES;
+        let data_size =
+            total_count * SERIALIZED_SPAN_BYTES + counts.len() * SERIALIZED_SPAN_COUNT_BYTES;
         let mut data = Vec::with_capacity(data_size);
-        
+
         for z in 0..heightfield.height {
             for x in 0..heightfield.width {
                 let index = (z * heightfield.width + x) as usize;
-                
+
                 // Write span count
                 data.extend_from_slice(&counts[index].to_be_bytes());
-                
+
                 // Write spans
                 if let Some(span_rc) = heightfield.spans.get(&(x, z)).and_then(|s| s.as_ref()) {
                     let mut current_span = Some(span_rc.clone());
@@ -130,18 +131,16 @@ impl VoxelTile {
                 if position + 2 > self.span_data.len() {
                     break;
                 }
-                
-                let span_count = u16::from_be_bytes([
-                    self.span_data[position],
-                    self.span_data[position + 1],
-                ]);
+
+                let span_count =
+                    u16::from_be_bytes([self.span_data[position], self.span_data[position + 1]]);
                 position += 2;
 
                 for _ in 0..span_count {
                     if position + 12 > self.span_data.len() {
                         break;
                     }
-                    
+
                     let min = u32::from_be_bytes([
                         self.span_data[position],
                         self.span_data[position + 1],
@@ -181,41 +180,41 @@ impl VoxelTile {
         writer.write_all(&self.width.to_be_bytes())?;
         writer.write_all(&self.depth.to_be_bytes())?;
         writer.write_all(&self.border_size.to_be_bytes())?;
-        
+
         writer.write_all(&self.bounds_min.x.to_be_bytes())?;
         writer.write_all(&self.bounds_min.y.to_be_bytes())?;
         writer.write_all(&self.bounds_min.z.to_be_bytes())?;
         writer.write_all(&self.bounds_max.x.to_be_bytes())?;
         writer.write_all(&self.bounds_max.y.to_be_bytes())?;
         writer.write_all(&self.bounds_max.z.to_be_bytes())?;
-        
+
         writer.write_all(&self.cell_size.to_be_bytes())?;
         writer.write_all(&self.cell_height.to_be_bytes())?;
-        
+
         writer.write_all(&(self.span_data.len() as u32).to_be_bytes())?;
         writer.write_all(&self.span_data)?;
-        
+
         Ok(())
     }
 
     pub fn read_from<R: Read>(reader: &mut R) -> IoResult<Self> {
         let mut buffer = [0u8; 4];
-        
+
         reader.read_exact(&mut buffer)?;
         let tile_x = i32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let tile_z = i32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let width = i32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let depth = i32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let border_size = i32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let bounds_min_x = f32::from_be_bytes(buffer);
         reader.read_exact(&mut buffer)?;
@@ -223,7 +222,7 @@ impl VoxelTile {
         reader.read_exact(&mut buffer)?;
         let bounds_min_z = f32::from_be_bytes(buffer);
         let bounds_min = Vec3::new(bounds_min_x, bounds_min_y, bounds_min_z);
-        
+
         reader.read_exact(&mut buffer)?;
         let bounds_max_x = f32::from_be_bytes(buffer);
         reader.read_exact(&mut buffer)?;
@@ -231,19 +230,19 @@ impl VoxelTile {
         reader.read_exact(&mut buffer)?;
         let bounds_max_z = f32::from_be_bytes(buffer);
         let bounds_max = Vec3::new(bounds_max_x, bounds_max_y, bounds_max_z);
-        
+
         reader.read_exact(&mut buffer)?;
         let cell_size = f32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let cell_height = f32::from_be_bytes(buffer);
-        
+
         reader.read_exact(&mut buffer)?;
         let span_data_len = u32::from_be_bytes(buffer) as usize;
-        
+
         let mut span_data = vec![0u8; span_data_len];
         reader.read_exact(&mut span_data)?;
-        
+
         Ok(VoxelTile {
             tile_x,
             tile_z,

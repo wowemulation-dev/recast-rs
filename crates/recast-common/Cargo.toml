@@ -22,7 +22,8 @@ tokio = { workspace = true, optional = true }
 assert_approx_eq = { workspace = true }
 
 [features]
-default = []
+default = ["std"]
+std = []
 async = ["tokio"]
 
 [lints]

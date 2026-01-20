@@ -1,4 +1,4 @@
-//! 2D geometry operations for 
+//! 2D geometry operations for
 //!
 //! This module provides 2D geometric operations primarily used for navigation mesh
 //! generation and queries. Most operations work on the XZ plane (Y-up coordinate system).

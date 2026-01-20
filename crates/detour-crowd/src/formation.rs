@@ -663,9 +663,11 @@ mod tests {
         let formation_id = manager.create_formation(config);
         assert_eq!(formation_id, 1);
 
-        assert!(manager
-            .add_agent_to_formation(formation_id, 0, FormationRole::Leader)
-            .is_ok());
+        assert!(
+            manager
+                .add_agent_to_formation(formation_id, 0, FormationRole::Leader)
+                .is_ok()
+        );
         assert_eq!(manager.get_agent_formation(0), Some(formation_id));
     }
 

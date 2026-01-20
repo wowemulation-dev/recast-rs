@@ -68,11 +68,7 @@ impl ConvexVolume {
     }
 
     /// Creates a box-shaped convex volume
-    pub fn from_box(
-        center: Vec3,
-        half_extents: Vec3,
-        area_type: u8,
-    ) -> Result<Self> {
+    pub fn from_box(center: Vec3, half_extents: Vec3, area_type: u8) -> Result<Self> {
         let min_x = center.x - half_extents.x;
         let max_x = center.x + half_extents.x;
         let min_z = center.z - half_extents.z;
@@ -530,12 +526,10 @@ mod tests {
 
         // Add overlapping volumes with different area types
         let vol1 =
-            ConvexVolume::from_box(Vec3::new(5.0, 0.0, 5.0), Vec3::new(5.0, 5.0, 5.0), 1)
-                .unwrap();
+            ConvexVolume::from_box(Vec3::new(5.0, 0.0, 5.0), Vec3::new(5.0, 5.0, 5.0), 1).unwrap();
 
         let vol2 =
-            ConvexVolume::from_box(Vec3::new(7.0, 0.0, 7.0), Vec3::new(3.0, 5.0, 3.0), 2)
-                .unwrap();
+            ConvexVolume::from_box(Vec3::new(7.0, 0.0, 7.0), Vec3::new(3.0, 5.0, 3.0), 2).unwrap();
 
         set.add_volume(vol1);
         set.add_volume(vol2);

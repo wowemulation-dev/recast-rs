@@ -1,6 +1,6 @@
 //! Context system for Recast operations providing logging, profiling, and progress tracking
 //!
-//! This module implements a context system similar to rcContext in the C++ 
+//! This module implements a context system similar to rcContext in the C++
 //! library, providing comprehensive logging, timing, and progress monitoring capabilities.
 
 use std::collections::HashMap;

@@ -1,4 +1,4 @@
-//! Composite collider implementation matching 
+//! Composite collider implementation matching
 
 use super::{Collider, ColliderType};
 use glam::Vec3;
@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// A composite collider containing multiple child colliders matching 's DtCompositeCollider
-/// 
-/// Note: Unlike other colliders, CompositeCollider doesn't have base fields because it 
+///
+/// Note: Unlike other colliders, CompositeCollider doesn't have base fields because it
 /// aggregates other colliders rather than defining its own area/flagMergeThreshold
 pub struct CompositeCollider {
     /// Child colliders

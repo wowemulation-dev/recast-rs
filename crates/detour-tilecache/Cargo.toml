@@ -24,6 +24,7 @@ postcard = { workspace = true, optional = true }
 
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
+tempfile = { workspace = true }
 
 [features]
 default = []

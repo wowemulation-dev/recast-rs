@@ -7,10 +7,10 @@ use std::collections::HashMap;
 
 use super::bvh_tree::{Aabb, BVHItem, BVHTree};
 use super::{
-    NavMeshFlags, NavMeshParams, PolyFlags, PolyRef, PolyType, QueryFilter, Status,
-    MAX_VERTS_PER_POLY,
+    MAX_VERTS_PER_POLY, NavMeshFlags, NavMeshParams, PolyFlags, PolyRef, PolyType, QueryFilter,
+    Status,
 };
-use recast::{PolyMesh, PolyMeshDetail, MESH_NULL_IDX};
+use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
 use recast_common::{Error, Result};
 
 /// Maximum number of nodes in the navigation mesh node pool
@@ -650,9 +650,13 @@ impl NavMesh {
         })
     }
 
-    /// Initializes the navigation mesh with tiles
+    /// Initializes the navigation mesh with tiles from binary format
+    ///
+    /// This method loads navmesh data in the C++ binary format.
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn init(&mut self, nav_data: &[u8]) -> Result<()> {
-        use super::binary_format::{load_tile_from_binary, DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION};
+        use super::binary_format::{DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION, load_tile_from_binary};
         use byteorder::{NativeEndian, ReadBytesExt};
         use std::io::Cursor;
 
@@ -767,7 +771,10 @@ impl NavMesh {
         Ok(())
     }
 
-    /// Adds a tile to the navigation mesh from raw data
+    /// Adds a tile to the navigation mesh from raw binary data
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn add_tile(
         &mut self,
         data: &[u8],
@@ -2043,7 +2050,8 @@ impl NavMesh {
                 for layer in 0..self.max_tiles {
                     if let Some(tile) = self.get_tile_at(x, y, layer) {
                         // Query polygons in this tile
-                        let tile_polys = self.query_polygons_in_tile_internal(tile, bmin, bmax, filter)?;
+                        let tile_polys =
+                            self.query_polygons_in_tile_internal(tile, bmin, bmax, filter)?;
                         result.extend(tile_polys);
 
                         // Query off-mesh connections in this tile
@@ -3001,6 +3009,9 @@ impl NavMesh {
     }
 
     /// Saves the navigation mesh to a file in C++ compatible binary format
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn save_to_cpp_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
         // For now, only support single-tile meshes
         if self.tiles.len() != 1 {
@@ -3021,6 +3032,9 @@ impl NavMesh {
     }
 
     /// Loads a navigation mesh from C++ compatible binary format
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn load_from_cpp_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         let tile = super::binary_format::load_tile_from_binary(&data)?;
@@ -3062,12 +3076,18 @@ impl NavMesh {
     }
 
     /// Loads a navigation mesh from a binary file (C++ compatible format)
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
         let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         super::binary_format::load_nav_mesh_from_binary(&data)
     }
 
     /// Saves the navigation mesh to a binary file (C++ compatible format)
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
         let data = super::binary_format::save_nav_mesh_to_binary(self)?;
         std::fs::write(path, data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
@@ -3093,16 +3113,16 @@ impl NavMesh {
     /// Serializes the navigation mesh to binary bytes
     #[cfg(feature = "serialization")]
     pub fn to_binary_bytes(&self) -> Result<Vec<u8>> {
-        let data = postcard::to_allocvec(self)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let data =
+            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         Ok(data)
     }
 
     /// Deserializes a navigation mesh from binary bytes
     #[cfg(feature = "serialization")]
     pub fn from_binary_bytes(data: &[u8]) -> Result<Self> {
-        let nav_mesh = postcard::from_bytes(data)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        let nav_mesh =
+            postcard::from_bytes(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
         Ok(nav_mesh)
     }
 
@@ -3305,7 +3325,7 @@ impl NavMesh {
         if let Some(Some(tile)) = self.tiles.get_mut(tile_idx) {
             tile.header = Some(TileHeader::new(x, y, layer));
             tile.next = None; // No longer in free list
-                              // Clear any existing data
+            // Clear any existing data
             tile.polys.clear();
             tile.verts.clear();
             tile.links.clear();
@@ -3340,13 +3360,14 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::{NavMesh, PolyFlags};
-    /// # let mut nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyFlags, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &mut NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// // Mark a polygon as non-walkable (e.g., for temporary obstacles)
     /// nav_mesh.set_poly_flags(poly_ref, PolyFlags::empty())?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3391,15 +3412,16 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::{NavMesh, PolyFlags};
-    /// # let nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyFlags, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// let flags = nav_mesh.get_poly_flags(poly_ref)?;
-    /// if flags.contains(PolyFlags::WALKABLE) {
+    /// if flags.contains(PolyFlags::WALK) {
     ///     println!("Polygon is walkable");
     /// }
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3444,13 +3466,14 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::NavMesh;
-    /// # let mut nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &mut NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// // Set polygon to grass area type (higher movement cost)
     /// nav_mesh.set_poly_area(poly_ref, 2)?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3495,10 +3518,10 @@ impl NavMesh {
     /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
-    /// ```
-    /// # use recast_navigation::detour::NavMesh;
-    /// # let nav_mesh = NavMesh::new();
-    /// # let poly_ref = nav_mesh.get_poly_ref_base(); // Assuming this exists
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, PolyRef};
+    ///
+    /// # fn example(nav_mesh: &NavMesh, poly_ref: PolyRef) -> Result<(), Box<dyn std::error::Error>> {
     /// let area = nav_mesh.get_poly_area(poly_ref)?;
     /// match area {
     ///     0 => println!("Unwalkable area"),
@@ -3506,7 +3529,8 @@ impl NavMesh {
     ///     2 => println!("Grass area"),
     ///     _ => println!("Custom area type: {}", area),
     /// }
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Performance
@@ -3966,7 +3990,6 @@ impl NavMesh {
         actual_tile_id: u32,
         params: &super::NavMeshCreateParams,
     ) -> Result<()> {
-
         // Get tile data first
         let tile_data = {
             let tile = self

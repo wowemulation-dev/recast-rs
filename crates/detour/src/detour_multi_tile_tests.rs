@@ -6,8 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::{
-        nav_mesh::encode_poly_ref_with_salt, NavMesh, NavMeshCreateParams, NavMeshParams,
-        NavMeshQuery, PolyFlags, QueryFilter,
+        NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
     use recast_common::Result;
 
@@ -57,25 +56,25 @@ mod tests {
                 } else {
                     polys.push(0xffff);
                 } // Can connect south to tile below
-                  // Right edge (between tiles horizontally)
+                // Right edge (between tiles horizontally)
                 if tx < 1 {
                     polys.push(0x8000 | 0);
                 } else {
                     polys.push(0xffff);
                 } // Can connect east to tile right
-                  // Top edge
+                // Top edge
                 if ty < 1 {
                     polys.push(0x8000 | 2);
                 } else {
                     polys.push(0xffff);
                 } // Can connect north to tile above
-                  // Left edge
+                // Left edge
                 if tx > 0 {
                     polys.push(0x8000 | 4);
                 } else {
                     polys.push(0xffff);
                 } // Can connect west to tile left
-                  // Two more neighbor slots (unused for a 4-vertex polygon)
+                // Two more neighbor slots (unused for a 4-vertex polygon)
                 polys.push(0xffff);
                 polys.push(0xffff);
                 let poly_areas = vec![0];

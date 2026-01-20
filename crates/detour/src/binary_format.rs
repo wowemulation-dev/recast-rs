@@ -1,4 +1,4 @@
-//! Binary format compatibility for C++ 
+//! Binary format compatibility for C++
 //!
 //! This module provides functions to read and write navigation meshes in the
 //! binary format used by the original C++  library.
@@ -6,9 +6,9 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read, Write};
 
-use super::nav_mesh::{BVNode, MeshTile, OffMeshConnection, Poly, PolyDetail, TileHeader};
-use super::Status;
 use super::MAX_VERTS_PER_POLY;
+use super::Status;
+use super::nav_mesh::{BVNode, MeshTile, OffMeshConnection, Poly, PolyDetail, TileHeader};
 use super::{NavMesh, NavMeshParams, PolyFlags, PolyRef, PolyType};
 use recast_common::{Error, Result};
 

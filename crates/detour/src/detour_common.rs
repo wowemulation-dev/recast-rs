@@ -6,31 +6,19 @@ use recast_common;
 /// Returns the minimum of two values
 #[inline]
 pub fn dt_min<T: PartialOrd>(a: T, b: T) -> T {
-    if a < b {
-        a
-    } else {
-        b
-    }
+    if a < b { a } else { b }
 }
 
 /// Returns the maximum of two values
 #[inline]
 pub fn dt_max<T: PartialOrd>(a: T, b: T) -> T {
-    if a > b {
-        a
-    } else {
-        b
-    }
+    if a > b { a } else { b }
 }
 
 /// Returns the absolute value
 #[inline]
 pub fn dt_abs<T: PartialOrd + std::ops::Neg<Output = T> + Default>(a: T) -> T {
-    if a < T::default() {
-        -a
-    } else {
-        a
-    }
+    if a < T::default() { -a } else { a }
 }
 
 /// Returns the square of the value

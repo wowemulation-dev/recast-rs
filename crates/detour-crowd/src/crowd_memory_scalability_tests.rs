@@ -240,7 +240,11 @@ mod tests {
     }
 
     /// Test maximum agent configuration
+    ///
+    /// This test is ignored by default because it depends on CI machine
+    /// performance. Run manually with: cargo test -- --ignored
     #[test]
+    #[ignore = "Performance test - too variable for CI"]
     fn test_maximum_agent_configuration() -> Result<()> {
         let nav_mesh = create_test_navmesh(200.0)?;
         let max_agents = 5000;

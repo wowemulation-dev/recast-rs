@@ -29,7 +29,7 @@ impl DynamicTileJob for ColliderRemovalJob {
     fn process(&self, tile: &mut DynamicTile) -> Result<()> {
         // Remove the collider from this tile
         let removed = tile.remove_collider(self.collider_id);
-        
+
         if removed {
             // If we removed a collider and there's a heightfield, we might want to
             // rebuild it from scratch or restore from a checkpoint
@@ -41,12 +41,16 @@ impl DynamicTileJob for ColliderRemovalJob {
                 tile.mark_dirty();
             }
         }
-        
+
         Ok(())
     }
 
     fn description(&self) -> String {
-        format!("Remove collider {} from {} tiles", self.collider_id, self.affected_tiles.len())
+        format!(
+            "Remove collider {} from {} tiles",
+            self.collider_id,
+            self.affected_tiles.len()
+        )
     }
 }
 
@@ -61,7 +65,7 @@ mod tests {
     fn test_collider_removal_job_creation() {
         let affected_tiles = HashSet::from([(0, 0), (1, 0)]);
         let job = ColliderRemovalJob::new(1, affected_tiles.clone());
-        
+
         assert_eq!(job.collider_id, 1);
         assert_eq!(job.affected_tiles(), &affected_tiles);
         assert_eq!(job.description(), "Remove collider 1 from 2 tiles");
@@ -71,7 +75,8 @@ mod tests {
     fn test_collider_removal_job_process() {
         let config = DynamicNavMeshConfig::default();
         let mut tile = DynamicTile::new(
-            0, 0,
+            0,
+            0,
             Vec3::new(-5.0, -5.0, -5.0),
             Vec3::new(5.0, 5.0, 5.0),
             config,
@@ -86,15 +91,15 @@ mod tests {
         ));
         tile.add_collider(1, collider).unwrap();
         assert!(tile.active_colliders.contains_key(&1));
-        
+
         // Now create and process a removal job
         let affected_tiles = HashSet::from([(0, 0)]);
         let job = ColliderRemovalJob::new(1, affected_tiles);
-        
+
         // Process the job
         let result = job.process(&mut tile);
         assert!(result.is_ok());
-        
+
         // Verify the collider was removed
         assert!(!tile.active_colliders.contains_key(&1));
         assert_eq!(tile.active_colliders.len(), 0);
@@ -104,7 +109,8 @@ mod tests {
     fn test_collider_removal_job_nonexistent_collider() {
         let config = DynamicNavMeshConfig::default();
         let mut tile = DynamicTile::new(
-            0, 0,
+            0,
+            0,
             Vec3::new(-5.0, -5.0, -5.0),
             Vec3::new(5.0, 5.0, 5.0),
             config,
@@ -113,11 +119,11 @@ mod tests {
         // Try to remove a collider that doesn't exist
         let affected_tiles = HashSet::from([(0, 0)]);
         let job = ColliderRemovalJob::new(999, affected_tiles);
-        
+
         // Process the job - should succeed even if collider doesn't exist
         let result = job.process(&mut tile);
         assert!(result.is_ok());
-        
+
         // Verify no colliders exist
         assert_eq!(tile.active_colliders.len(), 0);
     }

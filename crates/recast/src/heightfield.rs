@@ -77,14 +77,7 @@ pub struct Heightfield {
 
 impl Heightfield {
     /// Creates a new empty heightfield
-    pub fn new(
-        width: i32,
-        height: i32,
-        bmin: Vec3,
-        bmax: Vec3,
-        cs: f32,
-        ch: f32,
-    ) -> Self {
+    pub fn new(width: i32, height: i32, bmin: Vec3, bmax: Vec3, cs: f32, ch: f32) -> Self {
         let mut spans = HashMap::new();
 
         // Initialize all cells with None
@@ -140,7 +133,7 @@ impl Heightfield {
                 return Err(Error::NavMeshGeneration(format!(
                     "Cell not found: ({}, {})",
                     x, z
-                )))
+                )));
             }
         }
 
@@ -787,13 +780,7 @@ impl Heightfield {
     }
 
     /// Checks if a point is inside a triangle (XZ plane projection)
-    fn point_in_triangle_xz(
-        &self,
-        p: &Vec3,
-        a: &Vec3,
-        b: &Vec3,
-        c: &Vec3,
-    ) -> bool {
+    fn point_in_triangle_xz(&self, p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> bool {
         // Compute vectors
         let v0x = c.x - a.x;
         let v0z = c.z - a.z;
@@ -892,12 +879,7 @@ impl Heightfield {
     }
 
     /// Checks if an edge intersects a cell in the XZ plane
-    fn edge_intersects_cell_xz(
-        &self,
-        p0: &Vec3,
-        p1: &Vec3,
-        bounds: &CellBounds,
-    ) -> bool {
+    fn edge_intersects_cell_xz(&self, p0: &Vec3, p1: &Vec3, bounds: &CellBounds) -> bool {
         // Check if edge crosses any of the four cell boundaries
         // Using parametric line equation: p = p0 + t * (p1 - p0)
         let dx = p1.x - p0.x;
@@ -951,13 +933,7 @@ impl Heightfield {
     }
 
     /// Interpolates the height at a point inside a triangle
-    fn interpolate_height(
-        &self,
-        p: &Vec3,
-        a: &Vec3,
-        b: &Vec3,
-        c: &Vec3,
-    ) -> f32 {
+    fn interpolate_height(&self, p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
         // Compute vectors
         let v0x = c.x - a.x;
         let v0z = c.z - a.z;

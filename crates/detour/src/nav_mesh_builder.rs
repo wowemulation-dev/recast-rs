@@ -5,10 +5,10 @@
 
 use super::nav_mesh::encode_poly_ref;
 use super::{
-    BVNode, MeshTile, NavMeshCreateParams, NavMeshParams, OffMeshConnection, Poly, PolyDetail,
-    PolyFlags, PolyType, Status, TileHeader, DT_EXT_LINK,
+    BVNode, DT_EXT_LINK, MeshTile, NavMeshCreateParams, NavMeshParams, OffMeshConnection, Poly,
+    PolyDetail, PolyFlags, PolyType, Status, TileHeader,
 };
-use recast::{PolyMesh, PolyMeshDetail, MESH_NULL_IDX};
+use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
 use recast_common::{Error, Result};
 
 /// Request for creating an external link between tiles
@@ -35,6 +35,9 @@ impl NavMeshBuilder {
     /// This is the main entry point for building navigation mesh tiles.
     /// It takes polygon mesh data and creates a properly formatted tile
     /// that can be added to a NavMesh.
+    ///
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn create_nav_mesh_data(params: &NavMeshCreateParams) -> Result<Vec<u8>> {
         // Validate input parameters
         Self::validate_params(params)?;
@@ -100,6 +103,7 @@ impl NavMeshBuilder {
     }
 
     /// Validates input parameters
+    #[cfg(feature = "serialization")]
     fn validate_params(params: &NavMeshCreateParams) -> Result<()> {
         if params.vert_count < 3 {
             return Err(Error::Detour(Status::InvalidParam.to_string()));
@@ -983,8 +987,11 @@ mod tests {
         assert_eq!(tile.verts.len(), 12);
         assert!(!tile.bvh_nodes.is_empty());
 
-        // Test binary data creation
-        let data = NavMeshBuilder::create_nav_mesh_data(&params).unwrap();
-        assert!(!data.is_empty());
+        // Test binary data creation (requires serialization feature)
+        #[cfg(feature = "serialization")]
+        {
+            let data = NavMeshBuilder::create_nav_mesh_data(&params).unwrap();
+            assert!(!data.is_empty());
+        }
     }
 }

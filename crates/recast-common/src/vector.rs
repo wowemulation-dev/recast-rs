@@ -1,4 +1,4 @@
-//! Vector utilities for 
+//! Vector utilities for
 
 use glam::Vec3;
 

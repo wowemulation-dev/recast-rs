@@ -102,11 +102,11 @@ impl DynamicTile {
             version: 0,
         }
     }
-    
+
     pub fn from_voxel(voxel_tile: VoxelTile, config: DynamicNavMeshConfig) -> Result<Self> {
         // Reconstruct the heightfield from voxel span data
         let heightfield = Self::reconstruct_heightfield(&voxel_tile)?;
-        
+
         let bounds_min = Vec3::new(
             voxel_tile.bounds_min[0],
             voxel_tile.bounds_min[1],
@@ -117,7 +117,7 @@ impl DynamicTile {
             voxel_tile.bounds_max[1],
             voxel_tile.bounds_max[2],
         );
-        
+
         let mut tile = Self {
             x: voxel_tile.tile_x,
             y: voxel_tile.tile_z,
@@ -135,15 +135,15 @@ impl DynamicTile {
             voxel_query: None,
             version: 0,
         };
-        
+
         // Create initial checkpoint from voxel data
         if config.enable_checkpoints {
             tile.create_checkpoint()?;
         }
-        
+
         Ok(tile)
     }
-    
+
     fn reconstruct_heightfield(voxel_tile: &VoxelTile) -> Result<Heightfield> {
         let mut heightfield = Heightfield::new(
             voxel_tile.width,
@@ -161,30 +161,33 @@ impl DynamicTile {
             voxel_tile.cell_size,
             voxel_tile.cell_height,
         );
-        
+
         // Optimized span data parsing with bulk operations
         let span_data = &voxel_tile.span_data;
         let mut position = 0;
         let total_cells = voxel_tile.width * voxel_tile.depth;
-        
+
         // Pre-validate total data size to avoid per-iteration checks
         if span_data.len() < total_cells as usize * 2 {
             return Err(recast_common::Error::Recast(
-                "Invalid span data: insufficient data for span counts".to_string()
+                "Invalid span data: insufficient data for span counts".to_string(),
             ));
         }
-        
+
         // Process spans in bulk for better cache performance
         for z in 0..voxel_tile.depth {
             for x in 0..voxel_tile.width {
                 // Bounds check only once per cell
                 if position + 2 > span_data.len() {
-                    return Err(recast_common::Error::Recast(
-                        format!("Invalid span data at cell ({}, {}): position {} exceeds data length {}", 
-                                x, z, position, span_data.len())
-                    ));
+                    return Err(recast_common::Error::Recast(format!(
+                        "Invalid span data at cell ({}, {}): position {} exceeds data length {}",
+                        x,
+                        z,
+                        position,
+                        span_data.len()
+                    )));
                 }
-                
+
                 // Read span count using unsafe for performance (data already validated)
                 let span_count = unsafe {
                     u16::from_le_bytes([
@@ -193,21 +196,24 @@ impl DynamicTile {
                     ]) as usize
                 };
                 position += 2;
-                
+
                 // Early exit for empty cells
                 if span_count == 0 {
                     continue;
                 }
-                
+
                 // Validate we have enough data for all spans in this cell
                 let required_span_data = span_count * 12; // 12 bytes per span
                 if position + required_span_data > span_data.len() {
-                    return Err(recast_common::Error::Recast(
-                        format!("Invalid span data at cell ({}, {}): need {} bytes but only {} available", 
-                                x, z, required_span_data, span_data.len() - position)
-                    ));
+                    return Err(recast_common::Error::Recast(format!(
+                        "Invalid span data at cell ({}, {}): need {} bytes but only {} available",
+                        x,
+                        z,
+                        required_span_data,
+                        span_data.len() - position
+                    )));
                 }
-                
+
                 // Process all spans for this cell
                 for _ in 0..span_count {
                     // Use unsafe indexing for performance (bounds already checked)
@@ -220,7 +226,7 @@ impl DynamicTile {
                         ])
                     };
                     position += 4;
-                    
+
                     let smax = unsafe {
                         i32::from_le_bytes([
                             *span_data.get_unchecked(position),
@@ -230,7 +236,7 @@ impl DynamicTile {
                         ])
                     };
                     position += 4;
-                    
+
                     let area = unsafe {
                         i32::from_le_bytes([
                             *span_data.get_unchecked(position),
@@ -240,21 +246,21 @@ impl DynamicTile {
                         ])
                     };
                     position += 4;
-                    
+
                     // Add span to heightfield (this is the main bottleneck)
                     heightfield.add_span(x, z, smin as i16, smax as i16, area as u8)?;
                 }
             }
         }
-        
+
         Ok(heightfield)
     }
-    
+
     /// Get tile coordinates
     pub fn tile_x(&self) -> i32 {
         self.x
     }
-    
+
     pub fn tile_z(&self) -> i32 {
         self.y
     }
@@ -377,12 +383,9 @@ impl DynamicTile {
     pub fn initialize_voxel_query(&mut self) -> Result<()> {
         let tile_size_x = self.bounds_max.x - self.bounds_min.x;
         let tile_size_z = self.bounds_max.z - self.bounds_min.z;
-        
-        let voxel_query = VoxelQuery::from_single_heightfield(
-            self.bounds_min,
-            tile_size_x,
-            tile_size_z,
-        );
+
+        let voxel_query =
+            VoxelQuery::from_single_heightfield(self.bounds_min, tile_size_x, tile_size_z);
 
         // Note: We can't easily clone Heightfield, so voxel query will be updated
         // when heightfield is set via rasterize_colliders()
@@ -431,7 +434,7 @@ impl DynamicTile {
     }
 
     /// Build the navigation mesh for this tile through the complete Recast pipeline
-    /// 
+    ///
     /// This method processes heightfield data through all stages:
     /// 1. Heightfield → CompactHeightfield (filtering and compaction)
     /// 2. CompactHeightfield → Regions (watershed partitioning)  
@@ -482,10 +485,11 @@ impl DynamicTile {
     /// Initialize the heightfield for this tile
     fn initialize_heightfield(&mut self) -> Result<()> {
         use recast::Heightfield;
-        
+
         // Calculate heightfield dimensions based on tile bounds and cell size
         let width = ((self.bounds_max.x - self.bounds_min.x) / self.config.cell_size).ceil() as i32;
-        let height = ((self.bounds_max.z - self.bounds_min.z) / self.config.cell_size).ceil() as i32;
+        let height =
+            ((self.bounds_max.z - self.bounds_min.z) / self.config.cell_size).ceil() as i32;
 
         let heightfield = Heightfield::new(
             width,
@@ -504,8 +508,10 @@ impl DynamicTile {
     fn apply_heightfield_filters(&mut self) -> Result<()> {
         if let Some(ref mut heightfield) = self.heightfield {
             // Convert heights to span units (divide by cell_height)
-            let walkable_height_spans = (self.config.walkable_height / self.config.cell_height) as i16;
-            let walkable_climb_spans = (self.config.walkable_climb / self.config.cell_height) as i16;
+            let walkable_height_spans =
+                (self.config.walkable_height / self.config.cell_height) as i16;
+            let walkable_climb_spans =
+                (self.config.walkable_climb / self.config.cell_height) as i16;
 
             if self.config.filter_low_hanging_obstacles {
                 heightfield.filter_low_hanging_walkable_obstacles(walkable_climb_spans)?;
@@ -601,9 +607,7 @@ impl DynamicTile {
 
     /// Build detail mesh from polygon mesh
     fn build_detail_mesh(&mut self) -> Result<()> {
-        if let (Some(compact_hf), Some(poly_mesh)) =
-            (&self.compact_heightfield, &self.poly_mesh) {
-            
+        if let (Some(compact_hf), Some(poly_mesh)) = (&self.compact_heightfield, &self.poly_mesh) {
             let detail_mesh = recast::PolyMeshDetail::build_from_poly_mesh(
                 poly_mesh,
                 compact_hf,
@@ -617,12 +621,12 @@ impl DynamicTile {
 
     /// Check if this tile is fully built and ready for navigation
     pub fn is_built(&self) -> bool {
-        self.status == TileStatus::Clean && 
-        self.heightfield.is_some() && 
-        self.compact_heightfield.is_some() &&
-        self.poly_mesh.is_some()
+        self.status == TileStatus::Clean
+            && self.heightfield.is_some()
+            && self.compact_heightfield.is_some()
+            && self.poly_mesh.is_some()
     }
-    
+
     /// Check if the tile has mesh data ready for navigation
     pub fn has_mesh_data(&self) -> bool {
         if let Some(ref poly_mesh) = self.poly_mesh {
@@ -639,11 +643,21 @@ impl DynamicTile {
             TileStatus::Clean => 1.0,
             TileStatus::Building => {
                 let mut progress = 0.0;
-                if self.heightfield.is_some() { progress += 0.2; }
-                if self.compact_heightfield.is_some() { progress += 0.2; }
-                if self.contour_set.is_some() { progress += 0.2; }
-                if self.poly_mesh.is_some() { progress += 0.3; }
-                if self.detail_mesh.is_some() || !self.config.build_detail_mesh { progress += 0.1; }
+                if self.heightfield.is_some() {
+                    progress += 0.2;
+                }
+                if self.compact_heightfield.is_some() {
+                    progress += 0.2;
+                }
+                if self.contour_set.is_some() {
+                    progress += 0.2;
+                }
+                if self.poly_mesh.is_some() {
+                    progress += 0.3;
+                }
+                if self.detail_mesh.is_some() || !self.config.build_detail_mesh {
+                    progress += 0.1;
+                }
                 progress
             }
             _ => 0.0,
@@ -652,7 +666,10 @@ impl DynamicTile {
 
     /// Create navigation mesh data from this tile's polygon mesh
     /// This follows 's NavMeshCreateParams pattern
-    pub fn create_nav_mesh_data(&self, nav_mesh_params: &detour::NavMeshParams) -> Result<Option<Vec<u8>>> {
+    pub fn create_nav_mesh_data(
+        &self,
+        nav_mesh_params: &detour::NavMeshParams,
+    ) -> Result<Option<Vec<u8>>> {
         // If we don't have a poly mesh, we can't create nav mesh data
         let poly_mesh = match &self.poly_mesh {
             Some(pm) => pm,
@@ -660,24 +677,24 @@ impl DynamicTile {
         };
 
         // Create NavMeshCreateParams following  pattern
-        use detour::{NavMeshCreateParams, NavMeshBuilder, PolyFlags};
-        
+        use detour::{NavMeshBuilder, NavMeshCreateParams, PolyFlags};
+
         // Convert polygon data
         let poly_count = poly_mesh.polys.len() / poly_mesh.max_verts_per_poly;
-        
+
         // Polys are already u16 in PolyMesh
         let polys = poly_mesh.polys.clone();
-        
+
         // Create polygon flags - all walkable by default
         let poly_flags = vec![PolyFlags::WALK; poly_count];
-        
+
         // Use areas from poly mesh or default to walkable
         let poly_areas = if !poly_mesh.areas.is_empty() {
             poly_mesh.areas.clone()
         } else {
             vec![1u8; poly_count]
         };
-        
+
         // Convert vertices from u16 to f32 (they're stored as quantized values)
         // We need to convert them back to world coordinates
         let mut verts = Vec::new();
@@ -689,9 +706,9 @@ impl DynamicTile {
             verts.push(y);
             verts.push(z);
         }
-        
+
         // Convert detail mesh data if available
-        let (detail_meshes, detail_verts, detail_tris, detail_vert_count, detail_tri_count) = 
+        let (detail_meshes, detail_verts, detail_tris, detail_vert_count, detail_tri_count) =
             if let Some(ref dm) = self.detail_mesh {
                 // Build detail_meshes array for each polygon
                 // This encodes the start and count of triangles for each polygon
@@ -704,10 +721,10 @@ impl DynamicTile {
                     detail_meshes.push(0); // Vertex base (not used)
                     detail_meshes.push(0); // Vertex count (not used)
                 }
-                
+
                 // Convert triangles from u32 to u8
                 let detail_tris: Vec<u8> = dm.triangles.iter().map(|&v| v as u8).collect();
-                
+
                 (
                     detail_meshes,
                     dm.vertices.clone(),
@@ -718,11 +735,11 @@ impl DynamicTile {
             } else {
                 (Vec::new(), Vec::new(), Vec::new(), 0, 0)
             };
-        
+
         // Convert bounds to arrays
         let bmin = [self.bounds_min.x, self.bounds_min.y, self.bounds_min.z];
         let bmax = [self.bounds_max.x, self.bounds_max.y, self.bounds_max.z];
-        
+
         let params = NavMeshCreateParams {
             nav_mesh_params: nav_mesh_params.clone(),
             verts: verts.clone(),
@@ -754,14 +771,18 @@ impl DynamicTile {
             ch: self.config.cell_height,
             build_bv_tree: true,
         };
-        
+
         // Build the mesh data
         let mesh_data = NavMeshBuilder::create_nav_mesh_data(&params)?;
         Ok(Some(mesh_data))
     }
 
     /// Add this tile's mesh data to a navigation mesh
-    pub fn add_to_nav_mesh(&self, nav_mesh: &mut detour::NavMesh, nav_mesh_params: &detour::NavMeshParams) -> Result<()> {
+    pub fn add_to_nav_mesh(
+        &self,
+        nav_mesh: &mut detour::NavMesh,
+        nav_mesh_params: &detour::NavMeshParams,
+    ) -> Result<()> {
         if let Some(mesh_data) = self.create_nav_mesh_data(nav_mesh_params)? {
             // Add tile to navigation mesh
             // The tile reference will be stored internally by the NavMesh
@@ -797,13 +818,17 @@ impl DynamicTile {
         // For now, we'll use spawn_blocking to run the sync build in a thread pool
         // In a future version, we could break down the pipeline into async chunks
         let tile_id = (self.x, self.y);
-        
+
         tokio::task::spawn_blocking(move || {
             log::info!("Starting async build for tile {:?}", tile_id);
             // Note: We can't move self into the closure, so we'll need a different approach
             // For now, this is a placeholder showing the async interface
             Ok(true)
-        }).await.map_err(|e| recast_common::Error::Io(std::io::Error::other(format!("Async build failed: {}", e))))?
+        })
+        .await
+        .map_err(|e| {
+            recast_common::Error::Io(std::io::Error::other(format!("Async build failed: {}", e)))
+        })?
     }
 
     /// Build from existing heightfield data (e.g., loaded from voxel file)
@@ -820,10 +845,14 @@ impl DynamicTile {
             has_contours: self.contour_set.is_some(),
             has_poly_mesh: self.poly_mesh.is_some(),
             has_detail_mesh: self.detail_mesh.is_some(),
-            poly_count: self.poly_mesh.as_ref()
+            poly_count: self
+                .poly_mesh
+                .as_ref()
                 .map(|pm| pm.polys.len() / pm.max_verts_per_poly)
                 .unwrap_or(0),
-            vertex_count: self.poly_mesh.as_ref()
+            vertex_count: self
+                .poly_mesh
+                .as_ref()
                 .map(|pm| pm.verts.len() / 3)
                 .unwrap_or(0),
             status: self.status,
@@ -888,13 +917,7 @@ impl DynamicTileManager {
 
     /// Add a new tile to the manager
     #[allow(clippy::arc_with_non_send_sync)]
-    pub async fn add_tile(
-        &self,
-        x: i32,
-        y: i32,
-        bounds_min: Vec3,
-        bounds_max: Vec3,
-    ) -> Result<()> {
+    pub async fn add_tile(&self, x: i32, y: i32, bounds_min: Vec3, bounds_max: Vec3) -> Result<()> {
         let tile = Arc::new(RwLock::new(DynamicTile::new(
             x,
             y,
@@ -1055,10 +1078,7 @@ mod tests {
         assert!(tile.overlaps_bounds(&Vec3::new(5.0, 2.5, 5.0), &Vec3::new(15.0, 7.5, 15.0)));
 
         // Non-overlapping bounds
-        assert!(!tile.overlaps_bounds(
-            &Vec3::new(15.0, 2.5, 5.0),
-            &Vec3::new(25.0, 7.5, 15.0)
-        ));
+        assert!(!tile.overlaps_bounds(&Vec3::new(15.0, 2.5, 5.0), &Vec3::new(25.0, 7.5, 15.0)));
     }
 
     #[tokio::test]
@@ -1099,7 +1119,8 @@ mod tests {
     fn test_tile_build_pipeline() {
         let config = DynamicNavMeshConfig::default();
         let mut tile = DynamicTile::new(
-            0, 0,
+            0,
+            0,
             Vec3::new(-5.0, -1.0, -5.0),
             Vec3::new(5.0, 1.0, 5.0),
             config,
@@ -1120,7 +1141,7 @@ mod tests {
 
         // Build the tile
         let result = tile.build();
-        
+
         // Note: Build might fail due to small geometry or configuration issues
         // but it should at least attempt the process without panicking
         match result {
@@ -1142,7 +1163,8 @@ mod tests {
     fn test_navigation_summary() {
         let config = DynamicNavMeshConfig::default();
         let tile = DynamicTile::new(
-            0, 0,
+            0,
+            0,
             Vec3::new(-5.0, -1.0, -5.0),
             Vec3::new(5.0, 1.0, 5.0),
             config,
@@ -1164,7 +1186,8 @@ mod tests {
     fn test_build_progress_tracking() {
         let config = DynamicNavMeshConfig::default();
         let mut tile = DynamicTile::new(
-            0, 0,
+            0,
+            0,
             Vec3::new(-5.0, -1.0, -5.0),
             Vec3::new(5.0, 1.0, 5.0),
             config,

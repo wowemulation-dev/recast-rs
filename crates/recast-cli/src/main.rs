@@ -1,6 +1,6 @@
-//! CLI utility for 
+//! CLI utility for
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand};
 use glam::Vec3;
 use std::fs::File;
@@ -290,12 +290,7 @@ fn build_mesh(
 }
 
 /// Find a path on a navigation mesh
-fn find_path(
-    mesh_path: &Path,
-    start: Vec3,
-    end: Vec3,
-    output: Option<&Path>,
-) -> Result<()> {
+fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) -> Result<()> {
     println!("Loading navigation mesh from {}...", mesh_path.display());
 
     // Load the navigation mesh from a file
