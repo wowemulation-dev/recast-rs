@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Verified WASM compatibility (file I/O already feature-gated behind `serialization`)
 - Added to CI WASM compilation checks
 
+#### detour-crowd
+
+- Verified WASM compatibility (no WASM-incompatible dependencies)
+- Added to CI WASM compilation checks
+
 ### Added
 
 #### recast-common
