@@ -222,7 +222,8 @@ jobs:
         run: |
           for crate in $CRATES_CHANGED; do
             echo "Testing $crate individually..."
-            cargo nextest run -p "$crate"
+            # Exit code 4 from nextest means no tests to run, which is OK
+            cargo nextest run -p "$crate" || { ec=$?; [ $ec -eq 4 ] && echo "No tests in $crate (OK)" || exit $ec; }
           done
 
   # WASM compilation check
