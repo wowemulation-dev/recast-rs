@@ -5,6 +5,7 @@ Dynamic obstacle management and tile caching for navigation meshes.
 [![Crates.io](https://img.shields.io/crates/v/detour-tilecache.svg)](https://crates.io/crates/detour-tilecache)
 [![Documentation](https://docs.rs/detour-tilecache/badge.svg)](https://docs.rs/detour-tilecache)
 [![License](https://img.shields.io/crates/l/detour-tilecache.svg)](../LICENSE-MIT)
+[![WASM](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
 
 ## Overview
 
@@ -75,6 +76,18 @@ tile_cache.update()?;
 | Cylinder | Circular base with height | Trees, pillars, characters |
 | Box | Axis-aligned box | Crates, furniture |
 | Oriented Box | Rotated box | Vehicles, angled objects |
+
+## WASM Support
+
+This crate is fully compatible with WebAssembly. Build for WASM with:
+
+```bash
+cargo build --target wasm32-unknown-unknown -p detour-tilecache
+```
+
+LZ4 compression uses `lz4_flex`, a pure Rust implementation that works on WASM.
+Serialization works with in-memory buffers; file-based save/load is not
+available on WASM.
 
 ## License
 

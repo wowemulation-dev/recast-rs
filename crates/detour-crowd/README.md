@@ -5,6 +5,7 @@ Multi-agent crowd simulation on navigation meshes.
 [![Crates.io](https://img.shields.io/crates/v/detour-crowd.svg)](https://crates.io/crates/detour-crowd)
 [![Documentation](https://docs.rs/detour-crowd/badge.svg)](https://docs.rs/detour-crowd)
 [![License](https://img.shields.io/crates/l/detour-crowd.svg)](../LICENSE-MIT)
+[![WASM](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
 
 ## Overview
 
@@ -69,6 +70,14 @@ let velocity = agent.velocity();
 | `LocalBoundary` | Local obstacle detection |
 | `ObstacleAvoidance` | RVO collision avoidance |
 | `ProximityGrid` | Spatial indexing for neighbors |
+
+## WASM Support
+
+This crate is fully compatible with WebAssembly. Build for WASM with:
+
+```bash
+cargo build --target wasm32-unknown-unknown -p detour-crowd
+```
 
 ## License
 

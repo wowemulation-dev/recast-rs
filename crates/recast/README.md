@@ -5,6 +5,7 @@ Navigation mesh generation from 3D triangle meshes.
 [![Crates.io](https://img.shields.io/crates/v/recast.svg)](https://crates.io/crates/recast)
 [![Documentation](https://docs.rs/recast/badge.svg)](https://docs.rs/recast)
 [![License](https://img.shields.io/crates/l/recast.svg)](../LICENSE-MIT)
+[![WASM](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
 
 ## Overview
 
@@ -27,7 +28,18 @@ This is a Rust port of the Recast component from [RecastNavigation][recast-cpp].
 
 ## Optional Features
 
-- `parallel` - Multi-threaded mesh generation using Rayon
+- `parallel` - Multi-threaded mesh generation using Rayon (not WASM-compatible)
+
+## WASM Support
+
+This crate is fully compatible with WebAssembly. Build for WASM with:
+
+```bash
+cargo build --target wasm32-unknown-unknown -p recast
+```
+
+Note: The `parallel` feature is not available on WASM. Timing uses `web-time`
+for cross-platform compatibility.
 
 ## Example
 
