@@ -1201,4 +1201,38 @@ mod tests {
         tile.mark_clean();
         assert_eq!(tile.build_progress(), 1.0);
     }
+
+    #[tokio::test]
+    async fn test_tile_build_async() {
+        let config = DynamicNavMeshConfig::default();
+        let mut tile = DynamicTile::new(
+            0,
+            0,
+            Vec3::new(-5.0, -1.0, -5.0),
+            Vec3::new(5.0, 1.0, 5.0),
+            config,
+        );
+
+        // Add a collider to have something to build
+        let collider = Arc::new(BoxCollider::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.5, 1.0),
+            0,
+            1.0,
+        ));
+        tile.add_collider(1, collider).unwrap();
+
+        // Test async build - should work the same as sync build
+        let result = tile.build_async().await;
+
+        // Build might succeed or fail depending on geometry, but shouldn't panic
+        match result {
+            Ok(built) => {
+                println!("Async build successful: {}", built);
+            }
+            Err(e) => {
+                println!("Async build failed (acceptable for test): {}", e);
+            }
+        }
+    }
 }

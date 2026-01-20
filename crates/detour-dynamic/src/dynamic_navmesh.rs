@@ -719,4 +719,26 @@ mod tests {
         let result = DynamicNavMesh::new(config);
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_build_async_empty() {
+        let config = DynamicNavMeshConfig::default();
+        let mut navmesh = DynamicNavMesh::new(config).unwrap();
+
+        // Build with no tiles should return false (nothing to build)
+        let result = navmesh.build_async().await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap()); // No tiles were built
+    }
+
+    #[tokio::test]
+    async fn test_update_async_empty() {
+        let config = DynamicNavMeshConfig::default();
+        let mut navmesh = DynamicNavMesh::new(config).unwrap();
+
+        // Update with no changes should return false
+        let result = navmesh.update_async().await;
+        assert!(result.is_ok());
+        assert!(!result.unwrap()); // No updates were made
+    }
 }
