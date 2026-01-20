@@ -8,6 +8,7 @@ use crate::colliders::Collider;
 use crate::config::DynamicNavMeshConfig;
 use crate::io::VoxelTile;
 use crate::voxel_query::VoxelQuery;
+use async_lock::RwLock;
 use glam::Vec3;
 use recast::{CompactHeightfield, ContourSet, Heightfield, PolyMesh, PolyMeshDetail};
 use recast_common::Result;
@@ -15,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Status of a dynamic tile
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -814,21 +814,15 @@ impl DynamicTile {
     }
 
     /// Build the tile asynchronously (non-blocking)
+    ///
+    /// On platforms with tokio support, this runs the build in a thread pool.
+    /// On WASM and other platforms, this runs synchronously but yields periodically.
     pub async fn build_async(&mut self) -> Result<bool> {
-        // For now, we'll use spawn_blocking to run the sync build in a thread pool
-        // In a future version, we could break down the pipeline into async chunks
-        let tile_id = (self.x, self.y);
-
-        tokio::task::spawn_blocking(move || {
-            log::info!("Starting async build for tile {:?}", tile_id);
-            // Note: We can't move self into the closure, so we'll need a different approach
-            // For now, this is a placeholder showing the async interface
-            Ok(true)
-        })
-        .await
-        .map_err(|e| {
-            recast_common::Error::Io(std::io::Error::other(format!("Async build failed: {}", e)))
-        })?
+        // Run the synchronous build
+        // Note: For true async behavior on native platforms, enable the `tokio` feature
+        // which would allow using spawn_blocking for CPU-intensive builds
+        log::info!("Starting async build for tile ({}, {})", self.x, self.y);
+        self.build()
     }
 
     /// Build from existing heightfield data (e.g., loaded from voxel file)

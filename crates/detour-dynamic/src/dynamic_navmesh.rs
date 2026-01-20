@@ -651,7 +651,7 @@ impl DynamicNavMesh {
 
                 // Yield control periodically to prevent blocking
                 if total_built % 5 == 0 {
-                    tokio::task::yield_now().await;
+                    futures_lite::future::yield_now().await;
                 }
             }
 
