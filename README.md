@@ -3,7 +3,7 @@
 A Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavigation).
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-MIT)
-[![Rust Version](https://img.shields.io/badge/rust-1.85+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.92+-orange.svg)](https://www.rust-lang.org)
 [![WASM Compatible](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
 
 > **Note**: This port is developed for the [WoW Emulation project][wowemu] and

@@ -135,7 +135,7 @@ Initial release. This is a Rust port of [RecastNavigation][recast-cpp].
 
 ### Notes
 
-- Rust 2024 edition (requires Rust 1.85+)
+- Rust 2024 edition (requires Rust 1.92+)
 - Uses glam for vector math (WASM SIMD compatible)
 - Uses postcard for binary serialization (no_std compatible)
 - WASM compatible (simd128 support via glam)
