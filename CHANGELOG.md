@@ -37,6 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-memory serialization methods work on WASM
 - Added to CI WASM compilation checks
 
+#### detour-dynamic
+
+- Replaced `tokio::sync::RwLock` with `async-lock::RwLock` (runtime-agnostic)
+- Replaced `tokio::task::yield_now()` with `futures-lite::future::yield_now()`
+- Made `tokio` an optional dependency (feature flag: `tokio`)
+- Async methods now work on WASM without tokio dependency
+- Added to CI WASM compilation checks
+
 ### Added
 
 #### recast-common
