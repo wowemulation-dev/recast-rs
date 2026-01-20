@@ -7,6 +7,7 @@
 // for demonstration or future use
 #![cfg_attr(test, allow(unused, unused_comparisons))]
 
+#[cfg(feature = "serialization")]
 pub mod binary_format;
 pub mod bvh_tree;
 pub mod detour_common;
@@ -27,7 +28,7 @@ mod status;
 mod advanced_navigation_function_tests;
 #[cfg(test)]
 mod concurrency_safety_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "serialization"))]
 mod cross_platform_serialization_tests;
 #[cfg(test)]
 mod detour_common_geometry_tests;

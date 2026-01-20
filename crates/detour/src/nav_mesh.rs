@@ -650,7 +650,11 @@ impl NavMesh {
         })
     }
 
-    /// Initializes the navigation mesh with tiles
+    /// Initializes the navigation mesh with tiles from binary format
+    ///
+    /// This method loads navmesh data in the C++ binary format.
+    /// Requires the `serialization` feature.
+    #[cfg(feature = "serialization")]
     pub fn init(&mut self, nav_data: &[u8]) -> Result<()> {
         use super::binary_format::{DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION, load_tile_from_binary};
         use byteorder::{NativeEndian, ReadBytesExt};
