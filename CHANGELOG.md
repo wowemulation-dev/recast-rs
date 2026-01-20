@@ -30,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Verified WASM compatibility (no WASM-incompatible dependencies)
 - Added to CI WASM compilation checks
 
+#### detour-tilecache
+
+- Replaced `lz4` crate with `lz4_flex` (pure Rust, no C dependencies)
+- File I/O functions already feature-gated behind `serialization`
+- In-memory serialization methods work on WASM
+- Added to CI WASM compilation checks
+
 ### Added
 
 #### recast-common
