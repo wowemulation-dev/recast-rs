@@ -66,6 +66,7 @@ jobs:
               - 'crates/recast/**'
               - 'crates/detour/**'
               - 'crates/detour-crowd/**'
+              - 'crates/detour-tilecache/**'
             recast_common:
               - 'crates/recast-common/**'
             recast:
@@ -286,6 +287,9 @@ jobs:
 
       - name: Check WASM compilation (detour-crowd)
         run: cargo check --target wasm32-unknown-unknown -p detour-crowd
+
+      - name: Check WASM compilation (detour-tilecache)
+        run: cargo check --target wasm32-unknown-unknown -p detour-tilecache
 
   # Documentation build - only run if code changed
   docs:

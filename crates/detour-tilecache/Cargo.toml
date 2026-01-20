@@ -17,7 +17,7 @@ detour = { workspace = true }
 glam = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
-lz4 = { workspace = true }
+lz4_flex = { workspace = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 postcard = { workspace = true, optional = true }

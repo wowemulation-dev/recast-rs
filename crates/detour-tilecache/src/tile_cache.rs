@@ -847,27 +847,22 @@ impl TileCache {
     /// Compresses tile data using LZ4
     pub fn compress_tile(&self, data: &[u8]) -> Result<Vec<u8>> {
         // Compress the data using LZ4 with prepended size for decompression
-        match lz4::block::compress(data, None, true) {
-            Ok(compressed) => Ok(compressed),
-            Err(_) => Err(Error::Detour(Status::Failure.to_string())),
-        }
+        Ok(lz4_flex::compress_prepend_size(data))
     }
 
     /// Decompresses tile data using LZ4
     pub fn decompress_tile(
         &self,
         compressed_data: &[u8],
-        uncompressed_size: Option<usize>,
+        _uncompressed_size: Option<usize>,
     ) -> Result<Vec<u8>> {
         // Handle empty data
         if compressed_data.is_empty() {
             return Ok(Vec::new());
         }
 
-        // Decompress the data using LZ4
-        // Convert usize to i32 for the LZ4 API
-        let size_hint = uncompressed_size.map(|s| s as i32);
-        match lz4::block::decompress(compressed_data, size_hint) {
+        // Decompress the data using LZ4 (size is prepended)
+        match lz4_flex::decompress_size_prepended(compressed_data) {
             Ok(decompressed) => Ok(decompressed),
             Err(e) => {
                 log::error!("LZ4 decompression failed: {:?}", e);
