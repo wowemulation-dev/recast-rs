@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Moved `Error::Io` variant behind `std` feature for WASM compatibility
 - Moved `TriMesh::from_obj()` behind `std` feature for WASM compatibility
 
+#### recast
+
+- Replaced `std::time::Instant` with `web-time` crate for WASM compatibility
+- `RecastContext` timing now works on both native and WASM targets
+
 ### Added
 
 #### recast-common

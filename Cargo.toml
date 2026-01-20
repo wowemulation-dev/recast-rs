@@ -43,6 +43,7 @@ bytemuck = "1.23"
 byteorder = "1.5"
 log = "0.4"
 ordered-float = "5.0"
+web-time = "1.1"
 
 # Parallel processing
 rayon = "1.10"

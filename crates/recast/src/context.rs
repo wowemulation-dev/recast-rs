@@ -4,7 +4,8 @@
 //! library, providing comprehensive logging, timing, and progress monitoring capabilities.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 /// Log level for context messages
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
