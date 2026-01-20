@@ -5,6 +5,7 @@ Dynamic navigation mesh generation with real-time obstacle support.
 [![Crates.io](https://img.shields.io/crates/v/detour-dynamic.svg)](https://crates.io/crates/detour-dynamic)
 [![Documentation](https://docs.rs/detour-dynamic/badge.svg)](https://docs.rs/detour-dynamic)
 [![License](https://img.shields.io/crates/l/detour-dynamic.svg)](../LICENSE-MIT)
+[![WASM](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
 
 ## Overview
 
@@ -17,11 +18,15 @@ platforms, or procedurally generated content.
 
 - **Dynamic Obstacle Management**: Add and remove colliders at runtime
 - **Incremental Updates**: Only rebuild affected tiles for performance
-- **Async Processing**: Non-blocking navmesh updates using Tokio
+- **Async Processing**: Non-blocking navmesh updates (WASM-compatible)
 - **Multiple Collider Types**: Box, cylinder, sphere, trimesh, and composites
 - **Checkpoint System**: Efficient state management for incremental rebuilds
 - **Voxel-based Queries**: Precise raycasting against heightfield data
 - **Serialization**: Save and load dynamic navmesh state
+
+## Optional Features
+
+- `tokio` - Use Tokio runtime for async operations (not WASM-compatible)
 
 ## Collider Types
 
@@ -77,16 +82,37 @@ let query = navmesh.create_query()?;
 
 ## Async Updates
 
+Async operations use runtime-agnostic primitives (`async-lock`, `futures-lite`)
+and work on all platforms including WASM:
+
+```rust
+// Works with any async runtime (Tokio, async-std, wasm-bindgen-futures, etc.)
+navmesh.build_async().await?;
+navmesh.update_async().await?;
+```
+
+On native platforms with Tokio:
+
 ```rust
 use tokio::runtime::Runtime;
 
 let rt = Runtime::new()?;
 rt.block_on(async {
-    // Rebuild tiles asynchronously
-    navmesh.rebuild_dirty_tiles_async().await?;
+    navmesh.build_async().await?;
     Ok::<_, Box<dyn std::error::Error>>(())
 })?;
 ```
+
+## WASM Support
+
+This crate is fully compatible with WebAssembly. Build for WASM with:
+
+```bash
+cargo build --target wasm32-unknown-unknown -p detour-dynamic
+```
+
+Async operations work on WASM using `wasm-bindgen-futures` or similar runtimes.
+The `tokio` feature is not available on WASM.
 
 ## License
 

@@ -5,6 +5,7 @@ Pathfinding and spatial queries on navigation meshes.
 [![Crates.io](https://img.shields.io/crates/v/detour.svg)](https://crates.io/crates/detour)
 [![Documentation](https://docs.rs/detour/badge.svg)](https://docs.rs/detour)
 [![License](https://img.shields.io/crates/l/detour.svg)](../LICENSE-MIT)
+[![WASM](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
 
 ## Overview
 
@@ -29,6 +30,17 @@ This is a Rust port of the Detour component from [RecastNavigation][recast-cpp].
 ## Optional Features
 
 - `serialization` - Save/load navigation meshes via Serde
+
+## WASM Support
+
+This crate is fully compatible with WebAssembly. Build for WASM with:
+
+```bash
+cargo build --target wasm32-unknown-unknown -p detour
+```
+
+The `serialization` feature works on WASM with in-memory buffers. File-based
+save/load is not available on WASM.
 
 ## Example
 
