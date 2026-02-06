@@ -13,9 +13,7 @@ categories = ["game-development", "algorithms"]
 [dependencies]
 glam = { workspace = true }
 thiserror = { workspace = true }
-bytemuck = { workspace = true }
 log = { workspace = true }
-anyhow = { workspace = true }
 tokio = { workspace = true, optional = true }
 
 [dev-dependencies]

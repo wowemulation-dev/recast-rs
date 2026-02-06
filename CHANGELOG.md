@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Removed unused `rayon` dependency and `parallel` feature from recast crate
+- Removed unused `bytemuck` dependency from recast-common and recast crates
+- Removed unused `criterion` workspace dependency (no benchmarks exist)
+- Removed unused `anyhow` dependency from recast-common crate
+- Removed unused `Zlib` license allowance from `deny.toml`
+
 ### Changed
+
+- Upgraded `glam` from 0.29 to 0.31
+- Upgraded `bitflags` from 2.9 to 2.10
+- Upgraded `ordered-float` from 5.0 to 5.1
+- Upgraded `tokio` from 1.45 to 1.49
+- Upgraded `lz4_flex` from 0.11 to 0.12
+- Upgraded `tempfile` from 3.20 to 3.24
+- Updated `bytes` to 1.11.1 (fixes RUSTSEC-2026-0007)
+- Updated `socket2` to 0.6.2
 
 #### recast-common
 
@@ -76,7 +93,6 @@ Initial release. This is a Rust port of [RecastNavigation][recast-cpp].
 - Detail mesh generation (`PolyMeshDetail`)
 - Configurable build parameters (`RecastConfig`)
 - Context for logging and timing (`RecastContext`)
-- Optional parallel processing via `parallel` feature
 
 #### detour
 

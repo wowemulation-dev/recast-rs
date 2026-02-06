@@ -26,10 +26,6 @@ This is a Rust port of the Recast component from [RecastNavigation][recast-cpp].
 - **Polygon Mesh**: Generate navigation polygon meshes
 - **Detail Mesh**: Create detailed height meshes for accurate positioning
 
-## Optional Features
-
-- `parallel` - Multi-threaded mesh generation using Rayon (not WASM-compatible)
-
 ## WASM Support
 
 This crate is fully compatible with WebAssembly. Build for WASM with:
@@ -38,8 +34,7 @@ This crate is fully compatible with WebAssembly. Build for WASM with:
 cargo build --target wasm32-unknown-unknown -p recast
 ```
 
-Note: The `parallel` feature is not available on WASM. Timing uses `web-time`
-for cross-platform compatibility.
+Timing uses `web-time` for cross-platform compatibility.
 
 ## Example
 

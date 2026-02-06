@@ -29,7 +29,7 @@ What actually happened.
 - OS: [e.g., Ubuntu 22.04, Windows 11, macOS 14]
 - Rust version: [e.g., 1.92.0]
 - recast-rs version: [e.g., 0.1.0]
-- Feature flags enabled: [e.g., parallel, serialization]
+- Feature flags enabled: [e.g., serialization, tokio]
 
 ## Minimal Reproduction
 

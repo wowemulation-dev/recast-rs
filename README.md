@@ -119,7 +119,6 @@ cargo build --release
 ### Feature Flags
 
 - `serialization` - Save/load navigation meshes
-- `parallel` - Multi-threaded mesh generation (not WASM-compatible)
 - `tokio` - Tokio runtime integration for `detour-dynamic` (not WASM-compatible)
 
 ### Platform Support
@@ -147,7 +146,6 @@ cargo build --target wasm32-unknown-unknown -p recast -p detour
 | Dynamic obstacles | Yes | Yes | Full support |
 | Async operations | Yes | Yes | Runtime-agnostic via `async-lock` |
 | File I/O | Yes | No | Use `std` feature to disable |
-| Parallel processing | Yes | No | Disable `parallel` feature |
 | Serialization | Yes | Yes | In-memory only on WASM |
 
 ### WASM Usage Notes

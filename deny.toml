@@ -30,7 +30,6 @@ allow = [
     "Apache-2.0",
     "Unicode-3.0",
     "Unlicense",
-    "Zlib",
 ]
 confidence-threshold = 0.8
 
@@ -52,7 +51,10 @@ external-default-features = "allow"
 # Banned crates
 deny = []
 
-skip = []
+# socket2 0.6.2 still depends on windows-sys 0.60 while rest of tree uses 0.61
+skip = [
+    { crate = "windows-sys@0.60", reason = "transitive dep via socket2; awaiting upstream update" },
+]
 skip-tree = []
 
 # Source restrictions

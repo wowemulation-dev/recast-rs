@@ -15,8 +15,6 @@ recast-common = { workspace = true }
 glam = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
-rayon = { workspace = true, optional = true }
-bytemuck = { workspace = true }
 web-time = { workspace = true }
 
 [dev-dependencies]
@@ -24,7 +22,6 @@ assert_approx_eq = { workspace = true }
 
 [features]
 default = []
-parallel = ["rayon"]
 
 [lints]
 workspace = true
