@@ -65,6 +65,9 @@ assert_approx_eq = "1.1"
 tempfile = "3.24"
 fastrand = "2.3"
 
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
 [profile.release]
 lto = true
 codegen-units = 1

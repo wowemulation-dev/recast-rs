@@ -19,6 +19,11 @@ web-time = { workspace = true }
 
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "generation"
+harness = false
 
 [features]
 default = []
