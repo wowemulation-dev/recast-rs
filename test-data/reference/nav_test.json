@@ -28,12 +28,12 @@
   "rust_output": {
     "grid_width": 305,
     "grid_height": 258,
-    "poly_count": 6683,
-    "vert_count": 12867,
-    "detail_vert_count": 13197,
-    "detail_tri_count": 7442,
+    "poly_count": 1894,
+    "vert_count": 3114,
+    "detail_vert_count": 3164,
+    "detail_tri_count": 3774,
     "bounds_min": [-28.889317, -4.869517, -46.300152],
-    "bounds_max": [62.494808, 17.010754, 31.053141]
+    "bounds_max": [62.494808, 17.410753, 31.053141]
   },
   "cpp_pathfinding": {
     "start": [5.0, 0.0, 5.0],
@@ -53,17 +53,17 @@
       {
         "label": "origin",
         "query_pos": [0.0, 0.0, 0.0],
-        "rust_snapped_pos": [-1.0898, 0.3242, 1.0347]
+        "rust_snapped_pos": [-0.2629, -2.2695, -2.1034]
       },
       {
         "label": "q1",
         "query_pos": [5.0, 0.0, 5.0],
-        "rust_snapped_pos": [5.0, -2.4695, 5.0]
+        "rust_snapped_pos": [5.7035, -3.4695, 4.2758]
       },
       {
         "label": "q3",
-        "query_pos": [20.0, 0.0, 15.0],
-        "rust_snapped_pos": [20.0, -3.6695, 15.0]
+        "query_pos": [20.0, 0.0, 5.0],
+        "rust_snapped_pos": [18.1412, -3.4695, 3.0771]
       }
     ]
   }

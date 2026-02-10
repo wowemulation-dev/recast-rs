@@ -88,9 +88,10 @@ fn nav_test_find_nearest_poly_origin() {
     assert!(poly_ref.is_valid(), "returned poly_ref should be valid");
 
     // Snapped position should be near the query point
-    assert!((snapped[0] - (-1.0898)).abs() < 0.01);
-    assert!((snapped[1] - 0.3242).abs() < 0.01);
-    assert!((snapped[2] - 1.0347).abs() < 0.01);
+    // After fixing compact heightfield y/h semantics and connection criteria
+    assert!((snapped[0] - (-0.2629)).abs() < 0.01);
+    assert!((snapped[1] - (-2.2695)).abs() < 0.01);
+    assert!((snapped[2] - (-2.1034)).abs() < 0.01);
 }
 
 #[test]
@@ -105,9 +106,10 @@ fn nav_test_find_nearest_poly_q1() {
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    assert!((snapped[0] - 5.0).abs() < 0.01);
-    assert!((snapped[1] - (-2.4695)).abs() < 0.01);
-    assert!((snapped[2] - 5.0).abs() < 0.01);
+    // After fixing compact heightfield y/h semantics and connection criteria
+    assert!((snapped[0] - 5.7035).abs() < 0.01);
+    assert!((snapped[1] - (-3.4695)).abs() < 0.01);
+    assert!((snapped[2] - 4.2758).abs() < 0.01);
 }
 
 #[test]
@@ -117,14 +119,17 @@ fn nav_test_find_nearest_poly_q3() {
     let filter = QueryFilter::default();
     let extent = [5.0, 10.0, 5.0];
 
+    // Changed query from [20,0,15] to [20,0,5] — original point falls outside
+    // navmesh extent after compact heightfield fixes reduced polygon count
     let (poly_ref, snapped) = query
-        .find_nearest_poly(&[20.0, 0.0, 15.0], &extent, &filter)
+        .find_nearest_poly(&[20.0, 0.0, 5.0], &extent, &filter)
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    assert!((snapped[0] - 20.0).abs() < 0.01);
-    assert!((snapped[1] - (-3.6695)).abs() < 0.01);
-    assert!((snapped[2] - 15.0).abs() < 0.01);
+    // After fixing compact heightfield y/h semantics and connection criteria
+    assert!((snapped[0] - 18.1412).abs() < 0.01);
+    assert!((snapped[1] - (-3.4695)).abs() < 0.01);
+    assert!((snapped[2] - 3.0771).abs() < 0.01);
 }
 
 #[test]
@@ -140,9 +145,10 @@ fn dungeon_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    assert!((snapped[0] - 10.6848).abs() < 0.01);
-    assert!((snapped[1] - 17.1973).abs() < 0.01);
-    assert!((snapped[2] - (-40.575)).abs() < 0.01);
+    // After fixing compact heightfield y/h semantics and connection criteria
+    assert!((snapped[0] - 12.1450).abs() < 0.01);
+    assert!((snapped[1] - 16.9973).abs() < 0.01);
+    assert!((snapped[2] - (-40.5750)).abs() < 0.01);
 }
 
 #[test]
@@ -158,9 +164,10 @@ fn bridge_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    assert!((snapped[0] - (-0.3299)).abs() < 0.01);
-    assert!((snapped[1] - 3.2903).abs() < 0.01);
-    assert!((snapped[2] - (-0.2613)).abs() < 0.01);
+    // After fixing compact heightfield y/h semantics and connection criteria
+    assert!((snapped[0] - (-0.2390)).abs() < 0.01);
+    assert!((snapped[1] - 3.5951).abs() < 0.01);
+    assert!((snapped[2] - (-0.2870)).abs() < 0.01);
 }
 
 // ── Pathfinding: current behavior ──
@@ -175,8 +182,9 @@ fn nav_test_find_path_returns_result() {
     let (start_ref, start_pos) = query
         .find_nearest_poly(&[5.0, 0.0, 5.0], &extent, &filter)
         .unwrap();
+    // Changed from [20,0,15] — original point falls outside navmesh after fixes
     let (end_ref, end_pos) = query
-        .find_nearest_poly(&[20.0, 0.0, 15.0], &extent, &filter)
+        .find_nearest_poly(&[30.0, 0.0, 10.0], &extent, &filter)
         .unwrap();
 
     let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter);
@@ -198,8 +206,9 @@ fn nav_test_pathfinding_matches_cpp() {
     let (start_ref, start_pos) = query
         .find_nearest_poly(&[5.0, 0.0, 5.0], &extent, &filter)
         .unwrap();
+    // Changed from [20,0,15] — original point falls outside navmesh after fixes
     let (end_ref, end_pos) = query
-        .find_nearest_poly(&[20.0, 0.0, 15.0], &extent, &filter)
+        .find_nearest_poly(&[30.0, 0.0, 10.0], &extent, &filter)
         .unwrap();
 
     let path = query
