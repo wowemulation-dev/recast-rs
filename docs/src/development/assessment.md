@@ -151,18 +151,24 @@ need no checks.
 
 ### C-Style API Patterns
 
-**8 functions** use C-style output parameters (`&mut [T]` + `&mut usize`
-count). Most are in private/internal functions mirroring C++ algorithms.
-2 are in public detour APIs.
+**4 public functions** use C-style output parameters (`&mut Vec<T>` or
+`&mut [u8]` as output buffers): `BvhTree::query`, `ConvexVolume::clip_polygon`,
+`NavMesh::store_tile_state`, `NavMeshQuery::move_along_surface`. 4 additional
+private functions use `&mut Vec<T>`. 12 public functions in `detour_common.rs`
+take `&mut [f32; 3]` as output parameters (C++ vector utility translations).
+235 function parameters across the workspace use `&[f32; 3]` where `Vec3`
+would be more idiomatic.
 
-**25 structs** have 5 or more public fields (14 in detour, 11 in recast).
-The most exposed:
+**22 structs** have 5 or more public fields (6 in detour, 5 in recast,
+7 in detour-crowd, 2 in detour-tilecache, 1 in detour-dynamic, 0 in
+recast-common). The most exposed:
 
-- `NavMeshCreateParams`: 27 public fields
-- `RecastConfig`: 17 public fields
-- `PolyMesh`: 17 public fields (4 are redundant "legacy" duplicates)
-- `TileHeader`: 16 public fields
-- `CompactHeightfield`: 16 public fields
+- `DynamicNavMeshConfig`: 26 public fields
+- `NavMeshCreateParams`: 25 public fields
+- `RecastConfig`: 18 public fields
+- `PolyMesh`: 18 public fields (4 are redundant "legacy" duplicates)
+- `TileHeader`: 15 public fields
+- `CompactHeightfield`: 15 public fields
 
 ### Missing Infrastructure
 
@@ -181,7 +187,7 @@ The most exposed:
 | Dimension | Score | Notes |
 |-----------|-------|-------|
 | Algorithm completeness | 9/10 | Full port + detour-dynamic extension |
-| API idiomaticness | 4/10 | Mechanical C++ translation, 8 C-style functions, 25 over-exposed structs |
+| API idiomaticness | 4/10 | Mechanical C++ translation, 4 public C-style functions + 12 vector utilities, 22 over-exposed structs |
 | Error handling | 5/10 | 45 non-test unwraps (not ~180); string-based errors with 242 `.to_string()` conversions |
 | Documentation | 3/10 | READMEs and mdbook, no examples or demos |
 | Testing | 6/10 | 421 tests, but no fixtures or reference validation |

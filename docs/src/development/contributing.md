@@ -12,20 +12,25 @@
 - Avoid `unwrap()` and `expect()` in new library code
 - Return `Result<T, E>` from fallible functions
 - Use `thiserror` for custom error types
+- Each crate defines its own error type (not a shared workspace `Error`)
+- Use structured variants with typed fields, not `String` payloads
 - Existing `unwrap()`/`expect()` calls are a port artifact to be reduced
 
 ```rust,ignore
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum RecastError {
-    #[error("Heightfield build failed: {0}")]
-    HeightfieldBuild(String),
+pub enum BuildError {
+    #[error("too many vertices: {count} (max: {max})")]
+    TooManyVertices { count: usize, max: usize },
 
-    #[error("Invalid configuration: {0}")]
-    InvalidConfig(String),
+    #[error("span position out of bounds: ({x}, {y})")]
+    SpanOutOfBounds { x: i32, y: i32 },
 }
 ```
+
+See the [Resolution Roadmap](roadmap.md) section 1.2 for the planned
+per-crate error type definitions.
 
 ## Memory Management
 
@@ -81,6 +86,12 @@ refactor(detour-crowd): split crowd update into phases
 docs: add mdbook documentation site
 chore(deps): upgrade glam to 0.31
 ```
+
+## What to Work On
+
+The [Resolution Roadmap](roadmap.md) lists all known issues ordered by
+priority. Phase 1 (library safety) must be completed before crates.io
+publication. Each item includes specific files, counts, and code examples.
 
 ## Algorithm Translation from C++
 
