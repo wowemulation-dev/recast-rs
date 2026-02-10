@@ -5,8 +5,8 @@
 
 use std::f32;
 
-use detour::{NavMeshQuery, PolyRef, QueryFilter, Status};
-use recast_common::{Error, Result};
+use crate::error::CrowdError;
+use detour::{NavMeshQuery, PolyRef, QueryFilter};
 
 /// Maximum number of polygons in a path corridor
 #[allow(dead_code)]
@@ -64,31 +64,32 @@ impl PathCorridor {
         target_ref: PolyRef,
         target: [f32; 3],
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         // Validate input
         if self.path.is_empty() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(CrowdError::CorridorFailed);
         }
 
         if !target_ref.is_valid() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
 
         // Make sure start polygon is still valid
         if !query.nav_mesh().is_valid_poly_ref(self.path[0]) {
             self.path.clear();
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(CrowdError::CorridorFailed);
         }
 
         // Connect with straight line path
         let mut new_path = Vec::new();
         query
             .find_path(self.path[0], target_ref, &self.pos, &target, filter)
-            .map(|path| new_path = path)?;
+            .map(|path| new_path = path)
+            .map_err(|_| CrowdError::CorridorFailed)?;
 
         // If path is empty, just return an error
         if new_path.is_empty() {
-            return Err(Error::Detour(Status::PathInvalid.to_string()));
+            return Err(CrowdError::CorridorFailed);
         }
 
         // Set the path and target
@@ -99,7 +100,11 @@ impl PathCorridor {
     }
 
     /// Optimizes the path using a funnel algorithm
-    pub fn optimize_path(&mut self, query: &mut NavMeshQuery, filter: &QueryFilter) -> Result<()> {
+    pub fn optimize_path(
+        &mut self,
+        query: &mut NavMeshQuery,
+        filter: &QueryFilter,
+    ) -> Result<(), CrowdError> {
         if self.path.len() <= 2 {
             return Ok(());
         }
@@ -118,13 +123,15 @@ impl PathCorridor {
             let mut furthest_idx = current_idx + 1;
 
             for i in current_idx + 2..self.path.len() {
-                let _result = query.move_along_surface(
-                    self.path[current_idx],
-                    &self.pos,
-                    &self.target,
-                    filter,
-                    &mut visited,
-                )?;
+                let _result = query
+                    .move_along_surface(
+                        self.path[current_idx],
+                        &self.pos,
+                        &self.target,
+                        filter,
+                        &mut visited,
+                    )
+                    .map_err(|_| CrowdError::CorridorFailed)?;
 
                 // If we can reach the target directly, we're done
                 if visited.contains(&self.path[i]) {
@@ -153,15 +160,16 @@ impl PathCorridor {
         new_pos: [f32; 3],
         query: &mut NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         if self.path.is_empty() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(CrowdError::CorridorFailed);
         }
 
         // Check if the new position is still within the first polygon
         let (closest, inside) = query
             .nav_mesh()
-            .closest_point_on_poly(self.path[0], &new_pos)?;
+            .closest_point_on_poly(self.path[0], &new_pos)
+            .map_err(|_| CrowdError::CorridorFailed)?;
 
         if inside {
             // We're still in the first polygon, use the closest position which has the correct height
@@ -171,8 +179,9 @@ impl PathCorridor {
 
         // Find the new position by moving along the surface
         let mut visited = Vec::new();
-        let result =
-            query.move_along_surface(self.path[0], &self.pos, &new_pos, filter, &mut visited)?;
+        let result = query
+            .move_along_surface(self.path[0], &self.pos, &new_pos, filter, &mut visited)
+            .map_err(|_| CrowdError::CorridorFailed)?;
 
         // Update the position
         self.pos = result;
@@ -202,7 +211,7 @@ impl PathCorridor {
 
         // Make sure the path is still valid
         if self.path.is_empty() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(CrowdError::CorridorFailed);
         }
 
         Ok(())
@@ -214,7 +223,7 @@ impl PathCorridor {
         new_pos: [f32; 3],
         query: &mut NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<bool> {
+    ) -> Result<bool, CrowdError> {
         if self.path.is_empty() {
             return Ok(false);
         }
@@ -239,13 +248,9 @@ impl PathCorridor {
         for i in 1..self.path.len() {
             // Try to move along the surface to each polygon
             let mut visited = Vec::new();
-            let _result = query.move_along_surface(
-                self.path[0],
-                &self.pos,
-                &self.target,
-                filter,
-                &mut visited,
-            )?;
+            let _result = query
+                .move_along_surface(self.path[0], &self.pos, &self.target, filter, &mut visited)
+                .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the polygon
             if visited.contains(&self.path[i]) {
@@ -281,9 +286,9 @@ impl PathCorridor {
         new_pos: [f32; 3],
         query: &mut NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         if self.path.is_empty() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(CrowdError::CorridorFailed);
         }
 
         // Check if we can discard any polygons
@@ -292,13 +297,9 @@ impl PathCorridor {
         for i in self.path.len() - 1..0 {
             // Check if we can reach the target from this polygon
             let mut visited = Vec::new();
-            let _result = query.move_along_surface(
-                self.path[i],
-                &new_pos,
-                &self.target,
-                filter,
-                &mut visited,
-            )?;
+            let _result = query
+                .move_along_surface(self.path[i], &new_pos, &self.target, filter, &mut visited)
+                .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the end polygon
             if visited.contains(&self.path[self.path.len() - 1]) {
@@ -345,7 +346,7 @@ impl PathCorridor {
         max_corners: usize,
         navquery: &NavMeshQuery,
         _filter: &QueryFilter,
-    ) -> Result<usize> {
+    ) -> Result<usize, CrowdError> {
         if self.path.is_empty() {
             return Ok(0);
         }
@@ -355,7 +356,9 @@ impl PathCorridor {
         corner_polys.clear();
 
         // Use the straight path functionality to find corners
-        let straight_path = navquery.find_straight_path(&self.pos, &self.target, &self.path)?;
+        let straight_path = navquery
+            .find_straight_path(&self.pos, &self.target, &self.path)
+            .map_err(|_| CrowdError::CorridorFailed)?;
 
         let corner_count = straight_path.waypoints.len().min(max_corners);
 
@@ -379,7 +382,7 @@ impl PathCorridor {
         path_optimization_range: f32,
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         if self.path.len() < 3 {
             return Ok(());
         }
@@ -419,7 +422,7 @@ impl PathCorridor {
         &mut self,
         navquery: &mut NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<bool> {
+    ) -> Result<bool, CrowdError> {
         if self.path.len() < 5 {
             return Ok(false);
         }
@@ -440,7 +443,9 @@ impl PathCorridor {
         let end_pos = self.target;
 
         // Try to find a direct path
-        let new_path = navquery.find_path(start_ref, end_ref, &start_pos, &end_pos, filter)?;
+        let new_path = navquery
+            .find_path(start_ref, end_ref, &start_pos, &end_pos, filter)
+            .map_err(|_| CrowdError::CorridorFailed)?;
 
         if new_path.len() < (end_idx - start_idx + 1) {
             // The new path is shorter, use it
@@ -459,7 +464,7 @@ impl PathCorridor {
         start_pos: &mut [f32; 3],
         end_pos: &mut [f32; 3],
         _navquery: &NavMeshQuery,
-    ) -> Result<bool> {
+    ) -> Result<bool, CrowdError> {
         if !offmesh_con_ref.is_valid() || self.path.is_empty() {
             return Ok(false);
         }
@@ -504,7 +509,11 @@ impl PathCorridor {
     }
 
     /// Fixes the path start position
-    pub fn fix_path_start(&mut self, safe_ref: PolyRef, safe_pos: &[f32; 3]) -> Result<bool> {
+    pub fn fix_path_start(
+        &mut self,
+        safe_ref: PolyRef,
+        safe_pos: &[f32; 3],
+    ) -> Result<bool, CrowdError> {
         if !safe_ref.is_valid() {
             return Ok(false);
         }
@@ -526,7 +535,7 @@ impl PathCorridor {
         safe_pos: &[f32; 3],
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<bool> {
+    ) -> Result<bool, CrowdError> {
         // Find the first invalid polygon
         let mut first_invalid = None;
         for (i, &poly_ref) in self.path.iter().enumerate() {
@@ -567,7 +576,7 @@ impl PathCorridor {
         max_look_ahead: usize,
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<bool> {
+    ) -> Result<bool, CrowdError> {
         let check_count = self.path.len().min(max_look_ahead);
 
         for i in 0..check_count {
@@ -597,15 +606,16 @@ impl PathCorridor {
         npos: &[f32; 3],
         navquery: &mut NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<bool> {
+    ) -> Result<bool, CrowdError> {
         if self.path.is_empty() {
             return Ok(false);
         }
 
         // Find the nearest polygon to the new target position
         let half_extents = [2.0, 4.0, 2.0];
-        let (nearest_ref, nearest_point) =
-            navquery.find_nearest_poly(npos, &half_extents, filter)?;
+        let (nearest_ref, nearest_point) = navquery
+            .find_nearest_poly(npos, &half_extents, filter)
+            .map_err(|_| CrowdError::CorridorFailed)?;
 
         if !nearest_ref.is_valid() {
             return Ok(false);
@@ -617,8 +627,9 @@ impl PathCorridor {
         let last_poly = self.path[self.path.len() - 1];
         if last_poly != nearest_ref {
             // Try to extend the path to the new target
-            let path_to_target =
-                navquery.find_path(last_poly, nearest_ref, &self.target, npos, filter)?;
+            let path_to_target = navquery
+                .find_path(last_poly, nearest_ref, &self.target, npos, filter)
+                .map_err(|_| CrowdError::CorridorFailed)?;
 
             if !path_to_target.is_empty() {
                 // Remove the last polygon (it's duplicated) and extend

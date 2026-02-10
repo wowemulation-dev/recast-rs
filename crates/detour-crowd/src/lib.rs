@@ -51,6 +51,7 @@
 
 pub mod crowd;
 pub mod crowd_behaviors;
+pub mod error;
 pub mod formation;
 pub mod local_boundary;
 pub mod obstacle_avoidance;
@@ -60,6 +61,7 @@ pub mod rvo;
 
 pub use crowd::*;
 pub use crowd_behaviors::*;
+pub use error::CrowdError;
 pub use formation::*;
 pub use local_boundary::*;
 pub use obstacle_avoidance::*;

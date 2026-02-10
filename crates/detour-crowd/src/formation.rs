@@ -7,8 +7,7 @@
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-use detour::Status;
-use recast_common::{Error, Result};
+use crate::error::CrowdError;
 
 /// Maximum number of agents in a single formation
 const MAX_FORMATION_SIZE: usize = 64;
@@ -169,9 +168,9 @@ impl Formation {
     }
 
     /// Adds an agent to the formation
-    pub fn add_agent(&mut self, agent_id: usize, role: FormationRole) -> Result<()> {
+    pub fn add_agent(&mut self, agent_id: usize, role: FormationRole) -> Result<(), CrowdError> {
         if self.agents.len() >= MAX_FORMATION_SIZE {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
 
         // Calculate relative position based on formation type and agent count
@@ -189,12 +188,12 @@ impl Formation {
     }
 
     /// Removes an agent from the formation
-    pub fn remove_agent(&mut self, agent_id: usize) -> Result<()> {
+    pub fn remove_agent(&mut self, agent_id: usize) -> Result<(), CrowdError> {
         let initial_len = self.agents.len();
         self.agents.retain(|agent| agent.agent_id != agent_id);
 
         if self.agents.len() == initial_len {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::AgentNotFound { index: agent_id });
         }
 
         // If formation is now empty, mark for disbanding
@@ -206,7 +205,11 @@ impl Formation {
     }
 
     /// Calculates the formation position for a new agent
-    fn calculate_formation_position(&self, index: usize, _role: FormationRole) -> Result<[f32; 3]> {
+    fn calculate_formation_position(
+        &self,
+        index: usize,
+        _role: FormationRole,
+    ) -> Result<[f32; 3], CrowdError> {
         let spacing = self.config.agent_spacing;
 
         match self.config.formation_type {
@@ -497,14 +500,14 @@ impl FormationManager {
         formation_id: usize,
         agent_id: usize,
         role: FormationRole,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         // Remove agent from any existing formation first
         self.remove_agent_from_formation(agent_id)?;
 
         let formation = self
             .formations
             .get_mut(&formation_id)
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(CrowdError::InvalidParam)?;
 
         formation.add_agent(agent_id, role)?;
         self.agent_to_formation.insert(agent_id, formation_id);
@@ -513,7 +516,7 @@ impl FormationManager {
     }
 
     /// Removes an agent from their current formation
-    pub fn remove_agent_from_formation(&mut self, agent_id: usize) -> Result<()> {
+    pub fn remove_agent_from_formation(&mut self, agent_id: usize) -> Result<(), CrowdError> {
         if let Some(formation_id) = self.agent_to_formation.remove(&agent_id) {
             if let Some(formation) = self.formations.get_mut(&formation_id) {
                 formation.remove_agent(agent_id)?;
@@ -543,11 +546,15 @@ impl FormationManager {
     }
 
     /// Sets a target for a formation
-    pub fn set_formation_target(&mut self, formation_id: usize, target: [f32; 3]) -> Result<()> {
+    pub fn set_formation_target(
+        &mut self,
+        formation_id: usize,
+        target: [f32; 3],
+    ) -> Result<(), CrowdError> {
         let formation = self
             .formations
             .get_mut(&formation_id)
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(CrowdError::InvalidParam)?;
 
         formation.set_target(target);
         Ok(())
@@ -602,11 +609,11 @@ impl FormationManager {
     }
 
     /// Dissolves a formation (removes all agents and deletes formation)
-    pub fn dissolve_formation(&mut self, formation_id: usize) -> Result<()> {
+    pub fn dissolve_formation(&mut self, formation_id: usize) -> Result<(), CrowdError> {
         let formation = self
             .formations
             .remove(&formation_id)
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(CrowdError::InvalidParam)?;
 
         // Remove agent mappings
         for agent in formation.agents {

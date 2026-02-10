@@ -6,8 +6,8 @@
 use std::collections::HashMap;
 
 use super::CrowdAgent;
-use detour::{NavMesh, Status};
-use recast_common::{Error, Result};
+use crate::error::CrowdError;
+use detour::NavMesh;
 
 /// Maximum number of behavior nodes per tree
 const MAX_BEHAVIOR_NODES: usize = 128;
@@ -173,9 +173,9 @@ impl BehaviorTree {
     }
 
     /// Adds a node to the tree and returns its index
-    pub fn add_node(&mut self, node: BehaviorNode) -> Result<usize> {
+    pub fn add_node(&mut self, node: BehaviorNode) -> Result<usize, CrowdError> {
         if self.nodes.len() >= MAX_BEHAVIOR_NODES {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
 
         let index = self.nodes.len();
@@ -184,9 +184,9 @@ impl BehaviorTree {
     }
 
     /// Sets the root node
-    pub fn set_root(&mut self, index: usize) -> Result<()> {
+    pub fn set_root(&mut self, index: usize) -> Result<(), CrowdError> {
         if index >= self.nodes.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
         self.root = index;
         Ok(())
@@ -778,7 +778,7 @@ impl CrowdBehaviorManager {
         dt: f32,
         current_time: f32,
         nav_mesh: &NavMesh,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         let agent_health = HashMap::new(); // Placeholder
 
         // Process each type of behavior separately to avoid borrowing conflicts
@@ -811,7 +811,7 @@ impl CrowdBehaviorManager {
         current_time: f32,
         nav_mesh: &NavMesh,
         agent_health: &HashMap<usize, f32>,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         // For now, simplified implementation without full context to avoid borrowing issues
         let agent_ids: Vec<usize> = self.behavior_trees.keys().copied().collect();
 
@@ -844,7 +844,7 @@ impl CrowdBehaviorManager {
         current_time: f32,
         nav_mesh: &NavMesh,
         agent_health: &HashMap<usize, f32>,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         let agent_ids: Vec<usize> = self.steering_behaviors.keys().copied().collect();
 
         for agent_id in agent_ids {
@@ -877,7 +877,7 @@ impl CrowdBehaviorManager {
         current_time: f32,
         nav_mesh: &NavMesh,
         agent_health: &HashMap<usize, f32>,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         let agent_ids: Vec<usize> = self.group_behaviors.keys().copied().collect();
 
         for agent_id in agent_ids {
@@ -1260,7 +1260,7 @@ impl CrowdBehaviorManager {
         &mut self,
         agents: &mut HashMap<usize, CrowdAgent>,
         context: &BehaviorContext,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         for (trigger, behavior_tree) in &mut self.triggers {
             if let BehaviorTrigger::ProximityTrigger { position, radius } = trigger {
                 for (_agent_id, agent) in agents.iter_mut() {
@@ -1305,7 +1305,7 @@ fn calculate_distance(a: &[f32; 3], b: &[f32; 3]) -> f32 {
 }
 
 /// Creates a simple seek behavior tree
-pub fn create_seek_behavior_tree(target: [f32; 3]) -> Result<BehaviorTree> {
+pub fn create_seek_behavior_tree(target: [f32; 3]) -> Result<BehaviorTree, CrowdError> {
     let mut tree = BehaviorTree::new();
 
     let action = ActionNode {
@@ -1321,7 +1321,7 @@ pub fn create_seek_behavior_tree(target: [f32; 3]) -> Result<BehaviorTree> {
 }
 
 /// Creates a simple patrol behavior tree
-pub fn create_patrol_behavior_tree(waypoints: Vec<[f32; 3]>) -> Result<BehaviorTree> {
+pub fn create_patrol_behavior_tree(waypoints: Vec<[f32; 3]>) -> Result<BehaviorTree, CrowdError> {
     let mut tree = BehaviorTree::new();
 
     let mut sequence_children = Vec::new();

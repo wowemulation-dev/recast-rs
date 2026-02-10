@@ -11,8 +11,8 @@ use super::proximity_grid::{GridAgent, ProximityGrid};
 use super::rvo::{
     RVOConfig, RVOSimulator, position_3d_to_2d, velocity_2d_to_3d, velocity_3d_to_2d,
 };
-use detour::{NavMesh, NavMeshQuery, PolyRef, QueryFilter, Status};
-use recast_common::{Error, Result};
+use crate::error::CrowdError;
+use detour::{NavMesh, NavMeshQuery, PolyRef, QueryFilter};
 
 /// Maximum number of agents in a crowd
 #[allow(dead_code)]
@@ -331,7 +331,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Adds an agent to the crowd
-    pub fn add_agent(&mut self, pos: [f32; 3], params: AgentParams) -> Result<usize> {
+    pub fn add_agent(&mut self, pos: [f32; 3], params: AgentParams) -> Result<usize, CrowdError> {
         // Find a free slot
         let mut slot = usize::MAX;
         for i in 0..self.max_agents {
@@ -342,7 +342,7 @@ impl<'a> Crowd<'a> {
         }
 
         if slot == usize::MAX {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
 
         // Find nearest polygon to position
@@ -360,7 +360,7 @@ impl<'a> Crowd<'a> {
                 let ext = [params.radius * 3.0, params.height, params.radius * 3.0];
                 match self.query.find_nearest_poly(&pos, &ext, filter) {
                     Ok((reference, position)) => (reference, position),
-                    Err(_) => return Err(Error::Detour(Status::InvalidParam.to_string())),
+                    Err(_) => return Err(CrowdError::InvalidParam),
                 }
             }
         };
@@ -411,13 +411,13 @@ impl<'a> Crowd<'a> {
     }
 
     /// Removes an agent from the crowd
-    pub fn remove_agent(&mut self, agent_idx: usize) -> Result<()> {
+    pub fn remove_agent(&mut self, agent_idx: usize) -> Result<(), CrowdError> {
         if agent_idx >= self.max_agents {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::AgentNotFound { index: agent_idx });
         }
 
         if self.agents[agent_idx].is_none() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::AgentNotFound { index: agent_idx });
         }
 
         // Handle RVO agent removal
@@ -459,14 +459,16 @@ impl<'a> Crowd<'a> {
         agent_idx: usize,
         target_ref: PolyRef,
         target_pos: [f32; 3],
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         if agent_idx >= self.max_agents {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::AgentNotFound { index: agent_idx });
         }
 
         let agent = match self.agents[agent_idx].as_mut() {
             Some(agent) => agent,
-            None => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            None => {
+                return Err(CrowdError::AgentNotFound { index: agent_idx });
+            }
         };
 
         // Initialize request
@@ -484,7 +486,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Updates all agents in the crowd
-    pub fn update(&mut self, delta_time: f32) -> Result<()> {
+    pub fn update(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         self.delta_time = delta_time;
 
         // Reset dynamic avoidance grid
@@ -609,7 +611,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Calculates steering for all active agents
-    fn calculate_steering(&mut self) -> Result<()> {
+    fn calculate_steering(&mut self) -> Result<(), CrowdError> {
         // Collect agent data first to avoid borrow checker issues
         let active_agents = self.active_agents.clone();
 
@@ -709,7 +711,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Calculates velocity for all active agents
-    fn calculate_velocity(&mut self, delta_time: f32) -> Result<()> {
+    fn calculate_velocity(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         // Do collision avoidance between agents
         self.perform_collision_avoidance(delta_time)?;
 
@@ -749,7 +751,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Moves all active agents
-    fn move_agents(&mut self, delta_time: f32) -> Result<()> {
+    fn move_agents(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         for &agent_idx in &self.active_agents {
             let agent = match self.agents[agent_idx].as_mut() {
                 Some(agent) => agent,
@@ -815,7 +817,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Performs collision avoidance between agents
-    fn perform_collision_avoidance(&mut self, delta_time: f32) -> Result<()> {
+    fn perform_collision_avoidance(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         // Check if we should use RVO for collision avoidance
         let use_rvo = self.rvo_simulator.is_some() && self.has_rvo_agents();
 
@@ -840,7 +842,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Performs RVO-based collision avoidance
-    fn perform_rvo_collision_avoidance(&mut self, delta_time: f32) -> Result<()> {
+    fn perform_rvo_collision_avoidance(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         // Synchronize crowd agents with RVO agents
         for &agent_idx in &self.active_agents {
             if let Some(agent) = &mut self.agents[agent_idx] {
@@ -889,7 +891,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Performs basic collision avoidance using proximity grid for efficiency
-    fn perform_basic_collision_avoidance(&mut self) -> Result<()> {
+    fn perform_basic_collision_avoidance(&mut self) -> Result<(), CrowdError> {
         // Skip if there are too few agents
         if self.active_agents.len() <= 1 {
             return Ok(());
@@ -1024,9 +1026,9 @@ impl<'a> Crowd<'a> {
     }
 
     /// Gets a query filter by index
-    fn get_filter(&self, idx: usize) -> Result<&QueryFilter> {
+    fn get_filter(&self, idx: usize) -> Result<&QueryFilter, CrowdError> {
         if idx >= self.filters.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
 
         Ok(&self.filters[idx])
@@ -1068,9 +1070,9 @@ impl<'a> Crowd<'a> {
     }
 
     /// Gets a query filter by index (mutable)
-    pub fn get_filter_mut(&mut self, idx: usize) -> Result<&mut QueryFilter> {
+    pub fn get_filter_mut(&mut self, idx: usize) -> Result<&mut QueryFilter, CrowdError> {
         if idx >= self.filters.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::InvalidParam);
         }
 
         Ok(&mut self.filters[idx])
@@ -1119,16 +1121,16 @@ impl<'a> Crowd<'a> {
         formation_id: usize,
         agent_id: usize,
         role: FormationRole,
-    ) -> Result<()> {
+    ) -> Result<(), CrowdError> {
         if agent_id >= self.max_agents || self.agents[agent_id].is_none() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(CrowdError::AgentNotFound { index: agent_id });
         }
         self.formation_manager
             .add_agent_to_formation(formation_id, agent_id, role)
     }
 
     /// Removes an agent from their current formation
-    pub fn remove_agent_from_formation(&mut self, agent_id: usize) -> Result<()> {
+    pub fn remove_agent_from_formation(&mut self, agent_id: usize) -> Result<(), CrowdError> {
         self.formation_manager.remove_agent_from_formation(agent_id)
     }
 
@@ -1138,7 +1140,11 @@ impl<'a> Crowd<'a> {
     }
 
     /// Sets a target destination for a formation
-    pub fn set_formation_target(&mut self, formation_id: usize, target: [f32; 3]) -> Result<()> {
+    pub fn set_formation_target(
+        &mut self,
+        formation_id: usize,
+        target: [f32; 3],
+    ) -> Result<(), CrowdError> {
         self.formation_manager
             .set_formation_target(formation_id, target)
     }
@@ -1154,7 +1160,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Dissolves a formation, removing all agents from it
-    pub fn dissolve_formation(&mut self, formation_id: usize) -> Result<()> {
+    pub fn dissolve_formation(&mut self, formation_id: usize) -> Result<(), CrowdError> {
         self.formation_manager.dissolve_formation(formation_id)
     }
 
@@ -1164,7 +1170,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Updates formations and applies formation steering
-    fn update_formations(&mut self, delta_time: f32) -> Result<()> {
+    fn update_formations(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         // Collect current agent positions
         let mut agent_positions = std::collections::HashMap::new();
         for (idx, agent_opt) in self.agents.iter().enumerate() {
@@ -1182,7 +1188,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Updates all agent positions in the proximity grid
-    fn update_proximity_grid(&mut self) -> Result<()> {
+    fn update_proximity_grid(&mut self) -> Result<(), CrowdError> {
         for &agent_idx in &self.active_agents {
             if let Some(agent) = &self.agents[agent_idx] {
                 if agent.state == AgentState::Active {

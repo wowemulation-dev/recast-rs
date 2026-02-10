@@ -11,8 +11,9 @@ mod tests {
     use detour::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
-    use recast_common::Result;
     use std::mem;
+
+    type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
     /// Helper to create a simple square navmesh for crowd testing
     fn create_test_navmesh(size: f32) -> Result<NavMesh> {

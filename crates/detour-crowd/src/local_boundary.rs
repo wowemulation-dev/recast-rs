@@ -1,5 +1,5 @@
+use crate::error::CrowdError;
 use detour::{NavMeshQuery, PolyRef, QueryFilter};
-use recast_common::Error;
 
 const MAX_LOCAL_SEGS: usize = 8;
 const MAX_LOCAL_POLYS: usize = 16;
@@ -52,7 +52,7 @@ impl DtLocalBoundary {
         collision_query_range: f32,
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
-    ) -> Result<(), Error> {
+    ) -> Result<(), CrowdError> {
         if !poly_ref.is_valid() {
             return Ok(());
         }
@@ -114,7 +114,11 @@ impl DtLocalBoundary {
         Ok(())
     }
 
-    pub fn is_valid(&self, navquery: &NavMeshQuery, filter: &QueryFilter) -> Result<bool, Error> {
+    pub fn is_valid(
+        &self,
+        navquery: &NavMeshQuery,
+        filter: &QueryFilter,
+    ) -> Result<bool, CrowdError> {
         if self.n_polys == 0 {
             return Ok(false);
         }
@@ -193,7 +197,7 @@ impl DtLocalBoundary {
         edge_idx: usize,
         _nearby_polys: &[PolyRef],
         _navquery: &NavMeshQuery,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, CrowdError> {
         // Get the neighbor link for this edge
         if edge_idx >= poly.vert_count as usize {
             return Ok(true); // Invalid edge index, treat as boundary

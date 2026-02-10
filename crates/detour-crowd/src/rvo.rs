@@ -4,7 +4,7 @@
 //! between agents in a crowd. RVO ensures that agents can smoothly avoid
 //! collisions with each other while maintaining their desired motion.
 
-use recast_common::Result;
+use crate::error::CrowdError;
 
 /// Configuration parameters for RVO
 #[derive(Debug, Clone)]
@@ -146,11 +146,13 @@ impl RVOSimulator {
     }
 
     /// Sets the preferred velocity for an agent
-    pub fn set_agent_pref_velocity(&mut self, agent_id: usize, pref_vel: [f32; 2]) -> Result<()> {
+    pub fn set_agent_pref_velocity(
+        &mut self,
+        agent_id: usize,
+        pref_vel: [f32; 2],
+    ) -> Result<(), CrowdError> {
         if agent_id >= self.agents.len() {
-            return Err(recast_common::Error::InvalidMesh(
-                "Invalid agent ID".to_string(),
-            ));
+            return Err(CrowdError::Rvo("invalid agent ID"));
         }
         self.agents[agent_id].set_pref_velocity(pref_vel);
         Ok(())
@@ -172,7 +174,7 @@ impl RVOSimulator {
     }
 
     /// Performs one simulation step
-    pub fn step(&mut self, dt: f32) -> Result<()> {
+    pub fn step(&mut self, dt: f32) -> Result<(), CrowdError> {
         // Clear ORCA lines for all agents
         for agent in &mut self.agents {
             agent.orca_lines.clear();
@@ -197,7 +199,7 @@ impl RVOSimulator {
     }
 
     /// Computes ORCA lines for a specific agent
-    fn compute_orca_lines(&mut self, agent_idx: usize) -> Result<()> {
+    fn compute_orca_lines(&mut self, agent_idx: usize) -> Result<(), CrowdError> {
         let agent = &self.agents[agent_idx];
         let agent_pos = agent.position;
         let agent_vel = agent.velocity;
@@ -385,11 +387,9 @@ impl RVOSimulator {
     }
 
     /// Removes an agent from the simulation
-    pub fn remove_agent(&mut self, agent_id: usize) -> Result<()> {
+    pub fn remove_agent(&mut self, agent_id: usize) -> Result<(), CrowdError> {
         if agent_id >= self.agents.len() {
-            return Err(recast_common::Error::InvalidMesh(
-                "Invalid agent ID".to_string(),
-            ));
+            return Err(CrowdError::Rvo("invalid agent ID"));
         }
 
         self.agents.remove(agent_id);

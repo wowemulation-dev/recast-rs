@@ -1,4 +1,4 @@
-use recast_common::Error;
+use crate::error::CrowdError;
 use std::f32;
 
 pub const DT_MAX_PATTERN_DIVS: usize = 32;
@@ -301,7 +301,7 @@ impl DtObstacleAvoidanceQuery {
         nvel: &mut [f32; 3],
         params: &DtObstacleAvoidanceParams,
         mut debug: Option<&mut DtObstacleAvoidanceDebugData>,
-    ) -> Result<usize, Error> {
+    ) -> Result<usize, CrowdError> {
         self.prepare(pos, dvel);
         self.params = *params;
         self.inv_horiz_time = 1.0 / params.horiz_time;
@@ -364,7 +364,7 @@ impl DtObstacleAvoidanceQuery {
         nvel: &mut [f32; 3],
         params: &DtObstacleAvoidanceParams,
         mut debug: Option<&mut DtObstacleAvoidanceDebugData>,
-    ) -> Result<usize, Error> {
+    ) -> Result<usize, CrowdError> {
         self.prepare(pos, dvel);
         self.params = *params;
         self.inv_horiz_time = 1.0 / params.horiz_time;

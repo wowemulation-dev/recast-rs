@@ -39,7 +39,7 @@ Execution order (bottom-up):
 - [x] `recast-common` -- Replace catch-all `Error` with `MeshError`
 - [x] `recast` -- Add `ConfigError`, `BuildError`, `ConvexVolumeError` (58 error sites)
 - [x] `detour` -- Add `DetourError`, promote `Status` to error type (242 sites)
-- [ ] `detour-crowd` -- Add `CrowdError` (2 `InvalidMesh` + `InvalidParam` calls)
+- [x] `detour-crowd` -- Add `CrowdError` (2 `InvalidMesh` + `InvalidParam` calls)
 - [ ] `detour-tilecache` -- Add `TileCacheError` (13 `unwrap` + 2 `InvalidMesh`)
 - [ ] `detour-dynamic` -- Add `DynamicError` (4 span parsing + 2 job queue errors)
 - [ ] Delete old `Error` enum from `recast-common`, update `recast-cli` to use `anyhow`
