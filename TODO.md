@@ -82,10 +82,10 @@ roadmap section 2.2 for reference data format and integration test design.
 No performance data. Use `criterion` with meshes from `test-data/meshes/`.
 See roadmap section 2.3 for benchmark specifications.
 
-- [ ] `recast/benches/generation.rs` -- build_mesh for bridge (30 tri), nav_test (3,400 tri), dungeon (6,400 tri)
-- [ ] `detour/benches/pathfinding.rs` -- find_path (short/medium/long), find_straight_path, sliced
-- [ ] `detour/benches/spatial_queries.rs` -- find_nearest_poly, raycast, find_distance_to_wall, move_along_surface
-- [ ] `detour-crowd/benches/crowd_update.rs` -- crowd.update with 10/50/100 agents, with/without RVO
+- [x] `recast/benches/generation.rs` -- build_mesh for bridge (30 tri), nav_test (3,400 tri), dungeon (6,400 tri)
+- [x] `detour/benches/pathfinding.rs` -- find_path (short/medium/long), find_straight_path, sliced
+- [x] `detour/benches/spatial_queries.rs` -- find_nearest_poly, raycast, find_distance_to_wall, move_along_surface
+- [x] `detour-crowd/benches/crowd_update.rs` -- crowd.update with 10/50/100 agents, with/without RVO
 
 ### 2.4 Publish to crates.io
 

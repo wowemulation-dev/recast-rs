@@ -21,6 +21,12 @@ bitflags = { workspace = true }
 
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
+criterion = { workspace = true }
+recast = { workspace = true }
+
+[[bench]]
+name = "crowd_update"
+harness = false
 
 [features]
 default = []
