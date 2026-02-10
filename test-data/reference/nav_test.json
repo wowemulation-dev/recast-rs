@@ -18,7 +18,14 @@
     "vertex_count": 884,
     "triangle_count": 1612
   },
-  "output": {
+  "cpp_output": {
+    "grid_width": 305,
+    "grid_height": 258,
+    "poly_count": 537,
+    "vert_count": 1197,
+    "build_time_ms": 17.5
+  },
+  "rust_output": {
     "grid_width": 305,
     "grid_height": 258,
     "poly_count": 6683,
@@ -28,23 +35,35 @@
     "bounds_min": [-28.889317, -4.869517, -46.300152],
     "bounds_max": [62.494808, 17.010754, 31.053141]
   },
+  "cpp_pathfinding": {
+    "start": [5.0, 0.0, 5.0],
+    "end": [20.0, 0.0, 15.0],
+    "waypoint_count": 5,
+    "waypoints": [
+      [5.0, -2.269517, 5.0],
+      [8.010685, -2.269517, 6.199852],
+      [14.610683, -2.269517, 5.899849],
+      [15.510685, -2.269517, 6.79985],
+      [20.0, -2.269517, 15.0]
+    ]
+  },
   "spatial_queries": {
     "extent": [5.0, 10.0, 5.0],
     "find_nearest_poly": [
       {
         "label": "origin",
         "query_pos": [0.0, 0.0, 0.0],
-        "snapped_pos": [-1.0898, 0.3242, 1.0347]
+        "rust_snapped_pos": [-1.0898, 0.3242, 1.0347]
       },
       {
         "label": "q1",
         "query_pos": [5.0, 0.0, 5.0],
-        "snapped_pos": [5.0, -2.4695, 5.0]
+        "rust_snapped_pos": [5.0, -2.4695, 5.0]
       },
       {
         "label": "q3",
         "query_pos": [20.0, 0.0, 15.0],
-        "snapped_pos": [20.0, -3.6695, 15.0]
+        "rust_snapped_pos": [20.0, -3.6695, 15.0]
       }
     ]
   }
