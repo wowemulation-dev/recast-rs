@@ -69,7 +69,7 @@ fn vsub(dest: &mut [f32; 3], a: &[f32], b: &[f32]) {
 }
 
 /// Erodes walkable area by specified radius
-/// Matches C++ rcErodeWalkableArea exactly
+/// Matches C++ rcErodeWalkableArea - uses con[4] connections directly
 pub fn erode_walkable_area(
     chf: &mut CompactHeightfield,
     erosion_radius: i32,
@@ -78,10 +78,12 @@ pub fn erode_walkable_area(
     let h = chf.height;
     let span_count = chf.spans.len();
 
-    // Allocate distance buffer
-    let mut distance_to_boundary = vec![0xff_u8; span_count];
+    const NOT_CONNECTED: usize = 63; // RC_NOT_CONNECTED
 
-    // Mark boundary cells
+    // Allocate distance buffer
+    let mut dist = vec![0xff_u8; span_count];
+
+    // Mark boundary cells (spans with missing or non-walkable neighbors)
     for z in 0..h {
         for x in 0..w {
             let cell_idx = (z * w + x) as usize;
@@ -92,46 +94,61 @@ pub fn erode_walkable_area(
                     let span_idx = index + s;
 
                     if chf.areas[span_idx] == 0 {
-                        distance_to_boundary[span_idx] = 0;
+                        dist[span_idx] = 0;
                         continue;
                     }
 
-                    let _span = &chf.spans[span_idx];
+                    let span = &chf.spans[span_idx];
 
-                    // Check that there is a non-null adjacent span in each of the 4 cardinal directions
+                    // Check all 4 cardinal directions
                     let mut neighbor_count = 0;
-                    for direction in 0..4 {
-                        if chf.get_neighbor_connection(span_idx, direction).is_none() {
-                            break;
-                        }
+                    for dir in 0..4 {
+                        if span.con[dir] != NOT_CONNECTED {
+                            let nx = x + chf.get_dir_offset_x(dir);
+                            let nz = z + chf.get_dir_offset_y(dir);
 
-                        let nx = x + chf.get_dir_offset_x(direction);
-                        let nz = z + chf.get_dir_offset_y(direction);
+                            if nx >= 0 && nz >= 0 && nx < w && nz < h {
+                                let ncell_idx = (nz * w + nx) as usize;
+                                let ncell = &chf.cells[ncell_idx];
 
-                        if nx < 0 || nz < 0 || nx >= w || nz >= h {
-                            break;
-                        }
-
-                        // get_neighbor_connection already handles the direction mapping
-                        if let Some(neighbor_idx) = chf.get_neighbor_connection(span_idx, direction)
-                        {
-                            if chf.areas[neighbor_idx] == 0 {
-                                break;
+                                if let Some(nindex) = ncell.index {
+                                    let ni = nindex + span.con[dir];
+                                    if chf.areas[ni] != 0 {
+                                        neighbor_count += 1;
+                                        continue;
+                                    }
+                                }
                             }
-                            neighbor_count += 1;
                         }
+                        // Missing or non-walkable neighbor
+                        break;
                     }
 
-                    // At least one missing neighbour, so this is a boundary cell
                     if neighbor_count != 4 {
-                        distance_to_boundary[span_idx] = 0;
+                        dist[span_idx] = 0;
                     }
                 }
             }
         }
     }
 
-    // Pass 1 - forward propagation
+    // Helper to resolve neighbor span index using con[dir]
+    // Returns None if not connected or out of bounds
+    let resolve_neighbor = |span_idx: usize, x: i32, z: i32, dir: usize| -> Option<usize> {
+        let span = &chf.spans[span_idx];
+        if span.con[dir] == NOT_CONNECTED {
+            return None;
+        }
+        let nx = x + chf.get_dir_offset_x(dir);
+        let nz = z + chf.get_dir_offset_y(dir);
+        if nx < 0 || nz < 0 || nx >= w || nz >= h {
+            return None;
+        }
+        let ncell = &chf.cells[(nz * w + nx) as usize];
+        ncell.index.map(|ni| ni + span.con[dir])
+    };
+
+    // Pass 1 - forward propagation (top-left to bottom-right)
     for z in 0..h {
         for x in 0..w {
             let cell_idx = (z * w + x) as usize;
@@ -140,36 +157,45 @@ pub fn erode_walkable_area(
             if let Some(index) = cell.index {
                 for s in 0..cell.count {
                     let span_idx = index + s;
-                    let _span = &chf.spans[span_idx];
 
-                    // Check west direction (0)
-                    if let Some(ax_idx) = chf.get_neighbor(span_idx, 0) {
-                        let new_distance = distance_to_boundary[ax_idx].saturating_add(2);
-                        if new_distance < distance_to_boundary[span_idx] {
-                            distance_to_boundary[span_idx] = new_distance;
+                    // Direction 0 (West): +2
+                    if let Some(ax) = resolve_neighbor(span_idx, x, z, 0) {
+                        let nd = dist[ax].saturating_add(2);
+                        if nd < dist[span_idx] {
+                            dist[span_idx] = nd;
                         }
 
-                        // Check northwest diagonal
-                        if let Some(bx_idx) = chf.get_neighbor(ax_idx, 3) {
-                            let new_distance = distance_to_boundary[bx_idx].saturating_add(3);
-                            if new_distance < distance_to_boundary[span_idx] {
-                                distance_to_boundary[span_idx] = new_distance;
+                        // Diagonal: West then dir 3 (South in C++ terms): +3
+                        if let Some(bx) = resolve_neighbor(
+                            ax,
+                            x + chf.get_dir_offset_x(0),
+                            z + chf.get_dir_offset_y(0),
+                            3,
+                        ) {
+                            let nd = dist[bx].saturating_add(3);
+                            if nd < dist[span_idx] {
+                                dist[span_idx] = nd;
                             }
                         }
                     }
 
-                    // Check north direction (3)
-                    if let Some(ax_idx) = chf.get_neighbor(span_idx, 3) {
-                        let new_distance = distance_to_boundary[ax_idx].saturating_add(2);
-                        if new_distance < distance_to_boundary[span_idx] {
-                            distance_to_boundary[span_idx] = new_distance;
+                    // Direction 3: +2
+                    if let Some(ax) = resolve_neighbor(span_idx, x, z, 3) {
+                        let nd = dist[ax].saturating_add(2);
+                        if nd < dist[span_idx] {
+                            dist[span_idx] = nd;
                         }
 
-                        // Check northeast diagonal
-                        if let Some(bx_idx) = chf.get_neighbor(ax_idx, 2) {
-                            let new_distance = distance_to_boundary[bx_idx].saturating_add(3);
-                            if new_distance < distance_to_boundary[span_idx] {
-                                distance_to_boundary[span_idx] = new_distance;
+                        // Diagonal: dir 3 then dir 2: +3
+                        if let Some(bx) = resolve_neighbor(
+                            ax,
+                            x + chf.get_dir_offset_x(3),
+                            z + chf.get_dir_offset_y(3),
+                            2,
+                        ) {
+                            let nd = dist[bx].saturating_add(3);
+                            if nd < dist[span_idx] {
+                                dist[span_idx] = nd;
                             }
                         }
                     }
@@ -178,7 +204,7 @@ pub fn erode_walkable_area(
         }
     }
 
-    // Pass 2 - backward propagation
+    // Pass 2 - backward propagation (bottom-right to top-left)
     for z in (0..h).rev() {
         for x in (0..w).rev() {
             let cell_idx = (z * w + x) as usize;
@@ -187,36 +213,45 @@ pub fn erode_walkable_area(
             if let Some(index) = cell.index {
                 for s in 0..cell.count {
                     let span_idx = index + s;
-                    let _span = &chf.spans[span_idx];
 
-                    // Check east direction (2)
-                    if let Some(ax_idx) = chf.get_neighbor(span_idx, 2) {
-                        let new_distance = distance_to_boundary[ax_idx].saturating_add(2);
-                        if new_distance < distance_to_boundary[span_idx] {
-                            distance_to_boundary[span_idx] = new_distance;
+                    // Direction 2 (East): +2
+                    if let Some(ax) = resolve_neighbor(span_idx, x, z, 2) {
+                        let nd = dist[ax].saturating_add(2);
+                        if nd < dist[span_idx] {
+                            dist[span_idx] = nd;
                         }
 
-                        // Check southeast diagonal
-                        if let Some(bx_idx) = chf.get_neighbor(ax_idx, 1) {
-                            let new_distance = distance_to_boundary[bx_idx].saturating_add(3);
-                            if new_distance < distance_to_boundary[span_idx] {
-                                distance_to_boundary[span_idx] = new_distance;
+                        // Diagonal: East then dir 1: +3
+                        if let Some(bx) = resolve_neighbor(
+                            ax,
+                            x + chf.get_dir_offset_x(2),
+                            z + chf.get_dir_offset_y(2),
+                            1,
+                        ) {
+                            let nd = dist[bx].saturating_add(3);
+                            if nd < dist[span_idx] {
+                                dist[span_idx] = nd;
                             }
                         }
                     }
 
-                    // Check south direction (1)
-                    if let Some(ax_idx) = chf.get_neighbor(span_idx, 1) {
-                        let new_distance = distance_to_boundary[ax_idx].saturating_add(2);
-                        if new_distance < distance_to_boundary[span_idx] {
-                            distance_to_boundary[span_idx] = new_distance;
+                    // Direction 1: +2
+                    if let Some(ax) = resolve_neighbor(span_idx, x, z, 1) {
+                        let nd = dist[ax].saturating_add(2);
+                        if nd < dist[span_idx] {
+                            dist[span_idx] = nd;
                         }
 
-                        // Check southwest diagonal
-                        if let Some(bx_idx) = chf.get_neighbor(ax_idx, 0) {
-                            let new_distance = distance_to_boundary[bx_idx].saturating_add(3);
-                            if new_distance < distance_to_boundary[span_idx] {
-                                distance_to_boundary[span_idx] = new_distance;
+                        // Diagonal: dir 1 then dir 0: +3
+                        if let Some(bx) = resolve_neighbor(
+                            ax,
+                            x + chf.get_dir_offset_x(1),
+                            z + chf.get_dir_offset_y(1),
+                            0,
+                        ) {
+                            let nd = dist[bx].saturating_add(3);
+                            if nd < dist[span_idx] {
+                                dist[span_idx] = nd;
                             }
                         }
                     }
@@ -226,10 +261,10 @@ pub fn erode_walkable_area(
     }
 
     // Mark spans that are too close to boundaries
-    let min_boundary_distance = (erosion_radius * 2) as u8;
-    for (span_idx, &distance) in distance_to_boundary.iter().take(span_count).enumerate() {
-        if distance < min_boundary_distance {
-            chf.areas[span_idx] = 0;
+    let min_dist = (erosion_radius * 2) as u8;
+    for i in 0..span_count {
+        if dist[i] < min_dist {
+            chf.areas[i] = 0;
         }
     }
 

@@ -85,6 +85,11 @@ impl RecastBuilder {
             self.config.walkable_climb as i32,
         )?;
 
+        // Erode walkable area by agent radius (matching C++ rcErodeWalkableArea)
+        if self.config.walkable_radius > 0 {
+            erode_walkable_area(&mut compact_heightfield, self.config.walkable_radius as i32)?;
+        }
+
         // Build regions using watershed partitioning
         compact_heightfield.build_regions(
             self.config.border_size,
@@ -264,8 +269,8 @@ impl RecastBuilder {
             let normal = cross.normalize();
 
             // Check if triangle is walkable based on slope
-            // Use absolute value of Y component to handle both winding orders
-            let area = if normal.y.abs() >= walkable_slope_threshold {
+            // Only upward-facing normals are walkable (matching C++ behavior)
+            let area = if normal.y > walkable_slope_threshold {
                 1
             } else {
                 0
@@ -313,6 +318,11 @@ impl RecastBuilder {
             self.config.walkable_height as i32,
             self.config.walkable_climb as i32,
         )?;
+
+        // Erode walkable area by agent radius (matching C++ rcErodeWalkableArea)
+        if self.config.walkable_radius > 0 {
+            erode_walkable_area(&mut compact_heightfield, self.config.walkable_radius as i32)?;
+        }
 
         // Build regions using watershed partitioning
         compact_heightfield.build_regions(
