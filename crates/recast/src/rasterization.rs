@@ -4,8 +4,8 @@
 //! following the exact C++ implementation from RecastRasterization.cpp.
 
 use super::heightfield::{Heightfield, Span};
+use crate::error::BuildError;
 use glam::Vec3;
-use recast_common::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -28,7 +28,7 @@ pub fn add_span(
     span_max: i16,
     area_id: u8,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     // Check bounds
     if x < 0 || z < 0 || x >= heightfield.width || z >= heightfield.height {
         return Ok(()); // Silently ignore out of bounds, like C++
@@ -56,7 +56,7 @@ fn add_span_internal(
     span_max: i16,
     area_id: u8,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     // Get the column
     let column_key = (x, z);
     let column = heightfield.spans.entry(column_key).or_insert(None);
@@ -250,7 +250,7 @@ fn rasterize_tri(
     area_id: u8,
     heightfield: &mut Heightfield,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let inverse_cell_size = 1.0 / heightfield.cs;
     let inverse_cell_height = 1.0 / heightfield.ch;
 
@@ -385,7 +385,7 @@ pub fn rasterize_triangle(
     area_id: u8,
     heightfield: &mut Heightfield,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let v0_arr = [v0.x, v0.y, v0.z];
     let v1_arr = [v1.x, v1.y, v1.z];
     let v2_arr = [v2.x, v2.y, v2.z];
@@ -409,7 +409,7 @@ pub fn rasterize_triangles(
     num_tris: usize,
     heightfield: &mut Heightfield,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     for i in 0..num_tris {
         let v0_idx = tris[i * 3] as usize;
         let v1_idx = tris[i * 3 + 1] as usize;
@@ -436,7 +436,7 @@ pub fn rasterize_triangles_u16(
     num_tris: usize,
     heightfield: &mut Heightfield,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     for i in 0..num_tris {
         let v0_idx = tris[i * 3] as usize;
         let v1_idx = tris[i * 3 + 1] as usize;
@@ -462,7 +462,7 @@ pub fn rasterize_triangle_soup(
     num_tris: usize,
     heightfield: &mut Heightfield,
     flag_merge_threshold: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     for (i, &area_id) in tri_area_ids.iter().take(num_tris).enumerate() {
         let base_idx = i * 9; // 3 vertices * 3 floats
         let v0 = &verts[base_idx..base_idx + 3];

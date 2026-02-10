@@ -6,8 +6,8 @@
 
 use super::compact_heightfield::CompactHeightfield;
 use super::heightfield::Heightfield;
+use crate::error::BuildError;
 use glam::Vec3;
-use recast_common::{Error, Result};
 
 /// Maximum number of layers (matches C++ RC_MAX_LAYERS)
 const RC_MAX_LAYERS: usize = 63;
@@ -130,12 +130,9 @@ impl HeightfieldLayer {
     }
 
     /// Sets the height and area for a specific cell
-    pub fn set_cell(&mut self, x: i32, z: i32, height: i16, area: u8) -> Result<()> {
+    pub fn set_cell(&mut self, x: i32, z: i32, height: i16, area: u8) -> Result<(), BuildError> {
         if x < 0 || x >= self.width || z < 0 || z >= self.height {
-            return Err(Error::NavMeshGeneration(format!(
-                "Cell position out of bounds: ({}, {})",
-                x, z
-            )));
+            return Err(BuildError::SpanOutOfBounds { x, y: z }.into());
         }
 
         let idx = (z * self.width + x) as usize;
@@ -241,7 +238,7 @@ impl LayeredHeightfield {
         chf: &CompactHeightfield,
         border_size: i32,
         _walkable_height: i32,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         let w = chf.width;
         let h = chf.height;
 
@@ -319,7 +316,7 @@ impl LayeredHeightfield {
                     sweeps[i].id = sweeps[i].nei;
                 } else {
                     if reg_id == 255 {
-                        return Err(Error::NavMeshGeneration("Region ID overflow".to_string()));
+                        return Err(BuildError::RegionIdOverflow.into());
                     }
                     sweeps[i].id = reg_id;
                     reg_id += 1;
@@ -355,7 +352,7 @@ impl LayeredHeightfield {
         src_reg: &[u8],
         nregs: usize,
         _border_size: i32,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Allocate and init layer regions
         let mut regs = vec![LayerRegion::new(); nregs];
 
@@ -501,10 +498,7 @@ impl LayeredHeightfield {
                                 RC_MAX_LAYERS,
                                 layer,
                             ) {
-                                return Err(Error::NavMeshGeneration(
-                                    "Layer overflow (too many overlapping walkable platforms)"
-                                        .to_string(),
-                                ));
+                                return Err(BuildError::LayerOverflow { x: 0, y: 0 }.into());
                             }
                             regs[i].nlayers = nlayers as u8;
                         }
@@ -599,10 +593,7 @@ impl LayeredHeightfield {
                                 RC_MAX_LAYERS,
                                 layer,
                             ) {
-                                return Err(Error::NavMeshGeneration(
-                                    "Layer overflow (too many overlapping walkable platforms)"
-                                        .to_string(),
-                                ));
+                                return Err(BuildError::LayerOverflow { x: 0, y: 0 }.into());
                             }
                             regs[i].nlayers = nlayers as u8;
                         }
@@ -715,7 +706,7 @@ impl LayeredHeightfield {
         heightfield: &Heightfield,
         layer_height_threshold: i16,
         walkable_height: i16,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         let mut layered_hf = Self {
             layers: Vec::new(),
             width: heightfield.width,
@@ -741,7 +732,7 @@ impl LayeredHeightfield {
         heightfield: &Heightfield,
         layer_height_threshold: i16,
         walkable_height: i16,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Process each column in the heightfield
         for z in 0..heightfield.height {
             for x in 0..heightfield.width {
@@ -784,7 +775,7 @@ impl LayeredHeightfield {
         spans: &[(i16, i16, u8)],
         layer_height_threshold: i16,
         walkable_height: i16,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let mut sorted_spans = spans.to_vec();
         sorted_spans.sort_by_key(|&(min, _, _)| min);
 
@@ -826,23 +817,29 @@ impl LayeredHeightfield {
         z: i32,
         spans: &[(i16, i16, u8)],
         walkable_height: i16,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         if spans.is_empty() {
             return Ok(());
         }
 
         // Calculate layer height range
         // spans is guaranteed non-empty due to the early return above
-        let layer_min = spans
-            .iter()
-            .map(|&(min, _, _)| min)
-            .min()
-            .ok_or_else(|| Error::Recast("empty spans in add_spans_to_layer".to_string()))?;
-        let layer_max = spans
-            .iter()
-            .map(|&(_, max, _)| max)
-            .max()
-            .ok_or_else(|| Error::Recast("empty spans in add_spans_to_layer".to_string()))?;
+        let layer_min =
+            spans
+                .iter()
+                .map(|&(min, _, _)| min)
+                .min()
+                .ok_or_else(|| BuildError::EmptySpans {
+                    context: "add_spans_to_layer",
+                })?;
+        let layer_max =
+            spans
+                .iter()
+                .map(|&(_, max, _)| max)
+                .max()
+                .ok_or_else(|| BuildError::EmptySpans {
+                    context: "add_spans_to_layer",
+                })?;
 
         // Find or create appropriate layer
         let layer_idx = self.find_or_create_layer(layer_min, layer_max)?;
@@ -859,7 +856,11 @@ impl LayeredHeightfield {
     }
 
     /// Finds an existing layer or creates a new one for the given height range
-    fn find_or_create_layer(&mut self, min_height: i16, max_height: i16) -> Result<usize> {
+    fn find_or_create_layer(
+        &mut self,
+        min_height: i16,
+        max_height: i16,
+    ) -> Result<usize, BuildError> {
         // Check if any existing layer overlaps with this height range
         for (idx, layer) in self.layers.iter().enumerate() {
             if Self::ranges_overlap(layer.min_height, layer.max_height, min_height, max_height) {
@@ -889,7 +890,7 @@ impl LayeredHeightfield {
     }
 
     /// Builds connections between layers
-    fn build_layer_connections(&mut self, walkable_climb: i16) -> Result<()> {
+    fn build_layer_connections(&mut self, walkable_climb: i16) -> Result<(), BuildError> {
         for layer_idx in 0..self.layers.len() {
             for other_idx in layer_idx + 1..self.layers.len() {
                 self.find_connections_between_layers(layer_idx, other_idx, walkable_climb)?;
@@ -905,7 +906,7 @@ impl LayeredHeightfield {
         layer1_idx: usize,
         layer2_idx: usize,
         walkable_climb: i16,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let (_layer1_height_range, _layer2_height_range) = {
             let layer1 = &self.layers[layer1_idx];
             let layer2 = &self.layers[layer2_idx];
@@ -953,7 +954,7 @@ impl LayeredHeightfield {
 
     /// Converts the layered heightfield back to a regular heightfield
     /// This flattens all layers into a single heightfield with multiple spans per column
-    pub fn to_heightfield(&self) -> Result<Heightfield> {
+    pub fn to_heightfield(&self) -> Result<Heightfield, BuildError> {
         let mut heightfield = Heightfield::new(
             self.width,
             self.height,

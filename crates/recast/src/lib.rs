@@ -11,6 +11,7 @@ mod contour;
 mod convex_volume;
 mod detail_mesh;
 mod distance_field;
+mod error;
 mod heightfield;
 mod heightfield_layers;
 mod mesh_merging;
@@ -30,6 +31,7 @@ pub use contour::{BuildContoursFlags, Contour, ContourSet, ContourVertex};
 pub use convex_volume::{ConvexVolume, ConvexVolumeSet, MAX_CONVEX_VOLUME_VERTS};
 pub use detail_mesh::{PolyMeshDetail, merge_poly_mesh_details};
 pub use distance_field::{build_layer_regions, build_regions_monotone, build_regions_watershed};
+pub use error::{BuildError, ConfigError, ConvexVolumeError};
 // Region building functions are not exported directly - use CompactHeightfield methods instead
 pub use heightfield::{Heightfield, Span};
 pub use heightfield_layers::{HeightfieldLayer, LayerConnection, LayeredHeightfield};
@@ -69,7 +71,7 @@ impl RecastBuilder {
         &self,
         vertices: &[f32],
         indices: &[i32],
-    ) -> recast_common::Result<(PolyMesh, PolyMeshDetail)> {
+    ) -> Result<(PolyMesh, PolyMeshDetail), BuildError> {
         // Validate the configuration
         self.config.validate()?;
 
@@ -117,7 +119,7 @@ impl RecastBuilder {
         &self,
         vertices: &[f32],
         indices: &[i32],
-    ) -> recast_common::Result<Heightfield> {
+    ) -> Result<Heightfield, BuildError> {
         // Create a new heightfield
         let mut heightfield = Heightfield::new(
             self.config.width,
@@ -141,7 +143,7 @@ impl RecastBuilder {
         indices: &[i32],
         layer_height_threshold: Option<i16>,
         walkable_height: Option<i16>,
-    ) -> recast_common::Result<LayeredHeightfield> {
+    ) -> Result<LayeredHeightfield, BuildError> {
         // First build a regular heightfield
         let heightfield = self.build_heightfield(vertices, indices)?;
 
@@ -158,10 +160,10 @@ impl RecastBuilder {
     pub fn merge_navigation_meshes(
         poly_meshes: &[&PolyMesh],
         config: Option<MeshMergeConfig>,
-    ) -> recast_common::Result<MergeResult> {
+    ) -> Result<MergeResult, BuildError> {
         let merge_config = config.unwrap_or_default();
         let merger = MeshMerger::new(merge_config);
-        merger.merge_meshes(poly_meshes)
+        Ok(merger.merge_meshes(poly_meshes)?)
     }
 
     /// Builds navigation meshes from multiple input geometries and merges them
@@ -169,7 +171,7 @@ impl RecastBuilder {
         &self,
         inputs: &[(&[f32], &[i32])], // (vertices, indices) pairs
         merge_config: Option<MeshMergeConfig>,
-    ) -> recast_common::Result<MergeResult> {
+    ) -> Result<MergeResult, BuildError> {
         // Build individual meshes
         let mut meshes = Vec::new();
         for (vertices, indices) in inputs {
@@ -188,7 +190,7 @@ impl RecastBuilder {
         heightfield: &mut Heightfield,
         vertices: &[f32],
         indices: &[i32],
-    ) -> recast_common::Result<()> {
+    ) -> Result<(), BuildError> {
         use glam::Vec3;
 
         // Validate inputs
@@ -197,15 +199,11 @@ impl RecastBuilder {
         }
 
         if vertices.len() % 3 != 0 {
-            return Err(recast_common::Error::NavMeshGeneration(
-                "Vertex array length must be a multiple of 3".to_string(),
-            ));
+            return Err(BuildError::VertexArrayNotTripled.into());
         }
 
         if indices.len() % 3 != 0 {
-            return Err(recast_common::Error::NavMeshGeneration(
-                "Index array length must be a multiple of 3".to_string(),
-            ));
+            return Err(BuildError::IndexArrayNotTripled.into());
         }
 
         // Calculate walkable slope threshold
@@ -223,13 +221,13 @@ impl RecastBuilder {
             // Validate indices
             let max_idx = vertices.len() / 3;
             if idx0 >= max_idx || idx1 >= max_idx || idx2 >= max_idx {
-                return Err(recast_common::Error::NavMeshGeneration(format!(
-                    "Triangle index out of bounds: {}, {}, {} (max: {})",
-                    idx0,
-                    idx1,
-                    idx2,
-                    max_idx - 1
-                )));
+                return Err(BuildError::TriangleIndexOutOfBounds {
+                    i0: idx0,
+                    i1: idx1,
+                    i2: idx2,
+                    max: max_idx - 1,
+                }
+                .into());
             }
 
             // Get triangle vertices
@@ -295,7 +293,7 @@ impl RecastBuilder {
         vertices: &[f32],
         indices: &[i32],
         convex_volumes: &ConvexVolumeSet,
-    ) -> recast_common::Result<(PolyMesh, PolyMeshDetail)> {
+    ) -> Result<(PolyMesh, PolyMeshDetail), BuildError> {
         // Validate the configuration
         self.config.validate()?;
 
@@ -347,7 +345,7 @@ impl RecastBuilder {
         vertices: &[f32],
         indices: &[i32],
         convex_volumes: &ConvexVolumeSet,
-    ) -> recast_common::Result<Heightfield> {
+    ) -> Result<Heightfield, BuildError> {
         // Build the heightfield
         let mut heightfield = self.build_heightfield(vertices, indices)?;
 

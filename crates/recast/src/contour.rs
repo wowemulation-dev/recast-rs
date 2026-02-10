@@ -4,8 +4,8 @@
 //! Contours represent the boundaries of walkable areas.
 
 use super::compact_heightfield::CompactHeightfield;
+use crate::error::BuildError;
 use glam::Vec3;
-use recast_common::Result;
 
 /// Context for building contours
 #[allow(dead_code)]
@@ -64,7 +64,7 @@ impl Contour {
     }
 
     /// Simplifies the contour using the Douglas-Peucker algorithm
-    pub fn simplify(&mut self, max_error: f32) -> Result<()> {
+    pub fn simplify(&mut self, max_error: f32) -> Result<(), BuildError> {
         if self.vertices.len() <= 2 {
             return Ok(());
         }
@@ -93,7 +93,7 @@ impl Contour {
         end: usize,
         keep: &mut [bool],
         max_error: f32,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         if end - start <= 1 {
             return Ok(());
         }
@@ -239,7 +239,7 @@ impl ContourSet {
         max_edge_len: i32,
         min_region_area: i32,
         merge_region_area: i32,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         Self::build_from_compact_heightfield_with_flags(
             chf,
             max_error,
@@ -258,7 +258,7 @@ impl ContourSet {
         min_region_area: i32,
         merge_region_area: i32,
         build_flags: BuildContoursFlags,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         Self::build_from_compact_heightfield_with_method_and_flags(
             chf,
             max_error,
@@ -278,7 +278,7 @@ impl ContourSet {
         min_region_area: i32,
         merge_region_area: i32,
         use_watershed: bool,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         Self::build_from_compact_heightfield_with_method_and_flags(
             chf,
             max_error,
@@ -299,7 +299,7 @@ impl ContourSet {
         merge_region_area: i32,
         use_watershed: bool,
         build_flags: BuildContoursFlags,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         let width = chf.width;
         let height = chf.height;
         let bmin = chf.bmin;
@@ -415,7 +415,7 @@ impl ContourSet {
         chf: &CompactHeightfield,
         boundary_flags: &mut [u8],
         region_ids: &[u16],
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let w = chf.width;
         let h = chf.height;
 
@@ -504,7 +504,7 @@ impl ContourSet {
         min_region_area: i32,
         merge_region_area: i32,
         region_ids: &mut [u16],
-    ) -> Result<u16> {
+    ) -> Result<u16, BuildError> {
         // Initialize all regions to 0 (not in region)
         region_ids.fill(0);
 
@@ -581,7 +581,7 @@ impl ContourSet {
         seed_span_idx: usize,
         region_id: u16,
         region_ids: &mut [u16],
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let mut stack = vec![seed_span_idx];
 
         while let Some(span_idx) = stack.pop() {
@@ -623,7 +623,7 @@ impl ContourSet {
         region_ids: &mut [u16],
         merge_region_area: i32,
         region_areas: &mut [i32],
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Find regions that need merging
         let mut regions_to_merge = Vec::new();
 
@@ -689,7 +689,7 @@ impl ContourSet {
     }
 
     /// Compacts region IDs to remove gaps
-    fn compact_region_ids(region_ids: &mut [u16]) -> Result<()> {
+    fn compact_region_ids(region_ids: &mut [u16]) -> Result<(), BuildError> {
         // Find all unique region IDs
         let mut unique_regions: Vec<u16> = region_ids.to_vec();
         unique_regions.sort_unstable();
@@ -727,7 +727,7 @@ impl ContourSet {
         max_edge_len: i32,
         build_flags: BuildContoursFlags,
         contours: &mut Vec<Contour>,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let w = chf.width;
         let h = chf.height;
 
@@ -924,7 +924,7 @@ impl ContourSet {
         flags: &mut [u8],
         points: &mut Vec<i32>,
         region_ids: &[u16],
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Choose the first non-connected edge
         let mut dir = 0u8;
         while (flags[i] & (1 << dir)) == 0 {
@@ -1047,7 +1047,7 @@ impl ContourSet {
         max_error: f32,
         max_edge_len: i32,
         build_flags: i32,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Add initial points
         let mut has_connections = false;
         for i in (0..points.len()).step_by(4) {

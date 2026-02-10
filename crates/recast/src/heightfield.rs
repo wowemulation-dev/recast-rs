@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use recast_common::{Error, Result};
+use crate::error::BuildError;
 
 /// Represents cell bounds in XZ plane
 struct CellBounds {
@@ -99,19 +99,23 @@ impl Heightfield {
     }
 
     /// Add a span to the heightfield
-    pub fn add_span(&mut self, x: i32, z: i32, min: i16, max: i16, area: u8) -> Result<()> {
+    pub fn add_span(
+        &mut self,
+        x: i32,
+        z: i32,
+        min: i16,
+        max: i16,
+        area: u8,
+    ) -> Result<(), BuildError> {
         if x < 0 || x >= self.width || z < 0 || z >= self.height {
-            return Err(Error::NavMeshGeneration(format!(
-                "Span position out of bounds: ({}, {})",
-                x, z
-            )));
+            return Err(BuildError::SpanOutOfBounds { x, y: z });
         }
 
         if min > max {
-            return Err(Error::NavMeshGeneration(format!(
-                "Invalid span height: min ({}) > max ({})",
-                min, max
-            )));
+            return Err(BuildError::InvalidSpanHeight {
+                min: min as u32,
+                max: max as u32,
+            });
         }
 
         let new_span = Rc::new(RefCell::new(Span::new(min, max, area)));
@@ -130,10 +134,7 @@ impl Heightfield {
                 }
             }
             None => {
-                return Err(Error::NavMeshGeneration(format!(
-                    "Cell not found: ({}, {})",
-                    x, z
-                )));
+                return Err(BuildError::CellNotFound { x, y: z });
             }
         }
 
@@ -141,7 +142,10 @@ impl Heightfield {
     }
 
     /// Insert a span into a column, maintaining height order and merging overlapping spans
-    fn insert_span(first_span: Rc<RefCell<Span>>, new_span: Rc<RefCell<Span>>) -> Result<()> {
+    fn insert_span(
+        first_span: Rc<RefCell<Span>>,
+        new_span: Rc<RefCell<Span>>,
+    ) -> Result<(), BuildError> {
         let mut prev: Option<Rc<RefCell<Span>>> = None;
         let mut curr = first_span;
         let (new_min, new_max, new_area) = {
@@ -241,7 +245,11 @@ impl Heightfield {
     }
 
     /// Filters spans in the heightfield based on walkable criteria
-    pub fn filter_walkable(&mut self, walkable_height: i16, walkable_climb: i16) -> Result<()> {
+    pub fn filter_walkable(
+        &mut self,
+        walkable_height: i16,
+        walkable_climb: i16,
+    ) -> Result<(), BuildError> {
         // Process each column
         for ((_x, _z), column) in self.spans.iter_mut() {
             if let Some(first_span) = column {
@@ -283,7 +291,10 @@ impl Heightfield {
 
     /// Filters low hanging walkable obstacles that the agent can step over
     /// This implements the C++ rcFilterLowHangingWalkableObstacles algorithm
-    pub fn filter_low_hanging_walkable_obstacles(&mut self, walkable_climb: i16) -> Result<()> {
+    pub fn filter_low_hanging_walkable_obstacles(
+        &mut self,
+        walkable_climb: i16,
+    ) -> Result<(), BuildError> {
         let x_size = self.width;
         let z_size = self.height;
 
@@ -329,7 +340,11 @@ impl Heightfield {
 
     /// Filters ledge spans - marks spans that are adjacent to ledges as unwalkable
     /// This implements the C++ rcFilterLedgeSpans algorithm
-    pub fn filter_ledge_spans(&mut self, walkable_height: i16, walkable_climb: i16) -> Result<()> {
+    pub fn filter_ledge_spans(
+        &mut self,
+        walkable_height: i16,
+        walkable_climb: i16,
+    ) -> Result<(), BuildError> {
         const MAX_HEIGHTFIELD_HEIGHT: i32 = 0xffff;
 
         let x_size = self.width;
@@ -489,7 +504,10 @@ impl Heightfield {
 
     /// Filters walkable spans that have insufficient clearance above them
     /// This implements the C++ rcFilterWalkableLowHeightSpans algorithm
-    pub fn filter_walkable_low_height_spans(&mut self, walkable_height: i16) -> Result<()> {
+    pub fn filter_walkable_low_height_spans(
+        &mut self,
+        walkable_height: i16,
+    ) -> Result<(), BuildError> {
         const MAX_HEIGHTFIELD_HEIGHT: i32 = 0xffff;
 
         let x_size = self.width;
@@ -532,7 +550,7 @@ impl Heightfield {
 
     /// Marks border spans (spans at the edge of the heightfield)
     #[allow(dead_code)]
-    fn mark_border_spans(&mut self) -> Result<()> {
+    fn mark_border_spans(&mut self) -> Result<(), BuildError> {
         // Mark spans on the border of the heightfield
         for z in 0..self.height {
             for x in 0..self.width {
@@ -555,7 +573,7 @@ impl Heightfield {
     }
 
     /// Applies median filter to remove noise in walkable areas
-    pub fn median_filter_walkable_area(&mut self) -> Result<()> {
+    pub fn median_filter_walkable_area(&mut self) -> Result<(), BuildError> {
         let width = self.width;
         let height = self.height;
 
@@ -631,7 +649,7 @@ impl Heightfield {
     }
 
     /// Erodes the walkable area by the specified radius
-    pub fn erode_walkable_area(&mut self, radius: i32) -> Result<()> {
+    pub fn erode_walkable_area(&mut self, radius: i32) -> Result<(), BuildError> {
         if radius <= 0 {
             return Ok(());
         }
@@ -704,11 +722,9 @@ impl Heightfield {
     }
 
     /// Rasterizes a triangle into the heightfield
-    pub fn rasterize_triangle(&mut self, verts: &[Vec3; 3], area: u8) -> Result<()> {
+    pub fn rasterize_triangle(&mut self, verts: &[Vec3; 3], area: u8) -> Result<(), BuildError> {
         if verts.len() != 3 {
-            return Err(Error::NavMeshGeneration(
-                "Triangle must have exactly 3 vertices".to_string(),
-            ));
+            return Err(BuildError::InvalidTriangle);
         }
 
         // Convert vertices to cell coordinates
@@ -960,7 +976,12 @@ impl Heightfield {
     }
 
     /// Marks spans within an axis-aligned box with the specified area ID
-    pub fn mark_box_area(&mut self, bmin: &[f32; 3], bmax: &[f32; 3], area_id: u8) -> Result<()> {
+    pub fn mark_box_area(
+        &mut self,
+        bmin: &[f32; 3],
+        bmax: &[f32; 3],
+        area_id: u8,
+    ) -> Result<(), BuildError> {
         // Convert world coordinates to cell coordinates
         let min_x = ((bmin[0] - self.bmin.x) / self.cs).floor() as i32;
         let min_z = ((bmin[2] - self.bmin.z) / self.cs).floor() as i32;
@@ -1007,7 +1028,7 @@ impl Heightfield {
         radius: f32,
         height: f32,
         area_id: u8,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Convert cylinder bounds to cell coordinates
         let min_x = ((pos[0] - radius - self.bmin.x) / self.cs).floor() as i32;
         let min_z = ((pos[2] - radius - self.bmin.z) / self.cs).floor() as i32;
@@ -1068,11 +1089,9 @@ impl Heightfield {
         min_y: f32,
         max_y: f32,
         area_id: u8,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         if nverts < 3 {
-            return Err(Error::NavMeshGeneration(
-                "Polygon must have at least 3 vertices".to_string(),
-            ));
+            return Err(BuildError::DegeneratePolygon);
         }
 
         // Find polygon bounds

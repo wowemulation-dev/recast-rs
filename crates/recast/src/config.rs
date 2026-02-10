@@ -2,6 +2,8 @@
 
 use glam::Vec3;
 
+use crate::error::ConfigError;
+
 /// Configuration parameters for Recast navigation mesh generation
 #[derive(Debug, Clone)]
 pub struct RecastConfig {
@@ -107,29 +109,31 @@ impl RecastConfig {
     }
 
     /// Validates the configuration parameters
-    pub fn validate(&self) -> recast_common::Result<()> {
-        use recast_common::Error;
-
+    pub fn validate(&self) -> Result<(), ConfigError> {
         if self.width <= 0 || self.height <= 0 {
-            return Err(Error::InvalidMesh("Invalid grid size".to_string()));
+            return Err(ConfigError::InvalidGridSize {
+                width: self.width,
+                height: self.height,
+            });
         }
 
         if self.cs <= 0.0 || self.ch <= 0.0 {
-            return Err(Error::InvalidMesh(
-                "Invalid cell size or height".to_string(),
-            ));
+            return Err(ConfigError::InvalidCellDimensions {
+                cs: self.cs,
+                ch: self.ch,
+            });
         }
 
         if self.walkable_slope_angle < 0.0 || self.walkable_slope_angle > 90.0 {
-            return Err(Error::InvalidMesh(
-                "Invalid walkable slope angle".to_string(),
-            ));
+            return Err(ConfigError::InvalidWalkableSlope {
+                angle: self.walkable_slope_angle,
+            });
         }
 
         if self.max_vertices_per_polygon < 3 {
-            return Err(Error::InvalidMesh(
-                "Too few vertices per polygon".to_string(),
-            ));
+            return Err(ConfigError::TooFewVertsPerPoly {
+                count: self.max_vertices_per_polygon,
+            });
         }
 
         Ok(())

@@ -4,7 +4,7 @@
 //! following the exact C++ implementation.
 
 use super::compact_heightfield::CompactHeightfield;
-use recast_common::Result;
+use crate::error::BuildError;
 
 const EPSILON: f32 = 1e-6;
 
@@ -70,7 +70,10 @@ fn vsub(dest: &mut [f32; 3], a: &[f32], b: &[f32]) {
 
 /// Erodes walkable area by specified radius
 /// Matches C++ rcErodeWalkableArea exactly
-pub fn erode_walkable_area(chf: &mut CompactHeightfield, erosion_radius: i32) -> Result<()> {
+pub fn erode_walkable_area(
+    chf: &mut CompactHeightfield,
+    erosion_radius: i32,
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
     let span_count = chf.spans.len();
@@ -235,7 +238,7 @@ pub fn erode_walkable_area(chf: &mut CompactHeightfield, erosion_radius: i32) ->
 
 /// Applies median filter to walkable areas
 /// Matches C++ rcMedianFilterWalkableArea exactly
-pub fn median_filter_walkable_area(chf: &mut CompactHeightfield) -> Result<()> {
+pub fn median_filter_walkable_area(chf: &mut CompactHeightfield) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
     let span_count = chf.spans.len();
@@ -300,7 +303,7 @@ pub fn mark_box_area(
     bmin: &[f32; 3],
     bmax: &[f32; 3],
     area_id: u8,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
 
@@ -363,7 +366,7 @@ pub fn mark_convex_poly_area(
     min_y: f32,
     max_y: f32,
     area_id: u8,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
 
@@ -547,7 +550,7 @@ pub fn mark_cylinder_area(
     radius: f32,
     height: f32,
     area_id: u8,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
 

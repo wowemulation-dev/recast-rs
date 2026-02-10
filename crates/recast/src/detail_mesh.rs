@@ -7,7 +7,7 @@ use glam::Vec3;
 
 use super::compact_heightfield::CompactHeightfield;
 use super::polymesh::{MESH_NULL_IDX, PolyMesh};
-use recast_common::{Error, Result};
+use crate::error::BuildError;
 
 /// Unset height marker (matches C++ RC_UNSET_HEIGHT)
 const RC_UNSET_HEIGHT: u16 = 0xffff;
@@ -81,7 +81,7 @@ impl PolyMeshDetail {
         chf: &CompactHeightfield,
         sample_dist: f32,
         sample_max_error: f32,
-    ) -> Result<Self> {
+    ) -> Result<Self, BuildError> {
         if poly_mesh.nverts == 0 || poly_mesh.npolys == 0 {
             return Ok(Self::new());
         }
@@ -244,7 +244,7 @@ impl PolyMeshDetail {
         chf: &CompactHeightfield,
         height_search_radius: i32,
         samples: &mut Vec<f32>,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let dx = v1[0] - v0[0];
         let dy = v1[1] - v0[1];
         let dz = v1[2] - v0[2];
@@ -403,7 +403,7 @@ impl PolyMeshDetail {
         poly: &[u16],
         npoly: usize,
         tris: &mut Vec<i32>,
-    ) -> Result<usize> {
+    ) -> Result<usize, BuildError> {
         tris.clear();
 
         if npoly < 3 {
@@ -490,11 +490,12 @@ impl PolyMeshDetail {
     /// detail mesh generation toolkit matching the C++ implementation. Currently unused
     /// but kept for future Delaunay triangulation implementation.
     #[allow(dead_code)]
-    fn triangulate_polygon_ear_cut(polygon: &[usize], triangles: &mut Vec<[u32; 3]>) -> Result<()> {
+    fn triangulate_polygon_ear_cut(
+        polygon: &[usize],
+        triangles: &mut Vec<[u32; 3]>,
+    ) -> Result<(), BuildError> {
         if polygon.len() < 3 {
-            return Err(Error::NavMeshGeneration(
-                "Cannot triangulate polygon with less than 3 vertices".to_string(),
-            ));
+            return Err(BuildError::DegeneratePolygon.into());
         }
 
         if polygon.len() == 3 {
@@ -716,7 +717,7 @@ impl PolyMeshDetail {
         sample_dist: f32,
         _sample_max_error: f32,
         samples: &mut Vec<Vec3>,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         if poly_verts.len() < 3 {
             return Ok(());
         }
@@ -805,14 +806,11 @@ impl PolyMeshDetail {
     /// Note: Used to get accurate height values for detail vertices. Part of the complete
     /// detail mesh generation toolkit matching the C++ implementation.
     #[allow(dead_code)]
-    fn sample_heightfield_at(chf: &CompactHeightfield, x: i32, z: i32) -> Result<f32> {
+    fn sample_heightfield_at(chf: &CompactHeightfield, x: i32, z: i32) -> Result<f32, BuildError> {
         let cell_idx = (z * chf.width + x) as usize;
 
         if cell_idx >= chf.cells.len() {
-            return Err(Error::NavMeshGeneration(format!(
-                "Cell index out of bounds: {}",
-                cell_idx
-            )));
+            return Err(BuildError::CellIndexOutOfBounds { index: cell_idx }.into());
         }
 
         let cell = &chf.cells[cell_idx];
@@ -864,7 +862,7 @@ impl PolyMeshDetail {
         t: i32,
         l: i32,
         r: i32,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         if let Some(e) = Self::find_edge(edges, s, t) {
             // Edge already exists, update it
             let edge = &mut edges[e];
@@ -886,7 +884,7 @@ impl PolyMeshDetail {
         } else {
             // Add new edge
             if edges.len() >= max_edges {
-                return Err(Error::NavMeshGeneration("Too many edges".to_string()));
+                return Err(BuildError::TooManyEdges.into());
             }
             edges.push((s, t, l, r));
         }
@@ -939,7 +937,7 @@ impl PolyMeshDetail {
         samples: &[Vec3],
         first_new_vert: usize,
         triangles: &mut Vec<[u32; 3]>,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // This is a simplified version that just does a basic triangulation
         // A full implementation would use a proper Delaunay triangulation algorithm
 
@@ -989,7 +987,7 @@ impl PolyMeshDetail {
         verts: &[u16],
         hp: &mut HeightPatch,
         region: u16,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Initialize height patch
         hp.data.clear();
         hp.xmin = 0;
@@ -1105,11 +1103,9 @@ impl PolyMeshDetail {
 
     /// Merges multiple detail meshes into a single detail mesh
     /// Matches C++ rcMergePolyMeshDetails implementation
-    pub fn merge_detail_meshes(meshes: &[&PolyMeshDetail]) -> Result<Self> {
+    pub fn merge_detail_meshes(meshes: &[&PolyMeshDetail]) -> Result<Self, BuildError> {
         if meshes.is_empty() {
-            return Err(Error::NavMeshGeneration(
-                "Cannot merge empty detail mesh list".to_string(),
-            ));
+            return Err(BuildError::EmptyMeshList.into());
         }
 
         // Calculate total sizes
@@ -1147,9 +1143,14 @@ impl PolyMeshDetail {
                 // Update polygon info in merged mesh
                 merged.poly_tri_count.push(mesh.poly_tri_count[poly_idx]);
                 // poly_start is guaranteed non-empty (initialized with 0 above)
-                let last_start = merged.poly_start.last().copied().ok_or_else(|| {
-                    Error::NavMeshGeneration("poly_start is unexpectedly empty".to_string())
-                })?;
+                let last_start =
+                    merged
+                        .poly_start
+                        .last()
+                        .copied()
+                        .ok_or_else(|| BuildError::EmptySpans {
+                            context: "poly_start unexpectedly empty",
+                        })?;
                 merged.poly_start.push(last_start + num_tris);
                 merged.poly_count += 1;
 
@@ -1178,7 +1179,7 @@ impl PolyMeshDetail {
 
 /// Merges multiple detail meshes into a single detail mesh
 /// This is a utility function that matches the C++ rcMergePolyMeshDetails
-pub fn merge_poly_mesh_details(meshes: &[&PolyMeshDetail]) -> Result<PolyMeshDetail> {
+pub fn merge_poly_mesh_details(meshes: &[&PolyMeshDetail]) -> Result<PolyMeshDetail, BuildError> {
     PolyMeshDetail::merge_detail_meshes(meshes)
 }
 

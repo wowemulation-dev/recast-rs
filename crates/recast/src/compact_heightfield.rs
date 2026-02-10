@@ -8,7 +8,7 @@ use glam::Vec3;
 
 use super::heightfield::Heightfield;
 use super::watershed;
-use recast_common::{Error, Result};
+use crate::error::BuildError;
 
 /// A compact cell in the heightfield
 #[derive(Debug, Clone)]
@@ -172,7 +172,7 @@ pub struct CompactHeightfield {
 #[allow(dead_code)]
 impl CompactHeightfield {
     /// Builds a compact heightfield from a regular heightfield
-    pub fn build_from_heightfield(heightfield: &Heightfield) -> Result<Self> {
+    pub fn build_from_heightfield(heightfield: &Heightfield) -> Result<Self, BuildError> {
         let width = heightfield.width;
         let height = heightfield.height;
         let bmin = heightfield.bmin;
@@ -203,9 +203,10 @@ impl CompactHeightfield {
         for z in 0..height {
             for x in 0..width {
                 let _cell_index = (z * width + x) as usize;
-                let column = heightfield.spans.get(&(x, z)).ok_or_else(|| {
-                    Error::Recast(format!("heightfield missing column at ({x}, {z})"))
-                })?;
+                let column = heightfield
+                    .spans
+                    .get(&(x, z))
+                    .ok_or_else(|| BuildError::MissingColumn { x, z })?;
 
                 // If the column has no spans, add an empty cell
                 if column.is_none() {
@@ -283,7 +284,7 @@ impl CompactHeightfield {
     }
 
     /// Builds connections between spans
-    fn build_connections(&mut self) -> Result<()> {
+    fn build_connections(&mut self) -> Result<(), BuildError> {
         // For each span, find connections to neighboring spans
         let width = self.width;
         let height = self.height;
@@ -444,7 +445,7 @@ impl CompactHeightfield {
     }
 
     /// Counts the number of spans in each area and assigns area IDs
-    pub fn mark_areas(&mut self) -> Result<()> {
+    pub fn mark_areas(&mut self) -> Result<(), BuildError> {
         let mut max_area_id = 0;
         let mut area_counts = vec![0; 256]; // Area IDs are u8, so max 256 areas
 
@@ -513,7 +514,7 @@ impl CompactHeightfield {
 
     /// Builds the distance field for the compact heightfield
     /// This implements the C++ rcBuildDistanceField algorithm
-    pub fn build_distance_field(&mut self) -> Result<()> {
+    pub fn build_distance_field(&mut self) -> Result<(), BuildError> {
         let span_count = self.spans.len();
 
         // Initialize distance field if not already done
@@ -545,7 +546,7 @@ impl CompactHeightfield {
     }
 
     /// Calculates the distance field using the C++ two-pass algorithm
-    fn calculate_distance_field(&self, src: &mut [u16]) -> Result<u16> {
+    fn calculate_distance_field(&self, src: &mut [u16]) -> Result<u16, BuildError> {
         let w = self.width;
         let h = self.height;
 
@@ -678,7 +679,12 @@ impl CompactHeightfield {
 
     /// Applies box blur to smooth the distance field
     /// Returns true if result is in dst, false if result is in src
-    fn box_blur(&self, threshold: u16, src: &mut [u16], dst: &mut [u16]) -> Result<bool> {
+    fn box_blur(
+        &self,
+        threshold: u16,
+        src: &mut [u16],
+        dst: &mut [u16],
+    ) -> Result<bool, BuildError> {
         let w = self.width;
         let h = self.height;
         let thr = threshold * 2;
@@ -774,7 +780,7 @@ impl CompactHeightfield {
         border_size: i32,
         min_region_area: i32,
         merge_region_area: i32,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Use the proper watershed algorithm
         watershed::build_regions_watershed(self, border_size, min_region_area, merge_region_area)
     }
@@ -785,7 +791,7 @@ impl CompactHeightfield {
         border_size: i32,
         region_ids: &mut [u16],
         next_region_id: &mut u16,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let w = self.width;
         let h = self.height;
         let bw = w.min(border_size);
@@ -815,7 +821,7 @@ impl CompactHeightfield {
         max_y: i32,
         region_id: u16,
         region_ids: &mut [u16],
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         for y in min_y..max_y {
             for x in min_x..max_x {
                 let cell_idx = (y * self.width + x) as usize;
@@ -842,7 +848,7 @@ impl CompactHeightfield {
         seed_idx: usize,
         region_id: u16,
         region_ids: &mut [u16],
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let mut stack = vec![seed_idx];
         region_ids[seed_idx] = region_id;
 
@@ -867,7 +873,11 @@ impl CompactHeightfield {
     }
 
     /// Filters out regions smaller than minimum area
-    fn filter_small_regions(&self, region_ids: &mut [u16], min_region_area: i32) -> Result<()> {
+    fn filter_small_regions(
+        &self,
+        region_ids: &mut [u16],
+        min_region_area: i32,
+    ) -> Result<(), BuildError> {
         // Count region areas
         let max_region = region_ids.iter().copied().max().unwrap_or(0) & !RC_BORDER_REG;
         let mut region_areas = vec![0i32; (max_region + 1) as usize];
@@ -895,7 +905,11 @@ impl CompactHeightfield {
     }
 
     /// Merges small regions with neighboring regions
-    fn merge_small_regions(&self, region_ids: &mut [u16], merge_region_area: i32) -> Result<()> {
+    fn merge_small_regions(
+        &self,
+        region_ids: &mut [u16],
+        merge_region_area: i32,
+    ) -> Result<(), BuildError> {
         // This is a simplified version - the full C++ implementation is much more complex
         let max_region = region_ids.iter().copied().max().unwrap_or(0) & !RC_BORDER_REG;
         let mut region_areas = vec![0i32; (max_region + 1) as usize];
@@ -943,7 +957,7 @@ impl CompactHeightfield {
         region_ids: &[u16],
         region_id: u16,
         region_areas: &[i32],
-    ) -> Result<Option<u16>> {
+    ) -> Result<Option<u16>, BuildError> {
         use std::collections::HashMap;
 
         let mut neighbor_borders: HashMap<u16, i32> = HashMap::new();
@@ -988,7 +1002,7 @@ impl CompactHeightfield {
     }
 
     /// Compacts region IDs to remove gaps
-    fn compact_region_ids(&self, region_ids: &mut [u16]) -> Result<()> {
+    fn compact_region_ids(&self, region_ids: &mut [u16]) -> Result<(), BuildError> {
         use std::collections::HashMap;
 
         // Find all unique region IDs (excluding border flag)

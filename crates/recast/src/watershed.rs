@@ -2,7 +2,7 @@
 //! Following the exact C++ implementation from RecastRegion.cpp
 
 use super::compact_heightfield::CompactHeightfield;
-use recast_common::{Error, Result};
+use crate::error::BuildError;
 
 /// Border region flag (matches C++ RC_BORDER_REG)
 pub const RC_BORDER_REG: u16 = 0x8000;
@@ -391,7 +391,7 @@ pub fn build_regions_watershed(
     border_size: i32,
     min_region_area: i32,
     merge_region_area: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
     let span_count = chf.spans.len();
@@ -496,7 +496,7 @@ pub fn build_regions_watershed(
                 )
             {
                 if region_id == 0xFFFF {
-                    return Err(Error::Recast("Region ID overflow".to_string()));
+                    return Err(BuildError::RegionIdOverflow.into());
                 }
                 region_id += 1;
             }
@@ -543,7 +543,7 @@ fn paint_rect_region(
     region_id: u16,
     chf: &CompactHeightfield,
     region_ids: &mut [u16],
-) -> Result<()> {
+) -> Result<(), BuildError> {
     for y in min_y..max_y {
         for x in min_x..max_x {
             let cell_idx = (y * chf.width + x) as usize;
@@ -571,7 +571,7 @@ fn merge_and_filter_regions(
     max_region_id: u16,
     chf: &CompactHeightfield,
     src_reg: &mut [u16],
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let span_count = chf.spans.len();
 
     // Construct region table
@@ -663,7 +663,7 @@ fn merge_small_regions(
     _min_region_area: i32,
     merge_region_area: i32,
     src_reg: &mut [u16],
-) -> Result<()> {
+) -> Result<(), BuildError> {
     // Find regions to merge
     let mut merge_count;
 
@@ -741,7 +741,7 @@ fn merge_small_regions(
 }
 
 /// Compacts region IDs to remove gaps
-fn compact_region_ids(regions: &[Region], src_reg: &mut [u16]) -> Result<()> {
+fn compact_region_ids(regions: &[Region], src_reg: &mut [u16]) -> Result<(), BuildError> {
     // Build remapping table
     let mut remap = vec![0u16; regions.len()];
     let mut new_id = 1u16;

@@ -4,8 +4,8 @@
 //! unified navigation mesh, handling vertex welding, polygon connectivity, and topology.
 
 use super::polymesh::{MESH_NULL_IDX, PolyMesh};
+use crate::error::BuildError;
 use glam::Vec3;
-use recast_common::{Error, Result};
 use std::collections::HashMap;
 
 /// Configuration for mesh merging operations
@@ -79,11 +79,9 @@ impl MeshMerger {
     }
 
     /// Merges multiple polygon meshes into a single mesh
-    pub fn merge_meshes(&self, meshes: &[&PolyMesh]) -> Result<MergeResult> {
+    pub fn merge_meshes(&self, meshes: &[&PolyMesh]) -> Result<MergeResult, BuildError> {
         if meshes.is_empty() {
-            return Err(Error::NavMeshGeneration(
-                "Cannot merge empty mesh list".to_string(),
-            ));
+            return Err(BuildError::EmptyMeshList);
         }
 
         let mut stats = MergeStats {
@@ -131,7 +129,7 @@ impl MeshMerger {
     }
 
     /// Validates that meshes are compatible for merging
-    fn validate_mesh_compatibility(&self, meshes: &[&PolyMesh]) -> Result<()> {
+    fn validate_mesh_compatibility(&self, meshes: &[&PolyMesh]) -> Result<(), BuildError> {
         if meshes.is_empty() {
             return Ok(());
         }
@@ -141,26 +139,26 @@ impl MeshMerger {
         for (i, mesh) in meshes.iter().enumerate().skip(1) {
             // Check cell size compatibility
             if (mesh.cs - reference.cs).abs() > f32::EPSILON {
-                return Err(Error::NavMeshGeneration(format!(
-                    "Mesh {} has incompatible cell size: {} vs {}",
-                    i, mesh.cs, reference.cs
-                )));
+                return Err(BuildError::IncompatibleMesh {
+                    index: i,
+                    detail: "cell size mismatch",
+                });
             }
 
             // Check cell height compatibility
             if (mesh.ch - reference.ch).abs() > f32::EPSILON {
-                return Err(Error::NavMeshGeneration(format!(
-                    "Mesh {} has incompatible cell height: {} vs {}",
-                    i, mesh.ch, reference.ch
-                )));
+                return Err(BuildError::IncompatibleMesh {
+                    index: i,
+                    detail: "cell height mismatch",
+                });
             }
 
             // Check max vertices per polygon compatibility
             if mesh.max_verts_per_poly != reference.max_verts_per_poly {
-                return Err(Error::NavMeshGeneration(format!(
-                    "Mesh {} has incompatible max vertices per polygon: {} vs {}",
-                    i, mesh.max_verts_per_poly, reference.max_verts_per_poly
-                )));
+                return Err(BuildError::IncompatibleMesh {
+                    index: i,
+                    detail: "max vertices per polygon mismatch",
+                });
             }
         }
 
@@ -168,7 +166,7 @@ impl MeshMerger {
     }
 
     /// Creates the base mesh structure for merging
-    fn create_base_mesh(&self, reference: &PolyMesh) -> Result<PolyMesh> {
+    fn create_base_mesh(&self, reference: &PolyMesh) -> Result<PolyMesh, BuildError> {
         let mut merged = PolyMesh::new(reference.max_verts_per_poly, reference.border_size);
 
         // Copy basic properties from reference mesh
@@ -186,7 +184,7 @@ impl MeshMerger {
         meshes: &[&PolyMesh],
         merged_mesh: &mut PolyMesh,
         stats: &mut MergeStats,
-    ) -> Result<Vec<Vec<u16>>> {
+    ) -> Result<Vec<Vec<u16>>, BuildError> {
         let mut all_vertices: Vec<Vec3> = Vec::new();
         let mut vertex_mappings = Vec::new();
 
@@ -269,7 +267,7 @@ impl MeshMerger {
         merged_mesh: &mut PolyMesh,
         vertex_mappings: &[Vec<u16>],
         _stats: &mut MergeStats,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Pre-allocate capacity for polygons
         let total_polys: usize = meshes.iter().map(|m| m.poly_count).sum();
         let nvp = merged_mesh.max_verts_per_poly;
@@ -326,7 +324,7 @@ impl MeshMerger {
         &self,
         merged_mesh: &mut PolyMesh,
         stats: &mut MergeStats,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let nvp = merged_mesh.max_verts_per_poly;
         let mut unique_polygons = HashMap::new();
         let mut keep_indices = Vec::new();
@@ -397,7 +395,7 @@ impl MeshMerger {
         &self,
         _merged_mesh: &mut PolyMesh,
         _stats: &mut MergeStats,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // TODO: Implement coplanar polygon merging
         // This is a complex operation that requires:
         // 1. Building polygon adjacency information
@@ -413,7 +411,7 @@ impl MeshMerger {
 /// Utility functions for mesh operations
 impl MeshMerger {
     /// Translates a mesh by the given offset
-    pub fn translate_mesh(mesh: &mut PolyMesh, offset: Vec3) -> Result<()> {
+    pub fn translate_mesh(mesh: &mut PolyMesh, offset: Vec3) -> Result<(), BuildError> {
         for i in 0..mesh.vert_count {
             let base_idx = i * 3;
             mesh.vertices[base_idx] = (mesh.vertices[base_idx] as f32 + offset[0]) as u16;
@@ -429,11 +427,9 @@ impl MeshMerger {
     }
 
     /// Scales a mesh by the given factors
-    pub fn scale_mesh(mesh: &mut PolyMesh, scale: Vec3) -> Result<()> {
+    pub fn scale_mesh(mesh: &mut PolyMesh, scale: Vec3) -> Result<(), BuildError> {
         if scale.x <= 0.0 || scale.y <= 0.0 || scale.z <= 0.0 {
-            return Err(Error::NavMeshGeneration(
-                "Scale factors must be positive".to_string(),
-            ));
+            return Err(BuildError::InvalidScaleFactors);
         }
 
         for i in 0..mesh.vert_count {
@@ -459,7 +455,11 @@ impl MeshMerger {
 
     /// Creates a copy of a mesh with transformed vertices
     /// Applies scale first, then translation (standard transform order)
-    pub fn transform_mesh(mesh: &PolyMesh, translation: Vec3, scale: Vec3) -> Result<PolyMesh> {
+    pub fn transform_mesh(
+        mesh: &PolyMesh,
+        translation: Vec3,
+        scale: Vec3,
+    ) -> Result<PolyMesh, BuildError> {
         let mut transformed = mesh.clone();
         Self::scale_mesh(&mut transformed, scale)?;
         Self::translate_mesh(&mut transformed, translation)?;

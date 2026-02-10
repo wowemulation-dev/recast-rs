@@ -4,9 +4,11 @@
 //! in specific areas. They can be used to mark areas with special properties,
 //! exclude areas from navigation, or modify walkability.
 
+use crate::error::BuildError;
 use glam::Vec3;
-use recast_common::{Error, Result};
 use std::rc::Rc;
+
+use crate::error::ConvexVolumeError;
 
 /// Maximum number of vertices in a convex volume
 pub const MAX_CONVEX_VOLUME_VERTS: usize = 32;
@@ -31,32 +33,31 @@ impl ConvexVolume {
         min_height: f32,
         max_height: f32,
         area_type: u8,
-    ) -> Result<Self> {
+    ) -> std::result::Result<Self, ConvexVolumeError> {
         if vertices.len() < 3 {
-            return Err(Error::InvalidMesh(
-                "Convex volume requires at least 3 vertices".to_string(),
-            ));
+            return Err(ConvexVolumeError::TooFewVertices {
+                count: vertices.len(),
+                min: 3,
+            });
         }
 
         if vertices.len() > MAX_CONVEX_VOLUME_VERTS {
-            return Err(Error::InvalidMesh(format!(
-                "Convex volume has too many vertices: {} (max: {})",
-                vertices.len(),
-                MAX_CONVEX_VOLUME_VERTS
-            )));
+            return Err(ConvexVolumeError::TooManyVertices {
+                count: vertices.len(),
+                max: MAX_CONVEX_VOLUME_VERTS,
+            });
         }
 
         if min_height > max_height {
-            return Err(Error::InvalidMesh(
-                "Convex volume min_height > max_height".to_string(),
-            ));
+            return Err(ConvexVolumeError::InvalidHeight {
+                min: min_height,
+                max: max_height,
+            });
         }
 
         // Ensure vertices form a convex polygon
         if !Self::is_convex(&vertices) {
-            return Err(Error::InvalidMesh(
-                "Vertices do not form a convex polygon".to_string(),
-            ));
+            return Err(ConvexVolumeError::NotConvex);
         }
 
         Ok(Self {
@@ -68,7 +69,11 @@ impl ConvexVolume {
     }
 
     /// Creates a box-shaped convex volume
-    pub fn from_box(center: Vec3, half_extents: Vec3, area_type: u8) -> Result<Self> {
+    pub fn from_box(
+        center: Vec3,
+        half_extents: Vec3,
+        area_type: u8,
+    ) -> std::result::Result<Self, ConvexVolumeError> {
         let min_x = center.x - half_extents.x;
         let max_x = center.x + half_extents.x;
         let min_z = center.z - half_extents.z;
@@ -95,18 +100,19 @@ impl ConvexVolume {
         height: f32,
         segments: usize,
         area_type: u8,
-    ) -> Result<Self> {
+    ) -> std::result::Result<Self, ConvexVolumeError> {
         if segments < 3 {
-            return Err(Error::InvalidMesh(
-                "Cylinder requires at least 3 segments".to_string(),
-            ));
+            return Err(ConvexVolumeError::TooFewVertices {
+                count: segments,
+                min: 3,
+            });
         }
 
         if segments > MAX_CONVEX_VOLUME_VERTS {
-            return Err(Error::InvalidMesh(format!(
-                "Cylinder has too many segments: {} (max: {})",
-                segments, MAX_CONVEX_VOLUME_VERTS
-            )));
+            return Err(ConvexVolumeError::TooManyVertices {
+                count: segments,
+                max: MAX_CONVEX_VOLUME_VERTS,
+            });
         }
 
         let mut vertices = Vec::with_capacity(segments);
@@ -393,7 +399,7 @@ impl ConvexVolumeSet {
     pub fn apply_to_heightfield(
         &self,
         heightfield: &mut super::heightfield::Heightfield,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let cell_size = heightfield.cs;
         let cell_height = heightfield.ch;
         let origin = heightfield.bmin;

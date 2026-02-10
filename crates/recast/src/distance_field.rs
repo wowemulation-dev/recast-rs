@@ -4,7 +4,7 @@
 //! region building algorithms for better quality navigation mesh generation.
 
 use super::compact_heightfield::CompactHeightfield;
-use recast_common::Result;
+use crate::error::BuildError;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, VecDeque};
 
@@ -29,7 +29,10 @@ impl PartialOrd for DistanceEntry {
 }
 
 /// Builds a distance field from boundary spans
-pub fn build_distance_field(chf: &CompactHeightfield, boundary_flags: &[u8]) -> Result<Vec<u16>> {
+pub fn build_distance_field(
+    chf: &CompactHeightfield,
+    boundary_flags: &[u8],
+) -> Result<Vec<u16>, BuildError> {
     let span_count = chf.spans.len();
     let mut distances = vec![0u16; span_count];
     let mut queue = BinaryHeap::new();
@@ -99,7 +102,7 @@ pub fn build_regions_watershed(
     boundary_flags: &[u8],
     min_region_area: i32,
     merge_region_area: i32,
-) -> Result<Vec<u16>> {
+) -> Result<Vec<u16>, BuildError> {
     let span_count = chf.spans.len();
 
     // Build distance field
@@ -166,7 +169,7 @@ fn find_neighbor_region(
     chf: &CompactHeightfield,
     span_idx: usize,
     region_ids: &[u16],
-) -> Result<u16> {
+) -> Result<u16, BuildError> {
     // Check all 4 cardinal neighbors for existing regions
     // Using 8-direction constants: N=1, E=3, S=5, W=7
     for dir in [1u8, 3u8, 5u8, 7u8] {
@@ -188,7 +191,7 @@ fn watershed_flood_fill(
     region_id: u16,
     distances: &[u16],
     region_ids: &mut [u16],
-) -> Result<()> {
+) -> Result<(), BuildError> {
     let mut queue = VecDeque::new();
     queue.push_back(seed_idx);
     region_ids[seed_idx] = region_id;
@@ -246,7 +249,7 @@ fn merge_small_regions_watershed(
     chf: &CompactHeightfield,
     region_ids: &mut [u16],
     merge_region_area: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     // Count region areas
     let max_region = region_ids.iter().copied().max().unwrap_or(0);
     let mut region_areas = vec![0i32; max_region as usize + 1];
@@ -290,7 +293,7 @@ fn find_best_merge_neighbor(
     region_ids: &[u16],
     region_id: u16,
     region_areas: &[i32],
-) -> Result<u16> {
+) -> Result<u16, BuildError> {
     use std::collections::HashMap;
 
     let mut neighbor_borders: HashMap<u16, i32> = HashMap::new();
@@ -336,7 +339,7 @@ fn find_best_merge_neighbor(
 }
 
 /// Compacts region IDs to remove gaps
-fn compact_region_ids(region_ids: &mut [u16]) -> Result<()> {
+fn compact_region_ids(region_ids: &mut [u16]) -> Result<(), BuildError> {
     use std::collections::HashMap;
 
     // Find all unique region IDs
@@ -418,7 +421,7 @@ pub fn build_regions_monotone(
     border_size: i32,
     min_region_area: i32,
     merge_region_area: i32,
-) -> Result<Vec<u16>> {
+) -> Result<Vec<u16>, BuildError> {
     let w = chf.width;
     let h = chf.height;
     let mut id = 1u16;
@@ -577,7 +580,7 @@ pub fn build_layer_regions(
     chf: &CompactHeightfield,
     border_size: i32,
     min_region_area: i32,
-) -> Result<Vec<u16>> {
+) -> Result<Vec<u16>, BuildError> {
     let w = chf.width;
     let h = chf.height;
     let mut id = 1u16;
@@ -728,7 +731,7 @@ fn merge_small_regions_monotone(
     chf: &CompactHeightfield,
     region_ids: &mut [u16],
     merge_region_area: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     // Similar to merge_small_regions_watershed but for monotone regions
     merge_small_regions_watershed(chf, region_ids, merge_region_area)
 }
@@ -738,7 +741,7 @@ fn merge_and_filter_layer_regions(
     _chf: &CompactHeightfield,
     region_ids: &mut [u16],
     min_region_area: i32,
-) -> Result<()> {
+) -> Result<(), BuildError> {
     // First, count region sizes
     let max_region = region_ids.iter().copied().max().unwrap_or(0);
     let mut region_areas = vec![0i32; max_region as usize + 1];

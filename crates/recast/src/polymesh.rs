@@ -6,7 +6,7 @@
 use glam::Vec3;
 
 use super::contour::ContourSet;
-use recast_common::{Error, Result};
+use crate::error::BuildError;
 
 /// Vertex bucket count for spatial hashing (from C++ implementation)
 const VERTEX_BUCKET_COUNT: usize = 1 << 12;
@@ -92,7 +92,10 @@ impl PolyMesh {
     }
 
     /// Builds a polygon mesh from a contour set following the exact C++ rcBuildPolyMesh algorithm
-    pub fn build_from_contour_set(contour_set: &ContourSet, nvp: usize) -> Result<Self> {
+    pub fn build_from_contour_set(
+        contour_set: &ContourSet,
+        nvp: usize,
+    ) -> Result<Self, BuildError> {
         // Copy mesh properties from contour set (matches C++ lines 987-992)
         let mut mesh = Self::new(nvp, contour_set.border_size);
         mesh.bmin = contour_set.bmin;
@@ -116,10 +119,11 @@ impl PolyMesh {
         }
 
         if max_vertices >= 0xfffe {
-            return Err(Error::NavMeshGeneration(format!(
-                "Too many vertices {}",
-                max_vertices
-            )));
+            return Err(BuildError::TooManyVertices {
+                count: max_vertices,
+                max: 0xfffe,
+            }
+            .into());
         }
 
         // Allocate mesh arrays (matches C++ lines 1020-1053)
@@ -221,10 +225,11 @@ impl PolyMesh {
                 mesh.npolys += 1;
 
                 if mesh.npolys > max_tris {
-                    return Err(Error::NavMeshGeneration(format!(
-                        "Too many polygons {} (max:{})",
-                        mesh.npolys, max_tris
-                    )));
+                    return Err(BuildError::TooManyPolygons {
+                        count: mesh.npolys,
+                        max: max_tris,
+                    }
+                    .into());
                 }
             }
         }
@@ -243,16 +248,18 @@ impl PolyMesh {
 
         // Validate limits (matches C++ lines 1287-1294)
         if mesh.nverts > 0xffff {
-            return Err(Error::NavMeshGeneration(format!(
-                "Too many vertices {} (max 65535)",
-                mesh.nverts
-            )));
+            return Err(BuildError::TooManyVertices {
+                count: mesh.nverts,
+                max: 0xffff,
+            }
+            .into());
         }
         if mesh.npolys > 0xffff {
-            return Err(Error::NavMeshGeneration(format!(
-                "Too many polygons {} (max 65535)",
-                mesh.npolys
-            )));
+            return Err(BuildError::TooManyPolygons {
+                count: mesh.npolys,
+                max: 0xffff,
+            }
+            .into());
         }
 
         // Update compatibility fields to match main fields
@@ -275,7 +282,7 @@ impl PolyMesh {
         verts: &[super::contour::ContourVertex],
         indices: &mut [i32],
         tris: &mut [i32],
-    ) -> Result<i32> {
+    ) -> Result<i32, BuildError> {
         let mut ntris = 0;
         let mut dst = 0;
 
@@ -613,7 +620,7 @@ impl PolyMesh {
         npolys: &mut usize,
         verts: &[u16],
         nvp: usize,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         let mut tmp_poly = vec![MESH_NULL_IDX; nvp];
 
         loop {
@@ -789,14 +796,14 @@ impl PolyMesh {
         _mesh: &mut PolyMesh,
         _vflags: &mut [bool],
         _max_tris: usize,
-    ) -> Result<()> {
+    ) -> Result<(), BuildError> {
         // Implementation would be complex, for now return Ok
         // This matches the C++ removeVertex functionality
         Ok(())
     }
 
     /// Builds mesh adjacency (following C++ buildMeshAdjacency)
-    fn build_mesh_adjacency(mesh: &mut PolyMesh) -> Result<()> {
+    fn build_mesh_adjacency(mesh: &mut PolyMesh) -> Result<(), BuildError> {
         let nvp = mesh.nvp;
         let npolys = mesh.npolys;
         let nverts = mesh.nverts;
@@ -898,7 +905,7 @@ impl PolyMesh {
     }
 
     /// Marks portal edges (following C++ logic)
-    fn mark_portal_edges(mesh: &mut PolyMesh, contour_set: &ContourSet) -> Result<()> {
+    fn mark_portal_edges(mesh: &mut PolyMesh, contour_set: &ContourSet) -> Result<(), BuildError> {
         let border_size = mesh.border_size;
         if border_size <= 0 {
             return Ok(());
@@ -944,7 +951,7 @@ impl PolyMesh {
     }
 
     /// Copies a polygon mesh (following C++ rcCopyPolyMesh)
-    pub fn copy_mesh(src: &PolyMesh) -> Result<PolyMesh> {
+    pub fn copy_mesh(src: &PolyMesh) -> Result<PolyMesh, BuildError> {
         let mut dst = PolyMesh::new(src.nvp, src.border_size);
 
         dst.nverts = src.nverts;
