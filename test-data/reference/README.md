@@ -19,8 +19,8 @@ RecastCLI find-path --mesh /tmp/nav_test.bin --start 5,0,5 --end 20,0,15
 
 ## Known divergences
 
-The Rust port produces 1.0-1.4x more polygons than C++ for the same input
-and config. Bugs fixed so far:
+The Rust port produces 0.88-1.0x polygons compared to C++ for the same
+input and config. Bugs fixed so far:
 
 1. Direction mismatch in `contour.rs` `mark_boundaries` (reduced from 10-12x)
 2. CompactSpan `y` field: was `span.min` (bottom of solid), should be `span.max` (walkable surface)
@@ -33,15 +33,17 @@ and config. Bugs fixed so far:
 9. `normal.y.abs()` marked ceilings/undersides as walkable (should be `normal.y >` only)
 10. Missing `erode_walkable_area` call after compact heightfield (C++ calls `rcErodeWalkableArea`)
 11. `erode_walkable_area` used linked-list 8-direction API instead of `con[4]` array
+12. `expand_regions` ran only 1 iteration (`stack.retain` broke termination check)
+13. `merge_small_regions` picked largest neighbor instead of smallest; missing overlap/border checks
 
-The remaining divergence (~1.2-1.4x) is in region merging or contour simplification.
-Grid sizes and input counts match, so rasterization is correct.
-Walkable span counts and distance fields now match C++ closely.
+The remaining divergence (~0.88x) is likely in contour simplification or
+polygon meshing. Region counts now nearly match C++ (150 vs 148 for
+nav_test). Grid sizes and input counts match, so rasterization is correct.
 
 | Mesh | C++ Polys | Rust Polys | Ratio | C++ Verts | Rust Verts |
 |------|-----------|------------|-------|-----------|------------|
-| nav_test | 537 | 644 | 1.2x | 1197 | 1346 |
-| dungeon | 217 | 304 | 1.4x | 452 | 529 |
+| nav_test | 537 | 474 | 0.88x | 1197 | 1091 |
+| dungeon | 217 | 191 | 0.88x | 452 | 393 |
 | bridge | 8 | 8 | 1.0x | 18 | 18 |
 
 Multi-polygon pathfinding (`find_path` returning >1 polygon) does not

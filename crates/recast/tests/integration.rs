@@ -75,15 +75,15 @@ fn nav_test_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("nav_test.obj");
 
     // Current Rust output (regression test)
-    // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
-    assert_eq!(poly_mesh.npolys, 644);
-    assert_eq!(poly_mesh.nverts, 1346);
-    assert_eq!(detail_mesh.vert_count, 1346);
-    assert_eq!(detail_mesh.tri_count, 1337);
+    // After fixing expand_regions termination and region merge logic
+    assert_eq!(poly_mesh.npolys, 474);
+    assert_eq!(poly_mesh.nverts, 1091);
+    assert_eq!(detail_mesh.vert_count, 1091);
+    assert_eq!(detail_mesh.tri_count, 960);
 }
 
 #[test]
-#[ignore = "Rust produces ~1.2x more polygons than C++; remaining region merging divergence"]
+#[ignore = "Rust produces 0.88x polygons vs C++; contour simplification or polygon meshing difference"]
 fn nav_test_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
@@ -114,15 +114,15 @@ fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
     // Current Rust output (regression test)
-    // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
-    assert_eq!(poly_mesh.npolys, 304);
-    assert_eq!(poly_mesh.nverts, 529);
-    assert_eq!(detail_mesh.vert_count, 529);
-    assert_eq!(detail_mesh.tri_count, 577);
+    // After fixing expand_regions termination and region merge logic
+    assert_eq!(poly_mesh.npolys, 191);
+    assert_eq!(poly_mesh.nverts, 393);
+    assert_eq!(detail_mesh.vert_count, 393);
+    assert_eq!(detail_mesh.tri_count, 361);
 }
 
 #[test]
-#[ignore = "Rust produces ~1.4x more polygons than C++; remaining region merging divergence"]
+#[ignore = "Rust produces 0.88x polygons vs C++; contour simplification or polygon meshing difference"]
 fn dungeon_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("dungeon.obj");
 

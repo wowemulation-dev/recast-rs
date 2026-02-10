@@ -28,10 +28,10 @@
   "rust_output": {
     "grid_width": 305,
     "grid_height": 258,
-    "poly_count": 644,
-    "vert_count": 1346,
-    "detail_vert_count": 1346,
-    "detail_tri_count": 1337,
+    "poly_count": 474,
+    "vert_count": 1091,
+    "detail_vert_count": 1091,
+    "detail_tri_count": 960,
     "bounds_min": [-28.889317, -4.869517, -46.300152],
     "bounds_max": [62.494808, 17.410753, 31.053141]
   },
@@ -53,12 +53,12 @@
       {
         "label": "origin",
         "query_pos": [0.0, 0.0, 0.0],
-        "rust_snapped_pos": [2.0107, -2.2695, -0.4002]
+        "rust_snapped_pos": [0.0000, -2.2695, -2.2001]
       },
       {
         "label": "q1",
         "query_pos": [5.0, 0.0, 0.0],
-        "rust_snapped_pos": [4.8260, -2.2695, -0.9280]
+        "rust_snapped_pos": [4.8514, -2.2695, -2.3777]
       },
       {
         "label": "q3",

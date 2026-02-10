@@ -145,7 +145,7 @@ fn resolve_neighbor_index(
 ) -> Option<usize> {
     let w = chf.width;
     let ax = x + chf.get_dir_offset_x(dir);
-    let ay = y + chf.get_dir_offset_y(dir);
+    let ay = y + chf.get_dir_offset_z(dir);
     let cell = &chf.cells[(ay * w + ax) as usize];
     Some(cell.index? + con_offset)
 }
@@ -212,7 +212,7 @@ fn flood_region(
 
                 if neighbor_span.con[dir2] != RC_NOT_CONNECTED {
                     let ax = cx + chf.get_dir_offset_x(dir);
-                    let ay = cy + chf.get_dir_offset_y(dir);
+                    let ay = cy + chf.get_dir_offset_z(dir);
                     let Some(ai2) =
                         resolve_neighbor_index(chf, ax, ay, dir2, neighbor_span.con[dir2])
                     else {
@@ -255,7 +255,7 @@ fn flood_region(
                     src_dist[ai] = 0;
                     stack.push(LevelStackEntry::new(
                         cx + chf.get_dir_offset_x(dir),
-                        cy + chf.get_dir_offset_y(dir),
+                        cy + chf.get_dir_offset_z(dir),
                         ai,
                     ));
                 }
@@ -266,7 +266,10 @@ fn flood_region(
     count > 0
 }
 
-/// Expands regions
+/// Expands regions by assigning unassigned cells to nearby existing regions.
+///
+/// Matches C++ `expandRegions`. Items are marked with `usize::MAX` when assigned
+/// but kept in the stack (not removed) so the termination check works correctly.
 fn expand_regions(
     max_iter: i32,
     level: u16,
@@ -306,18 +309,17 @@ fn expand_regions(
         }
     }
 
-    let mut iter = 0;
     let mut dirty_entries = Vec::new();
+    let mut iter = 0;
 
     while !stack.is_empty() {
         let mut failed = 0;
         dirty_entries.clear();
-        let mut mark_indices = Vec::new();
 
-        for (j, entry) in stack.iter().enumerate() {
-            let x = entry.x;
-            let y = entry.y;
-            let i = entry.index;
+        for j in 0..stack.len() {
+            let x = stack[j].x;
+            let y = stack[j].y;
+            let i = stack[j].index;
 
             if i == usize::MAX {
                 failed += 1;
@@ -325,7 +327,7 @@ fn expand_regions(
             }
 
             let mut r = src_reg[i];
-            let mut d2 = 0xffff;
+            let mut d2 = 0xffffu16;
             let area = chf.areas[i];
             let span = &chf.spans[i];
 
@@ -343,24 +345,20 @@ fn expand_regions(
                     continue;
                 }
 
-                if src_reg[ai] > 0 && (src_reg[ai] & RC_BORDER_REG) == 0 && src_dist[ai] + 2 < d2 {
-                    r = src_reg[ai];
-                    d2 = src_dist[ai] + 2;
+                if src_reg[ai] > 0 && (src_reg[ai] & RC_BORDER_REG) == 0 {
+                    if src_dist[ai] + 2 < d2 {
+                        r = src_reg[ai];
+                        d2 = src_dist[ai] + 2;
+                    }
                 }
             }
 
             if r != 0 {
-                // Mark as assigned and add to dirty list
-                mark_indices.push(j);
+                stack[j] = LevelStackEntry::new(x, y, usize::MAX); // mark as used
                 dirty_entries.push((i, r, d2));
             } else {
                 failed += 1;
             }
-        }
-
-        // Update marked entries
-        for j in mark_indices {
-            stack[j] = LevelStackEntry::new(stack[j].x, stack[j].y, usize::MAX);
         }
 
         // Copy results back
@@ -369,10 +367,7 @@ fn expand_regions(
             src_dist[idx] = dist;
         }
 
-        // Remove processed items
-        stack.retain(|e| e.index != usize::MAX);
-
-        if failed * 3 >= stack.len() * 2 {
+        if failed == stack.len() {
             break;
         }
 
@@ -565,7 +560,7 @@ fn paint_rect_region(
     Ok(())
 }
 
-/// Merges and filters regions
+/// Merges and filters regions, matching C++ `mergeAndFilterRegions`.
 fn merge_and_filter_regions(
     min_region_area: i32,
     merge_region_area: i32,
@@ -573,77 +568,136 @@ fn merge_and_filter_regions(
     chf: &CompactHeightfield,
     src_reg: &mut [u16],
 ) -> Result<(), BuildError> {
-    let span_count = chf.spans.len();
+    let w = chf.width;
+    let h = chf.height;
+    let nreg = max_region_id as usize + 1;
 
     // Construct region table
-    let mut regions = Vec::with_capacity(max_region_id as usize);
-    for i in 0..max_region_id {
-        regions.push(Region::new(i));
+    let mut regions = Vec::with_capacity(nreg);
+    for i in 0..nreg {
+        regions.push(Region::new(i as u16));
     }
 
-    // Find region connections and overlapping regions
-    let _overlaps: Vec<u16> = Vec::new();
-    for span_idx in 0..span_count {
-        let reg_id = src_reg[span_idx];
-        if reg_id == 0 || (reg_id & RC_BORDER_REG) != 0 {
-            continue;
-        }
+    // Find edge of a region and find connections around the contour.
+    for y in 0..h {
+        for x in 0..w {
+            let cell_idx = (y * w + x) as usize;
+            let cell = &chf.cells[cell_idx];
 
-        let reg = &mut regions[reg_id as usize];
-        reg.span_count += 1;
+            if let Some(first_idx) = cell.index {
+                for s in 0..cell.count {
+                    let i = first_idx + s;
+                    let r = src_reg[i] as usize;
+                    if r == 0 || r >= nreg {
+                        continue;
+                    }
 
-        // Update region bounds
-        let y = chf.spans[span_idx].y as u16;
-        reg.ymin = reg.ymin.min(y);
-        reg.ymax = reg.ymax.max(y);
+                    let reg = &mut regions[r];
+                    reg.span_count += 1;
 
-        // Collect neighbors
-        for dir in 0..4 {
-            if let Some(neighbor_idx) = chf.get_neighbor_connection(span_idx, dir) {
-                let neighbor_reg = src_reg[neighbor_idx];
-                if neighbor_reg == reg_id || neighbor_reg == 0 {
-                    continue;
-                }
+                    // Update floors (other regions at the same cell, different height)
+                    for s2 in 0..cell.count {
+                        let j = first_idx + s2;
+                        if i == j {
+                            continue;
+                        }
+                        let floor_id = src_reg[j] as usize;
+                        if floor_id == 0 || floor_id >= nreg {
+                            continue;
+                        }
+                        if floor_id == r {
+                            reg.overlap = true;
+                        }
+                        if !reg.floors.contains(&floor_id) {
+                            reg.floors.push(floor_id);
+                        }
+                    }
 
-                if (neighbor_reg & RC_BORDER_REG) != 0 {
-                    reg.connects_to_border = true;
-                    continue;
-                }
+                    // Have found contour already for this region
+                    if !reg.connections.is_empty() {
+                        continue;
+                    }
 
-                // Add neighbor connection
-                if !reg.connections.contains(&(neighbor_reg as usize)) {
-                    reg.connections.push(neighbor_reg as usize);
+                    reg.area_type = chf.areas[i];
+
+                    // Check if this cell is next to a solid edge (region boundary)
+                    let mut ndir = -1i32;
+                    for dir in 0..4 {
+                        if is_solid_edge(chf, src_reg, x, y, i, dir) {
+                            ndir = dir as i32;
+                            break;
+                        }
+                    }
+
+                    if ndir != -1 {
+                        // Walk around the contour to find all the neighbours
+                        walk_contour(x, y, i, ndir as usize, chf, src_reg, &mut reg.connections);
+                    }
                 }
             }
         }
     }
 
-    // Remove small regions
-    let mut regions_to_remove = Vec::new();
-    for (i, reg) in regions.iter().enumerate().take(max_region_id as usize) {
-        if reg.id == 0 || (reg.id & RC_BORDER_REG) != 0 {
+    // Remove too small regions using flood-fill through connected regions (C++ approach)
+    for i in 0..nreg {
+        if regions[i].id == 0 || (regions[i].id & RC_BORDER_REG) != 0 {
+            continue;
+        }
+        if regions[i].span_count == 0 {
+            continue;
+        }
+        if regions[i].visited {
             continue;
         }
 
-        if reg.span_count == 0 {
-            continue;
+        // Flood-fill through connected regions to accumulate total span count
+        let mut connects_to_border = false;
+        let mut span_count = 0i32;
+        let mut stack = Vec::new();
+        let mut trace = Vec::new();
+
+        regions[i].visited = true;
+        stack.push(i);
+
+        while let Some(ri) = stack.pop() {
+            span_count += regions[ri].span_count;
+            trace.push(ri);
+
+            for j in 0..regions[ri].connections.len() {
+                let conn = regions[ri].connections[j];
+                if conn & (RC_BORDER_REG as usize) != 0 {
+                    connects_to_border = true;
+                    continue;
+                }
+                if conn >= nreg {
+                    continue;
+                }
+                if regions[conn].visited {
+                    continue;
+                }
+                if regions[conn].id == 0 || (regions[conn].id & RC_BORDER_REG) != 0 {
+                    continue;
+                }
+                stack.push(conn);
+                regions[conn].visited = true;
+            }
         }
 
-        if reg.span_count < min_region_area && !reg.connects_to_border {
-            // Mark for removal
-            regions_to_remove.push((i, reg.id));
+        // If the accumulated regions size is too small, remove the group.
+        // Don't remove areas connected to tile borders.
+        if span_count < min_region_area && !connects_to_border {
+            for &ri in &trace {
+                regions[ri].span_count = 0;
+                regions[ri].id = 0;
+            }
         }
     }
 
-    // Apply removals
-    for (i, old_id) in regions_to_remove {
-        regions[i].id = 0;
-
-        // Reassign all spans
-        for reg in src_reg.iter_mut().take(span_count) {
-            if *reg == old_id {
-                *reg = 0;
-            }
+    // Apply region removals to spans
+    for reg in src_reg.iter_mut() {
+        let r = *reg as usize;
+        if r > 0 && r < nreg && regions[r].id == 0 {
+            *reg = 0;
         }
     }
 
@@ -658,78 +712,232 @@ fn merge_and_filter_regions(
     Ok(())
 }
 
-/// Merges small regions with neighbors
+/// Checks if a span edge in a given direction is a region boundary.
+///
+/// Matches C++ `isSolidEdge`.
+fn is_solid_edge(
+    chf: &CompactHeightfield,
+    src_reg: &[u16],
+    x: i32,
+    y: i32,
+    i: usize,
+    dir: usize,
+) -> bool {
+    let span = &chf.spans[i];
+    let mut r = 0u16;
+    if span.con[dir] != RC_NOT_CONNECTED {
+        if let Some(ai) = resolve_neighbor_index(chf, x, y, dir, span.con[dir]) {
+            r = src_reg[ai];
+        }
+    }
+    r != src_reg[i]
+}
+
+/// Walks around the contour of a region to find all neighboring region IDs.
+///
+/// Matches C++ `walkContour`. Traces the boundary clockwise, recording each
+/// neighboring region ID as it changes. Removes adjacent duplicates.
+fn walk_contour(
+    mut x: i32,
+    mut y: i32,
+    mut i: usize,
+    mut dir: usize,
+    chf: &CompactHeightfield,
+    src_reg: &[u16],
+    cont: &mut Vec<usize>,
+) {
+    let start_dir = dir;
+    let start_i = i;
+
+    let span = &chf.spans[i];
+    let mut cur_reg = 0u16;
+    if span.con[dir] != RC_NOT_CONNECTED {
+        if let Some(ai) = resolve_neighbor_index(chf, x, y, dir, span.con[dir]) {
+            cur_reg = src_reg[ai];
+        }
+    }
+    cont.push(cur_reg as usize);
+
+    let mut iter = 0;
+    while iter < 40000 {
+        iter += 1;
+        let span = &chf.spans[i];
+
+        if is_solid_edge(chf, src_reg, x, y, i, dir) {
+            // At a region boundary edge
+            let mut r = 0u16;
+            if span.con[dir] != RC_NOT_CONNECTED {
+                if let Some(ai) = resolve_neighbor_index(chf, x, y, dir, span.con[dir]) {
+                    r = src_reg[ai];
+                }
+            }
+            if r != cur_reg {
+                cur_reg = r;
+                cont.push(cur_reg as usize);
+            }
+
+            dir = (dir + 1) & 0x3; // Rotate CW
+        } else {
+            // Move to neighbor cell
+            let nx = x + chf.get_dir_offset_x(dir);
+            let nz = y + chf.get_dir_offset_z(dir);
+            if span.con[dir] == RC_NOT_CONNECTED {
+                return; // Should not happen
+            }
+            let Some(ni) = resolve_neighbor_index(chf, x, y, dir, span.con[dir]) else {
+                return;
+            };
+            x = nx;
+            y = nz;
+            i = ni;
+            dir = (dir + 3) & 0x3; // Rotate CCW
+        }
+
+        if start_i == i && start_dir == dir {
+            break;
+        }
+    }
+
+    // Remove adjacent duplicates
+    if cont.len() > 1 {
+        let mut j = 0;
+        while j < cont.len() {
+            let nj = (j + 1) % cont.len();
+            if cont[j] == cont[nj] {
+                cont.remove(j);
+            } else {
+                j += 1;
+            }
+        }
+    }
+}
+
+/// Checks if a region is connected to the border (has a neighbor with ID 0).
+///
+/// Matches C++ `isRegionConnectedToBorder`.
+fn is_region_connected_to_border(reg: &Region) -> bool {
+    for &conn in &reg.connections {
+        if conn == 0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Replaces all occurrences of `old_id` with `new_id` in a region's connection list.
+///
+/// Matches C++ `replaceNeighbour`.
+fn replace_neighbour(reg: &mut Region, old_id: u16, new_id: u16) {
+    let mut has_new = false;
+    let mut has_old = false;
+    for &conn in &reg.connections {
+        if conn == new_id as usize {
+            has_new = true;
+        }
+        if conn == old_id as usize {
+            has_old = true;
+        }
+    }
+    if has_old {
+        // Replace old with new
+        for conn in &mut reg.connections {
+            if *conn == old_id as usize {
+                *conn = new_id as usize;
+            }
+        }
+        // Remove adjacent duplicates (C++ walkContour removes them, we do it here)
+        if has_new {
+            reg.connections.retain(|&c| c != new_id as usize);
+            reg.connections.push(new_id as usize);
+        }
+    }
+}
+
+/// Merges small regions with neighbors.
+///
+/// Matches the C++ merge loop in `mergeAndFilterRegions`. Key differences
+/// from the previous Rust implementation:
+/// - Selects the SMALLEST neighbor (not largest) to prevent oversized regions
+/// - Uses the C++ merge condition: skip if (large AND border-connected)
 fn merge_small_regions(
     regions: &mut [Region],
     _min_region_area: i32,
     merge_region_area: i32,
     src_reg: &mut [u16],
 ) -> Result<(), BuildError> {
-    // Find regions to merge
-    let mut merge_count;
+    let nreg = regions.len();
 
     loop {
-        merge_count = 0;
+        let mut merge_count = 0;
 
-        // Collect merge operations first to avoid borrow issues
-        let mut merges = Vec::new();
-
-        for i in 0..regions.len() {
-            let reg = &regions[i];
-            if reg.id == 0 || (reg.id & RC_BORDER_REG) != 0 {
+        for i in 0..nreg {
+            if regions[i].id == 0 || (regions[i].id & RC_BORDER_REG) != 0 {
+                continue;
+            }
+            if regions[i].overlap {
+                continue;
+            }
+            if regions[i].span_count == 0 {
                 continue;
             }
 
-            if reg.span_count == 0 {
+            // C++ condition: skip if large AND connected to border.
+            // This means we merge if: small OR not border-connected.
+            if regions[i].span_count > merge_region_area
+                && is_region_connected_to_border(&regions[i])
+            {
                 continue;
             }
 
-            // Check if region should be merged
-            if reg.span_count < merge_region_area && !reg.connects_to_border {
-                // Find best merge candidate
-                let mut best_neighbor_id = 0;
-                let mut best_neighbor_size = 0;
+            // Find SMALLEST neighbor that connects to this region (C++ behavior).
+            let mut smallest = i32::MAX;
+            let mut merge_id = regions[i].id;
 
-                for &neighbor_id in &reg.connections {
-                    if neighbor_id < regions.len() {
-                        let neighbor = &regions[neighbor_id];
-                        if neighbor.id == 0 || (neighbor.id & RC_BORDER_REG) != 0 {
-                            continue;
-                        }
+            for j in 0..regions[i].connections.len() {
+                let conn = regions[i].connections[j];
+                if conn >= nreg {
+                    continue;
+                }
+                let mreg = &regions[conn];
+                if mreg.id == 0 || (mreg.id & RC_BORDER_REG) != 0 || mreg.overlap {
+                    continue;
+                }
+                if mreg.span_count < smallest {
+                    smallest = mreg.span_count;
+                    merge_id = mreg.id;
+                }
+            }
 
-                        if neighbor.span_count > best_neighbor_size {
-                            best_neighbor_id = neighbor.id;
-                            best_neighbor_size = neighbor.span_count;
-                        }
+            if merge_id != regions[i].id {
+                let old_id = regions[i].id;
+                let target_idx = merge_id as usize;
+
+                // Merge span counts
+                regions[target_idx].span_count += regions[i].span_count;
+                regions[i].span_count = 0;
+                regions[i].id = 0;
+
+                // Fixup regions pointing to current region
+                for j in 0..nreg {
+                    if regions[j].id == 0 || (regions[j].id & RC_BORDER_REG) != 0 {
+                        continue;
+                    }
+                    // If another region was merged into current region, update its ID
+                    if regions[j].id == old_id {
+                        regions[j].id = merge_id;
+                    }
+                    // Replace old_id with merge_id in neighbor connections
+                    replace_neighbour(&mut regions[j], old_id, merge_id);
+                }
+
+                // Update spans
+                for reg in src_reg.iter_mut() {
+                    if *reg == old_id {
+                        *reg = merge_id;
                     }
                 }
 
-                // Record merge operation
-                if best_neighbor_id > 0 {
-                    merges.push((i, reg.id, best_neighbor_id, reg.span_count));
-                    merge_count += 1;
-                }
-            }
-        }
-
-        // Apply merges
-        for (region_idx, old_id, best_neighbor_id, span_count) in merges {
-            // Update spans
-            for reg in &mut *src_reg {
-                if *reg == old_id {
-                    *reg = best_neighbor_id;
-                }
-            }
-
-            // Update region info
-            regions[region_idx].id = 0;
-
-            // Find and update the best neighbor
-            for region in &mut *regions {
-                if region.id == best_neighbor_id {
-                    region.span_count += span_count;
-                    break;
-                }
+                merge_count += 1;
             }
         }
 
