@@ -85,30 +85,81 @@ impl CompactConnection {
     }
 }
 
-/// Direction constants for connections
+/// Direction system for compact heightfield connections.
+///
+/// Recast uses a Y-up coordinate system where the ground plane is XZ.
+/// The C++ code uses numbered directions 0-3 with axis-label comments.
+///
+/// ## 4-direction system (`con[4]` array, matches C++ `rcGetCon`)
+///
+/// This is the primary direction system, matching C++ exactly:
+///
+/// ```text
+///   dir 0 = -X   offset (-1,  0)
+///   dir 1 = +Z   offset ( 0, +1)
+///   dir 2 = +X   offset (+1,  0)
+///   dir 3 = -Z   offset ( 0, -1)
+/// ```
+///
+/// Offsets are returned by [`get_dir_offset_x`](CompactHeightfield::get_dir_offset_x)
+/// and [`get_dir_offset_z`](CompactHeightfield::get_dir_offset_z)
+/// (C++ `rcGetDirOffsetX` / `rcGetDirOffsetY`).
+///
+/// Rotation: `(dir + 1) & 3` = clockwise, `(dir + 3) & 3` = counter-clockwise.
+///
+/// ## 8-direction system (linked list connections, Rust-only)
+///
+/// The linked list connection system uses 8 directions numbered 0-7.
+/// C++ does not have this system; it packs connections into a bitfield.
+///
+/// ```text
+///   0(-1,-1)  1( 0,-1)  2(+1,-1)
+///
+///   7(-1, 0)  --------  3(+1, 0)
+///
+///   6(-1,+1)  5( 0,+1)  4(+1,+1)
+///
+///   (values shown as X,Z offsets)
+/// ```
+///
+/// The 4-direction indices map to 8-direction as: 0→7, 1→5, 2→3, 3→1.
+
+/// No connection in any direction.
 #[allow(dead_code)]
 pub const DIR_NONE: u8 = 0xff;
+
+// 8-direction constants for the linked-list connection system.
+// These are Rust-only; C++ packs connections into a bitfield instead.
+
+/// 8-dir 0: offset (-1, -1)
 #[allow(dead_code)]
 pub const DIR_NW: u8 = 0;
+/// 8-dir 1: offset (0, -1) — maps to 4-dir 3 (-Z)
 #[allow(dead_code)]
 pub const DIR_N: u8 = 1;
+/// 8-dir 2: offset (+1, -1)
 #[allow(dead_code)]
 pub const DIR_NE: u8 = 2;
+/// 8-dir 3: offset (+1, 0) — maps to 4-dir 2 (+X)
 #[allow(dead_code)]
 pub const DIR_E: u8 = 3;
+/// 8-dir 4: offset (+1, +1)
 #[allow(dead_code)]
 pub const DIR_SE: u8 = 4;
+/// 8-dir 5: offset (0, +1) — maps to 4-dir 1 (+Z)
 #[allow(dead_code)]
 pub const DIR_S: u8 = 5;
+/// 8-dir 6: offset (-1, +1)
 #[allow(dead_code)]
 pub const DIR_SW: u8 = 6;
+/// 8-dir 7: offset (-1, 0) — maps to 4-dir 0 (-X)
 #[allow(dead_code)]
 pub const DIR_W: u8 = 7;
 
-/// Offset in x for each 8-direction
+/// X offset for each of the 8 directions (index 0 through 7).
 #[allow(dead_code)]
 pub const DIR_OFFSET_X: [i32; 8] = [-1, 0, 1, 1, 1, 0, -1, -1];
-/// Offset in z for each 8-direction
+/// Z offset for each of the 8 directions (index 0 through 7).
 #[allow(dead_code)]
 pub const DIR_OFFSET_Z: [i32; 8] = [-1, -1, -1, 0, 1, 1, 1, 0];
 
@@ -561,17 +612,17 @@ impl CompactHeightfield {
 
     /// Calculates the distance field using the C++ two-pass algorithm.
     ///
-    /// Uses cardinal directions (W=7, S=5, E=3, N=1 in 8-dir system) for propagation,
-    /// with diagonal checks via two consecutive cardinal hops.
+    /// Uses the 4 cardinal 8-dir indices for propagation, with diagonal
+    /// checks via two consecutive cardinal hops.
     fn calculate_distance_field(&self, src: &mut [u16]) -> Result<u16, BuildError> {
         let w = self.width;
         let h = self.height;
 
-        // 8-dir constants for cardinal directions
-        const DIR_W: u8 = 7;
-        const DIR_S: u8 = 5;
-        const DIR_E: u8 = 3;
-        const DIR_N: u8 = 1;
+        // 8-dir linked-list indices for the 4 cardinal directions
+        const DIR_NEG_X: u8 = 7; // -X
+        const DIR_POS_Z: u8 = 5; // +Z
+        const DIR_POS_X: u8 = 3; // +X
+        const DIR_NEG_Z: u8 = 1; // -Z
 
         // Initialize all distances to infinity
         for distance in src.iter_mut() {
@@ -590,8 +641,7 @@ impl CompactHeightfield {
 
                         let mut neighbor_count = 0;
 
-                        // Check all 4 cardinal directions using correct 8-dir indices
-                        for dir in [DIR_N, DIR_E, DIR_S, DIR_W] {
+                        for dir in [DIR_NEG_Z, DIR_POS_X, DIR_POS_Z, DIR_NEG_X] {
                             if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
                                 if self.areas[neighbor_idx] == self.areas[span_idx] {
                                     neighbor_count += 1;
@@ -609,7 +659,7 @@ impl CompactHeightfield {
         }
 
         // Pass 1: Forward pass (top-left to bottom-right)
-        // C++ checks West(0) and North(3) as cardinal, then diagonals NW and NE
+        // C++ checks dir 0 (-X) and dir 3 (-Z), then diagonals (-X,-Z) and (-Z,+X)
         for y in 0..h {
             for x in 0..w {
                 let cell_idx = (y * w + x) as usize;
@@ -619,30 +669,30 @@ impl CompactHeightfield {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
 
-                        // Check West (cardinal: +2)
-                        if let Some(west_idx) = self.get_neighbor(span_idx, DIR_W) {
-                            if src[west_idx].saturating_add(2) < src[span_idx] {
-                                src[span_idx] = src[west_idx].saturating_add(2);
+                        // -X (cardinal: +2)
+                        if let Some(neg_x_idx) = self.get_neighbor(span_idx, DIR_NEG_X) {
+                            if src[neg_x_idx].saturating_add(2) < src[span_idx] {
+                                src[span_idx] = src[neg_x_idx].saturating_add(2);
                             }
 
-                            // NW diagonal: from West neighbor, go North (+3)
-                            if let Some(nw_idx) = self.get_neighbor(west_idx, DIR_N) {
-                                if src[nw_idx].saturating_add(3) < src[span_idx] {
-                                    src[span_idx] = src[nw_idx].saturating_add(3);
+                            // (-X,-Z) diagonal: from -X neighbor, go -Z (+3)
+                            if let Some(diag_idx) = self.get_neighbor(neg_x_idx, DIR_NEG_Z) {
+                                if src[diag_idx].saturating_add(3) < src[span_idx] {
+                                    src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
                             }
                         }
 
-                        // Check North (cardinal: +2)
-                        if let Some(north_idx) = self.get_neighbor(span_idx, DIR_N) {
-                            if src[north_idx].saturating_add(2) < src[span_idx] {
-                                src[span_idx] = src[north_idx].saturating_add(2);
+                        // -Z (cardinal: +2)
+                        if let Some(neg_z_idx) = self.get_neighbor(span_idx, DIR_NEG_Z) {
+                            if src[neg_z_idx].saturating_add(2) < src[span_idx] {
+                                src[span_idx] = src[neg_z_idx].saturating_add(2);
                             }
 
-                            // NE diagonal: from North neighbor, go East (+3)
-                            if let Some(ne_idx) = self.get_neighbor(north_idx, DIR_E) {
-                                if src[ne_idx].saturating_add(3) < src[span_idx] {
-                                    src[span_idx] = src[ne_idx].saturating_add(3);
+                            // (-Z,+X) diagonal: from -Z neighbor, go +X (+3)
+                            if let Some(diag_idx) = self.get_neighbor(neg_z_idx, DIR_POS_X) {
+                                if src[diag_idx].saturating_add(3) < src[span_idx] {
+                                    src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
                             }
                         }
@@ -652,7 +702,7 @@ impl CompactHeightfield {
         }
 
         // Pass 2: Backward pass (bottom-right to top-left)
-        // C++ checks East(2) and South(1) as cardinal, then diagonals SE and SW
+        // C++ checks dir 2 (+X) and dir 1 (+Z), then diagonals (+X,+Z) and (+Z,-X)
         for y in (0..h).rev() {
             for x in (0..w).rev() {
                 let cell_idx = (y * w + x) as usize;
@@ -662,30 +712,30 @@ impl CompactHeightfield {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
 
-                        // Check East (cardinal: +2)
-                        if let Some(east_idx) = self.get_neighbor(span_idx, DIR_E) {
-                            if src[east_idx].saturating_add(2) < src[span_idx] {
-                                src[span_idx] = src[east_idx].saturating_add(2);
+                        // +X (cardinal: +2)
+                        if let Some(pos_x_idx) = self.get_neighbor(span_idx, DIR_POS_X) {
+                            if src[pos_x_idx].saturating_add(2) < src[span_idx] {
+                                src[span_idx] = src[pos_x_idx].saturating_add(2);
                             }
 
-                            // SE diagonal: from East neighbor, go South (+3)
-                            if let Some(se_idx) = self.get_neighbor(east_idx, DIR_S) {
-                                if src[se_idx].saturating_add(3) < src[span_idx] {
-                                    src[span_idx] = src[se_idx].saturating_add(3);
+                            // (+X,+Z) diagonal: from +X neighbor, go +Z (+3)
+                            if let Some(diag_idx) = self.get_neighbor(pos_x_idx, DIR_POS_Z) {
+                                if src[diag_idx].saturating_add(3) < src[span_idx] {
+                                    src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
                             }
                         }
 
-                        // Check South (cardinal: +2)
-                        if let Some(south_idx) = self.get_neighbor(span_idx, DIR_S) {
-                            if src[south_idx].saturating_add(2) < src[span_idx] {
-                                src[span_idx] = src[south_idx].saturating_add(2);
+                        // +Z (cardinal: +2)
+                        if let Some(pos_z_idx) = self.get_neighbor(span_idx, DIR_POS_Z) {
+                            if src[pos_z_idx].saturating_add(2) < src[span_idx] {
+                                src[span_idx] = src[pos_z_idx].saturating_add(2);
                             }
 
-                            // SW diagonal: from South neighbor, go West (+3)
-                            if let Some(sw_idx) = self.get_neighbor(south_idx, DIR_W) {
-                                if src[sw_idx].saturating_add(3) < src[span_idx] {
-                                    src[span_idx] = src[sw_idx].saturating_add(3);
+                            // (+Z,-X) diagonal: from +Z neighbor, go -X (+3)
+                            if let Some(diag_idx) = self.get_neighbor(pos_z_idx, DIR_NEG_X) {
+                                if src[diag_idx].saturating_add(3) < src[span_idx] {
+                                    src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
                             }
                         }
@@ -765,42 +815,52 @@ impl CompactHeightfield {
         Ok(true) // Result is in dst
     }
 
-    /// Gets the neighbor connection for a span in a specific direction
-    /// Returns None if no connection exists
-    /// Direction: 0=W, 1=S, 2=E, 3=N (4-direction system)
+    /// Gets the neighbor span via the linked-list connection system for a
+    /// 4-direction index.
+    ///
+    /// Maps the 4-direction index to the 8-direction linked list:
+    /// - `0` (-X) → 8-dir 7
+    /// - `1` (+Z) → 8-dir 5
+    /// - `2` (+X) → 8-dir 3
+    /// - `3` (-Z) → 8-dir 1
     pub fn get_neighbor_connection(&self, span_idx: usize, direction: usize) -> Option<usize> {
         if direction >= 4 {
             return None;
         }
-        // Map 4-direction to 8-direction: W=7, S=5, E=3, N=1
+        // Map 4-direction to 8-direction index
         let dir8 = match direction {
-            0 => 7, // West
-            1 => 5, // South
-            2 => 3, // East
-            3 => 1, // North
+            0 => 7, // -X
+            1 => 5, // +Z
+            2 => 3, // +X
+            3 => 1, // -Z
             _ => return None,
         };
         self.get_neighbor(span_idx, dir8)
     }
 
-    /// Gets the X offset for a direction
+    /// Gets the X-axis offset for a 4-direction index.
+    ///
+    /// Matches C++ `rcGetDirOffsetX`. See [`get_dir_offset_z`](Self::get_dir_offset_z).
     pub fn get_dir_offset_x(&self, direction: usize) -> i32 {
         match direction {
-            0 => -1, // West
-            1 => 0,  // South
-            2 => 1,  // East
-            3 => 0,  // North
+            0 => -1, // -X
+            1 => 0,  // +Z
+            2 => 1,  // +X
+            3 => 0,  // -Z
             _ => 0,
         }
     }
 
-    /// Gets the Y (Z) offset for a direction
-    pub fn get_dir_offset_y(&self, direction: usize) -> i32 {
+    /// Gets the Z-axis offset for a 4-direction index.
+    ///
+    /// C++ names this `rcGetDirOffsetY` because it returns the grid's second
+    /// axis, but the grid lies on the XZ plane so the offset is along Z.
+    pub fn get_dir_offset_z(&self, direction: usize) -> i32 {
         match direction {
-            0 => 0,  // West
-            1 => 1,  // South
-            2 => 0,  // East
-            3 => -1, // North
+            0 => 0,  // -X
+            1 => 1,  // +Z
+            2 => 0,  // +X
+            3 => -1, // -Z
             _ => 0,
         }
     }

@@ -221,13 +221,13 @@ pub struct ContourSet {
 }
 
 impl ContourSet {
-    /// Maps C++ 4-direction to Rust 8-direction system
+    /// Maps 4-direction index to 8-direction linked-list index.
     fn map_4dir_to_8dir(dir: u8) -> u8 {
         match dir {
-            0 => 7, // West (-1, 0) -> DIR_W
-            1 => 5, // South (0, 1) -> DIR_S
-            2 => 3, // East (1, 0) -> DIR_E
-            3 => 1, // North (0, -1) -> DIR_N
+            0 => 7, // -X
+            1 => 5, // +Z
+            2 => 3, // +X
+            3 => 1, // -Z
             _ => 0,
         }
     }
@@ -443,8 +443,8 @@ impl ContourSet {
                         let mut res = 0u8;
 
                         // Check all 4 directions using C++ convention:
-                        // dir 0 = W(-1,0), dir 1 = S(0,+1), dir 2 = E(+1,0), dir 3 = N(0,-1)
-                        // This must match walk_contour's get_dir_offset_x/y and map_4dir_to_8dir.
+                        // dir 0 = -X, dir 1 = +Z, dir 2 = +X, dir 3 = -Z
+                        // This must match walk_contour's get_dir_offset_x/z and map_4dir_to_8dir.
                         for dir in 0..4u8 {
                             let dir8 = Self::map_4dir_to_8dir(dir);
 
@@ -979,7 +979,7 @@ impl ContourSet {
             } else {
                 // Move to neighbor
                 let nx = cur_x + Self::get_dir_offset_x(dir as i32);
-                let ny = cur_y + Self::get_dir_offset_y(dir as i32);
+                let ny = cur_y + Self::get_dir_offset_z(dir as i32);
                 let dir8 = Self::map_4dir_to_8dir(dir);
 
                 if let Some(neighbor_idx) = chf.get_neighbor(cur_i, dir8) {
@@ -1002,14 +1002,17 @@ impl ContourSet {
         Ok(())
     }
 
-    /// Gets the x offset for a direction (C++ rcGetDirOffsetX)
+    /// Gets the X-axis offset for a direction (C++ `rcGetDirOffsetX`).
     fn get_dir_offset_x(dir: i32) -> i32 {
         let offset = [-1, 0, 1, 0];
         offset[dir as usize & 0x03]
     }
 
-    /// Gets the y offset for a direction (C++ rcGetDirOffsetY)
-    fn get_dir_offset_y(dir: i32) -> i32 {
+    /// Gets the Z-axis offset for a direction (C++ `rcGetDirOffsetY`).
+    ///
+    /// C++ names this `rcGetDirOffsetY` because it returns the grid's second
+    /// axis, but the grid lies on the XZ plane so the offset is along Z.
+    fn get_dir_offset_z(dir: i32) -> i32 {
         let offset = [0, 1, 0, -1];
         offset[dir as usize & 0x03]
     }

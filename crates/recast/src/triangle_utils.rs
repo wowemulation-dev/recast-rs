@@ -188,24 +188,37 @@ pub fn vnormalize(v: &mut [f32; 3]) {
     }
 }
 
-/// Get direction offset X (matches C++ rcGetDirOffsetX)
+/// Gets the X-axis offset for a direction (matches C++ `rcGetDirOffsetX`).
+///
+/// Direction 0 = -1, direction 1 = 0, direction 2 = +1, direction 3 = 0.
 pub fn get_dir_offset_x(dir: u8) -> i32 {
     const OFFSETS: [i32; 4] = [-1, 0, 1, 0];
     OFFSETS[(dir & 0x03) as usize]
 }
 
-/// Get direction offset Y/Z (matches C++ rcGetDirOffsetY)
-pub fn get_dir_offset_y(dir: u8) -> i32 {
+/// Gets the Z-axis offset for a direction (matches C++ `rcGetDirOffsetY`).
+///
+/// C++ names this `rcGetDirOffsetY` because it returns the grid's second axis,
+/// but the grid lies on the XZ plane, so the offset is along the Z axis.
+///
+/// Direction 0 = 0, direction 1 = +1, direction 2 = 0, direction 3 = -1.
+pub fn get_dir_offset_z(dir: u8) -> i32 {
     const OFFSETS: [i32; 4] = [0, 1, 0, -1];
     OFFSETS[(dir & 0x03) as usize]
 }
 
-/// Get direction from offset (matches C++ rcGetDirForOffset)
-pub fn get_dir_for_offset(x: i32, y: i32) -> Option<u8> {
+/// Get direction from offset (matches C++ rcGetDirForOffset).
+///
+/// Returns the direction index (0-3) for the given X and Z offsets:
+/// - `(-1,  0)` → `0` (-X)
+/// - `( 0, +1)` → `1` (+Z)
+/// - `(+1,  0)` → `2` (+X)
+/// - `( 0, -1)` → `3` (-Z)
+pub fn get_dir_for_offset(x: i32, z: i32) -> Option<u8> {
     const DIRS: [(i32, i32, u8); 4] = [(-1, 0, 0), (0, 1, 1), (1, 0, 2), (0, -1, 3)];
 
-    for &(dx, dy, dir) in &DIRS {
-        if dx == x && dy == y {
+    for &(dx, dz, dir) in &DIRS {
+        if dx == x && dz == z {
             return Some(dir);
         }
     }
@@ -335,16 +348,16 @@ mod tests {
     #[test]
     fn test_direction_offsets() {
         assert_eq!(get_dir_offset_x(0), -1);
-        assert_eq!(get_dir_offset_y(0), 0);
+        assert_eq!(get_dir_offset_z(0), 0);
 
         assert_eq!(get_dir_offset_x(1), 0);
-        assert_eq!(get_dir_offset_y(1), 1);
+        assert_eq!(get_dir_offset_z(1), 1);
 
         assert_eq!(get_dir_offset_x(2), 1);
-        assert_eq!(get_dir_offset_y(2), 0);
+        assert_eq!(get_dir_offset_z(2), 0);
 
         assert_eq!(get_dir_offset_x(3), 0);
-        assert_eq!(get_dir_offset_y(3), -1);
+        assert_eq!(get_dir_offset_z(3), -1);
 
         // Test get_dir_for_offset
         assert_eq!(get_dir_for_offset(-1, 0), Some(0));

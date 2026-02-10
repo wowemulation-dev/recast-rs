@@ -105,7 +105,7 @@ pub fn erode_walkable_area(
                     for dir in 0..4 {
                         if span.con[dir] != NOT_CONNECTED {
                             let nx = x + chf.get_dir_offset_x(dir);
-                            let nz = z + chf.get_dir_offset_y(dir);
+                            let nz = z + chf.get_dir_offset_z(dir);
 
                             if nx >= 0 && nz >= 0 && nx < w && nz < h {
                                 let ncell_idx = (nz * w + nx) as usize;
@@ -140,7 +140,7 @@ pub fn erode_walkable_area(
             return None;
         }
         let nx = x + chf.get_dir_offset_x(dir);
-        let nz = z + chf.get_dir_offset_y(dir);
+        let nz = z + chf.get_dir_offset_z(dir);
         if nx < 0 || nz < 0 || nx >= w || nz >= h {
             return None;
         }
@@ -158,18 +158,18 @@ pub fn erode_walkable_area(
                 for s in 0..cell.count {
                     let span_idx = index + s;
 
-                    // Direction 0 (West): +2
+                    // Direction 0 (-X): +2
                     if let Some(ax) = resolve_neighbor(span_idx, x, z, 0) {
                         let nd = dist[ax].saturating_add(2);
                         if nd < dist[span_idx] {
                             dist[span_idx] = nd;
                         }
 
-                        // Diagonal: West then dir 3 (South in C++ terms): +3
+                        // Diagonal: dir 0 (-X) then dir 3 (-Z): +3
                         if let Some(bx) = resolve_neighbor(
                             ax,
                             x + chf.get_dir_offset_x(0),
-                            z + chf.get_dir_offset_y(0),
+                            z + chf.get_dir_offset_z(0),
                             3,
                         ) {
                             let nd = dist[bx].saturating_add(3);
@@ -179,18 +179,18 @@ pub fn erode_walkable_area(
                         }
                     }
 
-                    // Direction 3: +2
+                    // Direction 3 (-Z): +2
                     if let Some(ax) = resolve_neighbor(span_idx, x, z, 3) {
                         let nd = dist[ax].saturating_add(2);
                         if nd < dist[span_idx] {
                             dist[span_idx] = nd;
                         }
 
-                        // Diagonal: dir 3 then dir 2: +3
+                        // Diagonal: dir 3 (-Z) then dir 2 (+X): +3
                         if let Some(bx) = resolve_neighbor(
                             ax,
                             x + chf.get_dir_offset_x(3),
-                            z + chf.get_dir_offset_y(3),
+                            z + chf.get_dir_offset_z(3),
                             2,
                         ) {
                             let nd = dist[bx].saturating_add(3);
@@ -214,18 +214,18 @@ pub fn erode_walkable_area(
                 for s in 0..cell.count {
                     let span_idx = index + s;
 
-                    // Direction 2 (East): +2
+                    // Direction 2 (+X): +2
                     if let Some(ax) = resolve_neighbor(span_idx, x, z, 2) {
                         let nd = dist[ax].saturating_add(2);
                         if nd < dist[span_idx] {
                             dist[span_idx] = nd;
                         }
 
-                        // Diagonal: East then dir 1: +3
+                        // Diagonal: dir 2 (+X) then dir 1 (+Z): +3
                         if let Some(bx) = resolve_neighbor(
                             ax,
                             x + chf.get_dir_offset_x(2),
-                            z + chf.get_dir_offset_y(2),
+                            z + chf.get_dir_offset_z(2),
                             1,
                         ) {
                             let nd = dist[bx].saturating_add(3);
@@ -235,18 +235,18 @@ pub fn erode_walkable_area(
                         }
                     }
 
-                    // Direction 1: +2
+                    // Direction 1 (+Z): +2
                     if let Some(ax) = resolve_neighbor(span_idx, x, z, 1) {
                         let nd = dist[ax].saturating_add(2);
                         if nd < dist[span_idx] {
                             dist[span_idx] = nd;
                         }
 
-                        // Diagonal: dir 1 then dir 0: +3
+                        // Diagonal: dir 1 (+Z) then dir 0 (-X): +3
                         if let Some(bx) = resolve_neighbor(
                             ax,
                             x + chf.get_dir_offset_x(1),
-                            z + chf.get_dir_offset_y(1),
+                            z + chf.get_dir_offset_z(1),
                             0,
                         ) {
                             let nd = dist[bx].saturating_add(3);

@@ -43,7 +43,7 @@ pub use rasterization::{
 };
 pub use triangle_utils::{
     RC_NULL_AREA, RC_WALKABLE_AREA, array_to_vec3, calc_bounds, calc_bounds_vec3, calc_grid_size,
-    clear_unwalkable_triangles, get_dir_for_offset, get_dir_offset_x, get_dir_offset_y,
+    clear_unwalkable_triangles, get_dir_for_offset, get_dir_offset_x, get_dir_offset_z,
     get_heightfield_span_count, mark_walkable_triangles, vadd, vcopy, vcross, vdist, vdist_sqr,
     vdot, vec3_to_array, vmad, vmax, vmin, vnormalize, vsub,
 };

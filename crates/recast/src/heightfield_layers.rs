@@ -276,7 +276,7 @@ impl LayeredHeightfield {
                         let mut sid = 0xffu8;
 
                         // Check neighbor connections
-                        // -x direction
+                        // dir 0 (-X)
                         if let Some(con) = chf.get_neighbor_connection(span_idx, 0) {
                             if src_reg[con] != 0xff {
                                 sid = src_reg[con];
@@ -290,7 +290,7 @@ impl LayeredHeightfield {
                             sweeps[sid as usize].ns = 0;
                         }
 
-                        // -y direction
+                        // dir 3 (-Z)
                         if let Some(con) = chf.get_neighbor_connection(span_idx, 3) {
                             let nr = src_reg[con];
                             if nr != 0xff {
