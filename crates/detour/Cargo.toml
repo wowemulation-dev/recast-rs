@@ -26,6 +26,15 @@ byteorder = { workspace = true, optional = true }
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
 tempfile = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "pathfinding"
+harness = false
+
+[[bench]]
+name = "spatial_queries"
+harness = false
 
 [features]
 default = []
