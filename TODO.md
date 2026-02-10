@@ -46,7 +46,7 @@ Execution order (bottom-up):
 
 ### 1.3 Enable `-D warnings` Locally
 
-- [ ] Uncomment `rustflags = ["-D", "warnings"]` in `.cargo/config.toml` and fix any resulting warnings
+- [x] Uncomment `rustflags = ["-D", "warnings"]` in `.cargo/config.toml` and fix any resulting warnings
 
 ---
 

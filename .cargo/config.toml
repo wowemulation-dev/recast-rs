@@ -2,9 +2,8 @@
 # https://doc.rust-lang.org/cargo/reference/config.html
 
 [build]
-# Note: Enable "-D warnings" once the port is stabilized
-# rustflags = ["-D", "warnings"]
-# rustdocflags = ["-D", "warnings"]
+rustflags = ["-D", "warnings"]
+rustdocflags = ["-D", "warnings"]
 
 # Use all available CPU cores for parallel compilation
 jobs = -1
