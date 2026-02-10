@@ -73,8 +73,8 @@ and expected output.
 No reference data. Tests do not validate against known-good output. See
 roadmap section 2.2 for reference data format and integration test design.
 
-- [ ] Copy test meshes to `test-data/meshes/` (nav_test.obj 113 KB, dungeon.obj 382 KB, bridge.obj 1.5 KB)
-- [ ] Generate reference data in `test-data/reference/` (JSON with expected counts, bounds, path results)
+- [x] Copy test meshes to `test-data/meshes/` (nav_test.obj 113 KB, dungeon.obj 382 KB, bridge.obj 1.5 KB)
+- [x] Generate reference data in `test-data/reference/` (JSON with expected counts, bounds, path results)
 - [ ] Write integration tests validating recast output and detour pathfinding against reference data
 
 ### 2.3 Add Benchmarks

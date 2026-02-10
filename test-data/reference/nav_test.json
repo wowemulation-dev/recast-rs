@@ -1,0 +1,51 @@
+{
+  "config": {
+    "cs": 0.3,
+    "ch": 0.2,
+    "walkable_slope_angle": 45.0,
+    "walkable_height": 2,
+    "walkable_climb": 1,
+    "walkable_radius": 1,
+    "max_edge_len": 12,
+    "max_simplification_error": 1.3,
+    "min_region_area": 8,
+    "merge_region_area": 20,
+    "max_vertices_per_polygon": 6,
+    "detail_sample_dist": 6.0,
+    "detail_sample_max_error": 1.0
+  },
+  "input": {
+    "vertex_count": 884,
+    "triangle_count": 1612
+  },
+  "output": {
+    "grid_width": 305,
+    "grid_height": 258,
+    "poly_count": 6683,
+    "vert_count": 12867,
+    "detail_vert_count": 13197,
+    "detail_tri_count": 7442,
+    "bounds_min": [-28.889317, -4.869517, -46.300152],
+    "bounds_max": [62.494808, 17.010754, 31.053141]
+  },
+  "spatial_queries": {
+    "extent": [5.0, 10.0, 5.0],
+    "find_nearest_poly": [
+      {
+        "label": "origin",
+        "query_pos": [0.0, 0.0, 0.0],
+        "snapped_pos": [-1.0898, 0.3242, 1.0347]
+      },
+      {
+        "label": "q1",
+        "query_pos": [5.0, 0.0, 5.0],
+        "snapped_pos": [5.0, -2.4695, 5.0]
+      },
+      {
+        "label": "q3",
+        "query_pos": [20.0, 0.0, 15.0],
+        "snapped_pos": [20.0, -3.6695, 15.0]
+      }
+    ]
+  }
+}
