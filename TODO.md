@@ -62,7 +62,7 @@ and expected output.
 
 - [x] Create `examples/` crate, add to workspace members, add `data/nav_test.obj` (113 KB)
 - [x] Write shared helpers in `src/common.rs` (`build_navmesh_from_obj`, `print_stats`)
-- [ ] `basic_navmesh.rs` -- Recast generation pipeline, print stats
+- [x] `basic_navmesh.rs` -- Recast generation pipeline, print stats
 - [ ] `pathfinding.rs` -- OBJ to navmesh to A* path to waypoints
 - [ ] `crowd_simulation.rs` -- Multi-agent crowd with RVO, 100-frame loop
 - [ ] `tilecache_obstacles.rs` -- Add/remove obstacles, path before/after
