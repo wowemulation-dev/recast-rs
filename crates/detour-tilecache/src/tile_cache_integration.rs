@@ -6,9 +6,9 @@
 use super::tile_cache::{Obstacle, TileCache, TileCacheEntry};
 use super::tile_cache_builder::TileCacheBuilder;
 use super::tile_cache_data::{TileCacheBuilderConfig, TileCacheLayer};
+use crate::error::TileCacheError;
+use detour::PolyRef;
 use detour::nav_mesh::{MeshTile, NavMesh};
-use detour::{PolyRef, Status};
-use recast_common::{Error, Result};
 
 /// Integration manager for TileCache and NavMesh
 #[derive(Debug)]
@@ -37,11 +37,11 @@ impl TileCacheNavMeshIntegration {
         nav_mesh: &mut NavMesh,
         tile_layer: &TileCacheLayer,
         tile_idx: usize,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         // Get the tile entry to collect obstacles
         let tile_entry = tile_cache
             .get_tile(tile_idx)
-            .ok_or(Error::Detour(Status::NotFound.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
 
         // Collect obstacles affecting this tile
         let obstacles = self.collect_obstacles_for_tile(tile_cache, tile_entry);
@@ -60,7 +60,9 @@ impl TileCacheNavMeshIntegration {
         );
 
         if let Some(existing_ref) = tile_ref {
-            nav_mesh.remove_tile(existing_ref)?;
+            nav_mesh
+                .remove_tile(existing_ref)
+                .map_err(|_| TileCacheError::Detour(detour::DetourError::Failure))?;
         }
 
         // Add the new tile to the navigation mesh
@@ -75,16 +77,16 @@ impl TileCacheNavMeshIntegration {
         tile_cache: &TileCache,
         nav_mesh: &mut NavMesh,
         tile_idx: usize,
-    ) -> Result<Option<PolyRef>> {
+    ) -> Result<Option<PolyRef>, TileCacheError> {
         // Get the tile entry from cache
         let tile_entry = tile_cache
             .get_tile(tile_idx)
-            .ok_or(Error::Detour(Status::NotFound.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
 
         // Get the compressed tile data
         let compressed_data = tile_cache
             .get_tile_compressed_data(tile_idx)
-            .ok_or(Error::Detour(Status::NotFound.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
 
         // Decompress the tile data
         let tile_data = tile_cache.decompress_tile(compressed_data, None)?;
@@ -109,7 +111,9 @@ impl TileCacheNavMeshIntegration {
         );
 
         if let Some(existing_ref) = tile_ref {
-            nav_mesh.remove_tile(existing_ref)?;
+            nav_mesh
+                .remove_tile(existing_ref)
+                .map_err(|_| TileCacheError::Detour(detour::DetourError::Failure))?;
         }
 
         // Add the new tile to the navigation mesh
@@ -123,7 +127,7 @@ impl TileCacheNavMeshIntegration {
         &self,
         nav_mesh: &mut NavMesh,
         mesh_tile: MeshTile,
-    ) -> Result<PolyRef> {
+    ) -> Result<PolyRef, TileCacheError> {
         // Find a free tile slot
         let tile_idx = self.find_free_tile_slot(nav_mesh)?;
 
@@ -137,7 +141,7 @@ impl TileCacheNavMeshIntegration {
     }
 
     /// Finds a free tile slot in the NavMesh
-    fn find_free_tile_slot(&self, nav_mesh: &NavMesh) -> Result<usize> {
+    fn find_free_tile_slot(&self, nav_mesh: &NavMesh) -> Result<usize, TileCacheError> {
         let all_tiles = nav_mesh.get_all_tiles();
         let max_tiles = nav_mesh.get_max_tiles() as usize;
 
@@ -147,7 +151,7 @@ impl TileCacheNavMeshIntegration {
         if all_tiles.len() < max_tiles {
             Ok(all_tiles.len())
         } else {
-            Err(Error::Detour(Status::OutOfMemory.to_string()))
+            Err(TileCacheError::OutOfMemory { resource: "tiles" })
         }
     }
 
@@ -157,8 +161,10 @@ impl TileCacheNavMeshIntegration {
         nav_mesh: &mut NavMesh,
         tile_idx: usize,
         mesh_tile: MeshTile,
-    ) -> Result<()> {
-        nav_mesh.set_tile_at_index(tile_idx, mesh_tile)
+    ) -> Result<(), TileCacheError> {
+        nav_mesh
+            .set_tile_at_index(tile_idx, mesh_tile)
+            .map_err(|_| TileCacheError::Detour(detour::DetourError::Failure))
     }
 
     /// Encodes a tile reference from tile index and salt
@@ -214,7 +220,7 @@ impl TileCacheNavMeshIntegration {
         &self,
         tile_cache: &mut TileCache,
         nav_mesh: &mut NavMesh,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, TileCacheError> {
         let mut updated_tiles = Vec::new();
 
         // Process the tile cache update to mark affected tiles
@@ -234,7 +240,10 @@ impl TileCacheNavMeshIntegration {
     }
 
     /// Finds all tiles that need rebuilding due to obstacle changes
-    fn find_tiles_needing_rebuild(&self, tile_cache: &TileCache) -> Result<Vec<usize>> {
+    fn find_tiles_needing_rebuild(
+        &self,
+        tile_cache: &TileCache,
+    ) -> Result<Vec<usize>, TileCacheError> {
         let mut tiles_to_rebuild = Vec::new();
 
         // Check all obstacles for pending changes

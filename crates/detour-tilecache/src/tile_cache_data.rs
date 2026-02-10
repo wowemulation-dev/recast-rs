@@ -3,8 +3,7 @@
 //! This module defines the data structures used for tile caching
 //! and provides serialization/deserialization functionality.
 
-use detour::Status;
-use recast_common::{Error, Result};
+use crate::error::TileCacheError;
 
 /// Magic number for tile cache data
 const TILECACHE_MAGIC: u32 = 0x4C494554; // 'TILE' in ASCII
@@ -25,7 +24,7 @@ pub struct TileCacheLayerHeader {
     pub version: u32,
     /// Tile position X
     pub tx: i32,
-    /// Tile position Y  
+    /// Tile position Y
     pub ty: i32,
     /// Tile layer
     pub tlayer: i32,
@@ -80,12 +79,12 @@ impl TileCacheLayerHeader {
     }
 
     /// Validates the header
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<(), TileCacheError> {
         if self.magic != TILECACHE_MAGIC {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
         if self.version != TILECACHE_VERSION {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
         Ok(())
     }
@@ -125,9 +124,9 @@ impl TileCacheLayerHeader {
     }
 
     /// Deserializes the header from bytes
-    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, TileCacheError> {
         if data.len() < 54 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         let mut offset = 0;
@@ -278,10 +277,10 @@ impl TileCacheLayer {
     }
 
     /// Deserializes the layer from bytes (uncompressed)
-    pub fn from_bytes(data: &[u8]) -> Result<Self> {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, TileCacheError> {
         if data.len() < 66 {
             // Header (54) + 3 lengths (12)
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         let header = TileCacheLayerHeader::from_bytes(data)?;
@@ -312,7 +311,7 @@ impl TileCacheLayer {
 
         // Validate lengths
         if offset + regons_len + areas_len + cons_len > data.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Read data

@@ -50,11 +50,13 @@
 //! - [`TileCacheBuilder`]: Builds compressed tile data
 //! - [`TileCacheLayer`]: Tile layer data for caching
 
+pub mod error;
 pub mod tile_cache;
 pub mod tile_cache_builder;
 pub mod tile_cache_data;
 pub mod tile_cache_integration;
 
+pub use error::TileCacheError;
 pub use tile_cache::*;
 pub use tile_cache_builder::*;
 pub use tile_cache_data::*;

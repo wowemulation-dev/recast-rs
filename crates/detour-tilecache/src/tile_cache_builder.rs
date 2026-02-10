@@ -5,6 +5,7 @@
 
 use super::tile_cache::{Obstacle, ObstacleData, ObstacleState, TileCache};
 use super::tile_cache_data::{TileCacheBuilderConfig, TileCacheLayer};
+use crate::error::TileCacheError;
 use detour::nav_mesh::{MeshTile, Poly, PolyDetail, TileHeader};
 use detour::{MAX_VERTS_PER_POLY, PolyFlags, PolyType};
 use glam::Vec3;
@@ -12,7 +13,6 @@ use recast::{
     CompactHeightfield, ContourSet, Heightfield, MESH_NULL_IDX, PolyMesh, PolyMeshDetail,
     RecastConfig,
 };
-use recast_common::{Error, Result};
 
 /// Tile cache builder for converting cached layers to navigation mesh tiles
 #[derive(Debug)]
@@ -60,7 +60,7 @@ impl TileCacheBuilder {
         layer: &TileCacheLayer,
         obstacles: &[Obstacle],
         _tile_cache: &TileCache,
-    ) -> Result<MeshTile> {
+    ) -> Result<MeshTile, TileCacheError> {
         // Step 1: Create a compact heightfield from the layer data
         let mut chf = self.layer_to_compact_heightfield(layer)?;
 
@@ -97,7 +97,10 @@ impl TileCacheBuilder {
     }
 
     /// Converts a tile cache layer to a compact heightfield
-    fn layer_to_compact_heightfield(&self, layer: &TileCacheLayer) -> Result<CompactHeightfield> {
+    fn layer_to_compact_heightfield(
+        &self,
+        layer: &TileCacheLayer,
+    ) -> Result<CompactHeightfield, TileCacheError> {
         let header = &layer.header;
 
         // Calculate dimensions
@@ -130,16 +133,16 @@ impl TileCacheBuilder {
         &self,
         hf: &mut Heightfield,
         layer: &TileCacheLayer,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         let width = layer.header.width as usize;
         let height = layer.header.height as usize;
 
         // Validate data sizes
         if layer.regons.len() != width * height {
-            return Err(Error::InvalidMesh("Invalid region data size".to_string()));
+            return Err(TileCacheError::InvalidRegionData);
         }
         if layer.areas.len() != width * height {
-            return Err(Error::InvalidMesh("Invalid area data size".to_string()));
+            return Err(TileCacheError::InvalidAreaData);
         }
 
         // Reconstruct spans from layer data
@@ -177,7 +180,7 @@ impl TileCacheBuilder {
         chf: &mut CompactHeightfield,
         obstacles: &[Obstacle],
         header: &crate::tile_cache_data::TileCacheLayerHeader,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         for obstacle in obstacles {
             // Skip empty or removing obstacles
             if obstacle.state == ObstacleState::Empty || obstacle.state == ObstacleState::Removing {
@@ -255,7 +258,7 @@ impl TileCacheBuilder {
         &self,
         chf: &mut CompactHeightfield,
         obstacle: &Obstacle,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         let (center, radius, height) = match &obstacle.data {
             ObstacleData::Cylinder {
                 pos,
@@ -325,7 +328,7 @@ impl TileCacheBuilder {
         pmesh: &PolyMesh,
         dmesh: &PolyMeshDetail,
         header: &crate::tile_cache_data::TileCacheLayerHeader,
-    ) -> Result<MeshTile> {
+    ) -> Result<MeshTile, TileCacheError> {
         // Create tile header
         let mut tile_header = TileHeader::new(header.tx, header.ty, header.tlayer);
         tile_header.vert_count = pmesh.vert_count as i32;
@@ -423,7 +426,7 @@ impl TileCacheBuilder {
         &self,
         chf: &mut CompactHeightfield,
         obstacle: &Obstacle,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         let (bmin, bmax) = match &obstacle.data {
             ObstacleData::Box { bmin, bmax } => (*bmin, *bmax),
             _ => return Ok(()), // Skip non-box obstacles
@@ -471,7 +474,7 @@ impl TileCacheBuilder {
         &self,
         chf: &mut CompactHeightfield,
         obstacle: &Obstacle,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         let (center, half_extents, rot_aux) = match &obstacle.data {
             ObstacleData::OrientedBox {
                 center,

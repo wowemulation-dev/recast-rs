@@ -8,9 +8,9 @@ use std::f32;
 
 use super::tile_cache_data::{TileCacheBuilderConfig, TileCacheLayer};
 use super::tile_cache_integration::TileCacheNavMeshIntegration;
+use crate::error::TileCacheError;
 use detour::nav_mesh::TileHeader;
-use detour::{NavMesh, PolyRef, Status};
-use recast_common::{Error, Result};
+use detour::{NavMesh, PolyRef};
 
 /// Maximum number of layers per tile
 const MAX_LAYERS: usize = 32;
@@ -174,7 +174,7 @@ pub struct Obstacle {
 
 impl TileCache {
     /// Creates a new tile cache
-    pub fn new(params: TileCacheParams) -> Result<Self> {
+    pub fn new(params: TileCacheParams) -> Result<Self, TileCacheError> {
         // Validate parameters
         if params.origin[0].is_infinite()
             || params.origin[0].is_nan()
@@ -183,15 +183,15 @@ impl TileCache {
             || params.origin[2].is_infinite()
             || params.origin[2].is_nan()
         {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         if params.cs <= 0.0 || params.ch <= 0.0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         if params.width <= 0 || params.height <= 0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         let max_tiles = params.width * params.height * MAX_LAYERS as i32;
@@ -266,7 +266,7 @@ impl TileCache {
     }
 
     /// Initializes the tile cache with data
-    pub fn init(&mut self) -> Result<()> {
+    pub fn init(&mut self) -> Result<(), TileCacheError> {
         // Calculate tile grid size
         self.tile_width = self.params.cs * self.params.width as f32;
         self.tile_height = self.params.cs * self.params.height as f32;
@@ -275,7 +275,10 @@ impl TileCache {
     }
 
     /// Attaches the tile cache to a navigation mesh with the specified builder configuration
-    pub fn attach_to_nav_mesh(&mut self, builder_config: TileCacheBuilderConfig) -> Result<()> {
+    pub fn attach_to_nav_mesh(
+        &mut self,
+        builder_config: TileCacheBuilderConfig,
+    ) -> Result<(), TileCacheError> {
         // Create the integration with the provided configuration
         let integration = TileCacheNavMeshIntegration::new(builder_config);
         self.nav_mesh_integration = Some(integration);
@@ -284,7 +287,12 @@ impl TileCache {
     }
 
     /// Adds a tile to the cache with optional compression
-    pub fn add_tile(&mut self, data: &[u8], flags: u8, result: &mut PolyRef) -> Result<()> {
+    pub fn add_tile(
+        &mut self,
+        data: &[u8],
+        flags: u8,
+        result: &mut PolyRef,
+    ) -> Result<(), TileCacheError> {
         // Compress the tile data if it's not already compressed
         let compressed_data = if (flags & 0x01) != 0 {
             // Data is already compressed
@@ -297,10 +305,10 @@ impl TileCache {
         // Allocate a tile from the free list
         let free_idx = self
             .next_free
-            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+            .ok_or(TileCacheError::OutOfMemory { resource: "tiles" })?;
         let mut tile_entry = self.tiles[free_idx]
             .take()
-            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
         self.next_free = tile_entry.next;
 
         // Parse the tile header from compressed data
@@ -313,7 +321,7 @@ impl TileCache {
             tile_entry.next = self.next_free;
             self.next_free = Some(free_idx);
             self.tiles[free_idx] = Some(tile_entry);
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Store the compressed data
@@ -336,18 +344,18 @@ impl TileCache {
     }
 
     /// Removes a tile from the cache
-    pub fn remove_tile(&mut self, ref_val: PolyRef) -> Result<()> {
+    pub fn remove_tile(&mut self, ref_val: PolyRef) -> Result<(), TileCacheError> {
         // Decode the tile index from the reference
         let tile_idx = (ref_val.id() & 0xFFFF) as usize;
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Remove the tile
         let mut tile_entry = self.tiles[tile_idx]
             .take()
-            .ok_or_else(|| Error::Detour(Status::NotFound.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
 
         // Remove from lookup
         self.pos_lookup.remove(&(
@@ -368,14 +376,19 @@ impl TileCache {
     }
 
     /// Adds a cylinder obstacle to the cache
-    pub fn add_obstacle(&mut self, pos: [f32; 3], radius: f32, height: f32) -> Result<u32> {
+    pub fn add_obstacle(
+        &mut self,
+        pos: [f32; 3],
+        radius: f32,
+        height: f32,
+    ) -> Result<u32, TileCacheError> {
         // Allocate an obstacle from the free list
-        let free_idx = self
-            .next_free_obstacle
-            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let free_idx = self.next_free_obstacle.ok_or(TileCacheError::OutOfMemory {
+            resource: "obstacles",
+        })?;
         let mut obstacle = self.obstacles[free_idx]
             .take()
-            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
         self.next_free_obstacle = obstacle.next;
 
         // Set obstacle properties
@@ -406,14 +419,18 @@ impl TileCache {
     }
 
     /// Adds an axis-aligned box obstacle to the cache
-    pub fn add_box_obstacle(&mut self, bmin: [f32; 3], bmax: [f32; 3]) -> Result<u32> {
+    pub fn add_box_obstacle(
+        &mut self,
+        bmin: [f32; 3],
+        bmax: [f32; 3],
+    ) -> Result<u32, TileCacheError> {
         // Allocate an obstacle from the free list
-        let free_idx = self
-            .next_free_obstacle
-            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let free_idx = self.next_free_obstacle.ok_or(TileCacheError::OutOfMemory {
+            resource: "obstacles",
+        })?;
         let mut obstacle = self.obstacles[free_idx]
             .take()
-            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
         self.next_free_obstacle = obstacle.next;
 
         // Set obstacle properties
@@ -453,14 +470,14 @@ impl TileCache {
         center: [f32; 3],
         half_extents: [f32; 3],
         y_radians: f32,
-    ) -> Result<u32> {
+    ) -> Result<u32, TileCacheError> {
         // Allocate an obstacle from the free list
-        let free_idx = self
-            .next_free_obstacle
-            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let free_idx = self.next_free_obstacle.ok_or(TileCacheError::OutOfMemory {
+            resource: "obstacles",
+        })?;
         let mut obstacle = self.obstacles[free_idx]
             .take()
-            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
         self.next_free_obstacle = obstacle.next;
 
         // Calculate rotation auxiliary values
@@ -500,27 +517,27 @@ impl TileCache {
     }
 
     /// Removes an obstacle from the cache
-    pub fn remove_obstacle(&mut self, obstacle_ref: u32) -> Result<()> {
+    pub fn remove_obstacle(&mut self, obstacle_ref: u32) -> Result<(), TileCacheError> {
         let obstacle_idx = self.decode_obstacle_ref_idx(obstacle_ref);
         let salt = self.decode_obstacle_ref_salt(obstacle_ref);
 
         if obstacle_idx >= self.obstacles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Verify the obstacle exists and salt matches
         let stored_salt = self.obstacles[obstacle_idx]
             .as_ref()
-            .ok_or_else(|| Error::Detour(Status::NotFound.to_string()))?
+            .ok_or(TileCacheError::ObstacleNotFound)?
             .salt;
         if stored_salt != salt {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Remove the obstacle
         let mut obstacle = self.obstacles[obstacle_idx]
             .take()
-            .ok_or_else(|| Error::Detour(Status::NotFound.to_string()))?;
+            .ok_or(TileCacheError::ObstacleNotFound)?;
 
         // Mark for removal
         obstacle.state = ObstacleState::Removing;
@@ -535,12 +552,12 @@ impl TileCache {
     }
 
     /// Updates the tile cache (processes pending obstacles)
-    pub fn update(&mut self) -> Result<()> {
+    pub fn update(&mut self) -> Result<(), TileCacheError> {
         self.update_with_status(0.0).map(|_| ())
     }
 
     /// Updates the tile cache and returns whether it's up to date
-    pub fn update_with_status(&mut self, _dt: f32) -> Result<bool> {
+    pub fn update_with_status(&mut self, _dt: f32) -> Result<bool, TileCacheError> {
         // Find all tiles that need updating due to pending obstacles
         let mut tiles_to_update = HashSet::new();
         let mut has_pending_work = false;
@@ -598,7 +615,11 @@ impl TileCache {
     }
 
     /// Updates the tile cache and rebuilds tiles in the navigation mesh
-    pub fn update_with_nav_mesh(&mut self, _dt: f32, nav_mesh: &mut NavMesh) -> Result<bool> {
+    pub fn update_with_nav_mesh(
+        &mut self,
+        _dt: f32,
+        nav_mesh: &mut NavMesh,
+    ) -> Result<bool, TileCacheError> {
         // Find all tiles that need updating due to pending obstacles
         let mut tiles_to_update = HashSet::new();
         let mut has_pending_work = false;
@@ -666,7 +687,7 @@ impl TileCache {
         tx: i32,
         ty: i32,
         nav_mesh: &mut NavMesh,
-    ) -> Result<()> {
+    ) -> Result<(), TileCacheError> {
         let tiles = self.get_tiles_at(tx, ty)?;
 
         for tile_ref in tiles {
@@ -677,12 +698,16 @@ impl TileCache {
     }
 
     /// Builds a navigation mesh tile from a compressed tile reference
-    pub fn build_nav_mesh_tile(&mut self, tile_ref: PolyRef, nav_mesh: &mut NavMesh) -> Result<()> {
+    pub fn build_nav_mesh_tile(
+        &mut self,
+        tile_ref: PolyRef,
+        nav_mesh: &mut NavMesh,
+    ) -> Result<(), TileCacheError> {
         // Check if we have an integration set up
         let integration = self
             .nav_mesh_integration
             .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
 
         // Decode tile reference
         let tile_idx = (tile_ref.id() & 0xFFFF) as usize;
@@ -690,7 +715,7 @@ impl TileCache {
 
         // Validate tile
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Check salt matches (but for now we'll skip this check as our salt handling is different)
@@ -699,13 +724,13 @@ impl TileCache {
         // Get the tile
         let tile_entry = match &self.tiles[tile_idx] {
             Some(entry) => entry,
-            None => return Err(Error::Detour(Status::NotFound.to_string())),
+            None => return Err(TileCacheError::InvalidParam),
         };
 
         // Get compressed data
         let compressed_data = match self.compressed_tiles.get(tile_entry.data) {
             Some(data) => data,
-            None => return Err(Error::Detour(Status::NotFound.to_string())),
+            None => return Err(TileCacheError::InvalidParam),
         };
 
         // Decompress tile data
@@ -730,39 +755,39 @@ impl TileCache {
         &mut self,
         nav_mesh: &mut NavMesh,
         tile_idx: usize,
-    ) -> Result<Option<PolyRef>> {
+    ) -> Result<Option<PolyRef>, TileCacheError> {
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         if self.tiles[tile_idx].is_none() {
-            return Err(Error::Detour(Status::NotFound.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Check if we have an integration set up
         let integration = self
             .nav_mesh_integration
             .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(TileCacheError::InvalidParam)?;
 
         // Use the integration to rebuild the tile
         integration.rebuild_tile_in_nav_mesh(self, nav_mesh, tile_idx)
     }
 
     /// Rebuilds a tile (legacy method for internal use)
-    fn rebuild_tile(&mut self, tile_idx: usize) -> Result<()> {
+    fn rebuild_tile(&mut self, tile_idx: usize) -> Result<(), TileCacheError> {
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         if self.tiles[tile_idx].is_none() {
-            return Err(Error::Detour(Status::NotFound.to_string()));
+            return Err(TileCacheError::InvalidParam);
         }
 
         // Get the tile entry
         let tile_entry = match &self.tiles[tile_idx] {
             Some(entry) => entry,
-            None => return Err(Error::Detour(Status::NotFound.to_string())),
+            None => return Err(TileCacheError::InvalidParam),
         };
 
         // Get the compressed tile data
@@ -837,16 +862,16 @@ impl TileCache {
     }
 
     /// Gets the decompressed data for a tile
-    pub fn get_tile_data(&self, tile_idx: usize) -> Result<Vec<u8>> {
+    pub fn get_tile_data(&self, tile_idx: usize) -> Result<Vec<u8>, TileCacheError> {
         if let Some(compressed_data) = self.get_tile_compressed_data(tile_idx) {
             self.decompress_tile(compressed_data, None)
         } else {
-            Err(Error::Detour(Status::NotFound.to_string()))
+            Err(TileCacheError::InvalidParam)
         }
     }
 
     /// Compresses tile data using LZ4
-    pub fn compress_tile(&self, data: &[u8]) -> Result<Vec<u8>> {
+    pub fn compress_tile(&self, data: &[u8]) -> Result<Vec<u8>, TileCacheError> {
         // Compress the data using LZ4 with prepended size for decompression
         Ok(lz4_flex::compress_prepend_size(data))
     }
@@ -856,7 +881,7 @@ impl TileCache {
         &self,
         compressed_data: &[u8],
         _uncompressed_size: Option<usize>,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Vec<u8>, TileCacheError> {
         // Handle empty data
         if compressed_data.is_empty() {
             return Ok(Vec::new());
@@ -867,13 +892,13 @@ impl TileCache {
             Ok(decompressed) => Ok(decompressed),
             Err(e) => {
                 log::error!("LZ4 decompression failed: {:?}", e);
-                Err(Error::Detour(Status::Failure.to_string()))
+                Err(TileCacheError::InvalidParam)
             }
         }
     }
 
     /// Parses a tile header from compressed tile data
-    fn parse_tile_header(&self, compressed_data: &[u8]) -> Result<TileHeader> {
+    fn parse_tile_header(&self, compressed_data: &[u8]) -> Result<TileHeader, TileCacheError> {
         // Decompress the tile data to read the header
         let decompressed = self.decompress_tile(compressed_data, None)?;
 
@@ -892,7 +917,11 @@ impl TileCache {
     }
 
     /// Finds tiles affected by an obstacle
-    fn find_tiles_affected_by_obstacle(&self, pos: [f32; 3], radius: f32) -> Result<Vec<usize>> {
+    fn find_tiles_affected_by_obstacle(
+        &self,
+        pos: [f32; 3],
+        radius: f32,
+    ) -> Result<Vec<usize>, TileCacheError> {
         let mut affected_tiles = Vec::new();
 
         // Calculate tile coordinates for the obstacle's bounding box
@@ -960,7 +989,7 @@ impl TileCache {
         bmin: &[f32; 3],
         bmax: &[f32; 3],
         max_tiles: usize,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, TileCacheError> {
         let mut results = Vec::new();
 
         let tw = self.params.width as f32 * self.params.cs;
@@ -1012,7 +1041,7 @@ impl TileCache {
     }
 
     /// Gets all tiles at the given tile coordinates
-    pub fn get_tiles_at(&self, tx: i32, ty: i32) -> Result<Vec<PolyRef>> {
+    pub fn get_tiles_at(&self, tx: i32, ty: i32) -> Result<Vec<PolyRef>, TileCacheError> {
         let mut tiles = Vec::new();
 
         // Search through all tiles at this position
@@ -1098,78 +1127,77 @@ impl TileCache {
 
     /// Saves the tile cache to a file in JSON format
     #[cfg(feature = "serialization")]
-    pub fn save_to_json<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+    pub fn save_to_json<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), TileCacheError> {
         let json = serde_json::to_string_pretty(self)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            .map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
 
-        std::fs::write(path, json).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        std::fs::write(path, json).map_err(TileCacheError::Io)?;
 
         Ok(())
     }
 
     /// Loads a tile cache from a JSON file
     #[cfg(feature = "serialization")]
-    pub fn load_from_json<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let json = std::fs::read_to_string(path)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+    pub fn load_from_json<P: AsRef<std::path::Path>>(path: P) -> Result<Self, TileCacheError> {
+        let json = std::fs::read_to_string(path).map_err(TileCacheError::Io)?;
 
         let tile_cache =
-            serde_json::from_str(&json).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            serde_json::from_str(&json).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
 
         Ok(tile_cache)
     }
 
     /// Saves the tile cache to a file in binary format
     #[cfg(feature = "serialization")]
-    pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+    pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), TileCacheError> {
         let encoded =
-            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            postcard::to_allocvec(self).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
 
-        std::fs::write(path, encoded).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        std::fs::write(path, encoded).map_err(TileCacheError::Io)?;
 
         Ok(())
     }
 
     /// Loads a tile cache from a binary file
     #[cfg(feature = "serialization")]
-    pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+    pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self, TileCacheError> {
+        let data = std::fs::read(path).map_err(TileCacheError::Io)?;
 
         let tile_cache =
-            postcard::from_bytes(&data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            postcard::from_bytes(&data).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
 
         Ok(tile_cache)
     }
 
     /// Serializes the tile cache to JSON bytes
     #[cfg(feature = "serialization")]
-    pub fn to_json_bytes(&self) -> Result<Vec<u8>> {
+    pub fn to_json_bytes(&self) -> Result<Vec<u8>, TileCacheError> {
         let json =
-            serde_json::to_vec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            serde_json::to_vec(self).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
         Ok(json)
     }
 
     /// Deserializes a tile cache from JSON bytes
     #[cfg(feature = "serialization")]
-    pub fn from_json_bytes(data: &[u8]) -> Result<Self> {
+    pub fn from_json_bytes(data: &[u8]) -> Result<Self, TileCacheError> {
         let tile_cache =
-            serde_json::from_slice(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            serde_json::from_slice(data).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
         Ok(tile_cache)
     }
 
     /// Serializes the tile cache to binary bytes
     #[cfg(feature = "serialization")]
-    pub fn to_binary_bytes(&self) -> Result<Vec<u8>> {
+    pub fn to_binary_bytes(&self) -> Result<Vec<u8>, TileCacheError> {
         let data =
-            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            postcard::to_allocvec(self).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
         Ok(data)
     }
 
     /// Deserializes a tile cache from binary bytes
     #[cfg(feature = "serialization")]
-    pub fn from_binary_bytes(data: &[u8]) -> Result<Self> {
+    pub fn from_binary_bytes(data: &[u8]) -> Result<Self, TileCacheError> {
         let tile_cache =
-            postcard::from_bytes(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            postcard::from_bytes(data).map_err(|e| TileCacheError::Serialization(Box::new(e)))?;
         Ok(tile_cache)
     }
 }
