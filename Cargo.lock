@@ -606,6 +606,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "recast-rs-examples"
+version = "0.1.0"
+dependencies = [
+ "detour",
+ "detour-crowd",
+ "detour-tilecache",
+ "glam",
+ "recast",
+ "recast-common",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

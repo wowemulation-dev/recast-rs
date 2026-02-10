@@ -66,7 +66,7 @@ and expected output.
 - [x] `pathfinding.rs` -- OBJ to navmesh to A* path to waypoints
 - [x] `crowd_simulation.rs` -- Multi-agent crowd with RVO, 100-frame loop
 - [x] `tilecache_obstacles.rs` -- Add/remove obstacles, path before/after
-- [ ] `serialization.rs` -- JSON and postcard round-trip (requires `serialization` feature)
+- [x] `serialization.rs` -- JSON and postcard round-trip (requires `serialization` feature)
 
 ### 2.2 Add Test Fixtures
 
