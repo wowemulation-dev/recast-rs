@@ -1274,7 +1274,8 @@ impl ContourSet {
         a[0] == b[0] && a[2] == b[2]
     }
 
-    /// Calculates the distance from a point to a line segment
+    /// Calculates the squared distance from a point to a line segment.
+    /// Returns squared distance (matching C++ `distancePtSeg`), not actual distance.
     fn distance_pt_seg(x: i32, z: i32, px: i32, pz: i32, qx: i32, qz: i32) -> f32 {
         let pqx = (qx - px) as f32;
         let pqz = (qz - pz) as f32;
@@ -1289,7 +1290,7 @@ impl ContourSet {
             dz = (pz as f32 + t * pqz) - z as f32;
         }
 
-        (dx * dx + dz * dz).sqrt()
+        dx * dx + dz * dz
     }
 }
 

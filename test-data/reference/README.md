@@ -19,7 +19,7 @@ RecastCLI find-path --mesh /tmp/nav_test.bin --start 5,0,5 --end 20,0,15
 
 ## Known divergences
 
-The Rust port produces 0.88-1.0x polygons compared to C++ for the same
+The Rust port produces 0.98-1.0x polygons compared to C++ for the same
 input and config. Bugs fixed so far:
 
 1. Direction mismatch in `contour.rs` `mark_boundaries` (reduced from 10-12x)
@@ -35,15 +35,16 @@ input and config. Bugs fixed so far:
 11. `erode_walkable_area` used linked-list 8-direction API instead of `con[4]` array
 12. `expand_regions` ran only 1 iteration (`stack.retain` broke termination check)
 13. `merge_small_regions` picked largest neighbor instead of smallest; missing overlap/border checks
+14. `distance_pt_seg` returned actual distance instead of squared distance (contour simplification)
 
-The remaining divergence (~0.88x) is likely in contour simplification or
-polygon meshing. Region counts now nearly match C++ (150 vs 148 for
-nav_test). Grid sizes and input counts match, so rasterization is correct.
+The remaining divergence (~1-2%) is from `remove_edge_vertices` being
+stubbed in `polymesh.rs`. C++ removes border vertices and re-triangulates
+holes, which creates additional polygon merge opportunities.
 
 | Mesh | C++ Polys | Rust Polys | Ratio | C++ Verts | Rust Verts |
 |------|-----------|------------|-------|-----------|------------|
-| nav_test | 537 | 474 | 0.88x | 1197 | 1091 |
-| dungeon | 217 | 191 | 0.88x | 452 | 393 |
+| nav_test | 537 | 530 | 0.99x | 1197 | 1190 |
+| dungeon | 217 | 213 | 0.98x | 452 | 450 |
 | bridge | 8 | 8 | 1.0x | 18 | 18 |
 
 Multi-polygon pathfinding (`find_path` returning >1 polygon) does not

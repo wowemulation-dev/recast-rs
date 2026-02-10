@@ -87,7 +87,7 @@ fn nav_test_find_nearest_poly_origin() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid(), "returned poly_ref should be valid");
 
-    // After fixing expand_regions termination and region merge logic
+    // After fixing contour simplification squared distance
     assert!((snapped[0] - 0.0000).abs() < 0.01);
     assert!((snapped[1] - (-2.2695)).abs() < 0.01);
     assert!((snapped[2] - (-2.2001)).abs() < 0.01);
@@ -106,7 +106,7 @@ fn nav_test_find_nearest_poly_q1() {
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing expand_regions termination and region merge logic
+    // After fixing contour simplification squared distance
     assert!((snapped[0] - 4.8514).abs() < 0.01);
     assert!((snapped[1] - (-2.2695)).abs() < 0.01);
     assert!((snapped[2] - (-2.3777)).abs() < 0.01);
@@ -125,7 +125,7 @@ fn nav_test_find_nearest_poly_q3() {
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing expand_regions termination and region merge logic
+    // After fixing contour simplification squared distance
     assert!((snapped[0] - 16.0).abs() < 0.01);
     assert!((snapped[1] - (-2.2695)).abs() < 0.01);
     assert!((snapped[2] - (-7.0)).abs() < 0.01);
@@ -144,7 +144,7 @@ fn dungeon_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing expand_regions termination and region merge logic
+    // After fixing contour simplification squared distance
     assert!((snapped[0] - 12.1450).abs() < 0.01);
     assert!((snapped[1] - 10.3973).abs() < 0.01);
     assert!((snapped[2] - (-40.5750)).abs() < 0.01);
@@ -163,7 +163,7 @@ fn bridge_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing expand_regions termination and region merge logic
+    // After fixing contour simplification squared distance
     assert!((snapped[0] - (-0.2390)).abs() < 0.01);
     assert!((snapped[1] - 4.5951).abs() < 0.01);
     assert!((snapped[2] - (-0.2870)).abs() < 0.01);

@@ -28,10 +28,10 @@
   "rust_output": {
     "grid_width": 248,
     "grid_height": 330,
-    "poly_count": 191,
-    "vert_count": 393,
-    "detail_vert_count": 393,
-    "detail_tri_count": 361,
+    "poly_count": 213,
+    "vert_count": 450,
+    "detail_vert_count": 450,
+    "detail_tri_count": 419,
     "bounds_min": [-25.015217, -0.002706, -90.041275],
     "bounds_max": [49.305145, 40.176586, 8.891200]
   },
