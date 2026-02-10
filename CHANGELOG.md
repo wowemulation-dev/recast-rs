@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated markdownlint configuration: added `$schema`, disabled MD024 for
+  Keep a Changelog format, disabled MD060, expanded allowed HTML elements and
+  code fence languages
+- Added `.markdownlint-cli2.jsonc` config and `.markdownlintignore`
+- Renamed `mise.toml` to `.mise.toml` (dotfile convention)
 - Upgraded `glam` from 0.29 to 0.31
 - Upgraded `bitflags` from 2.9 to 2.10
 - Upgraded `ordered-float` from 5.0 to 5.1
