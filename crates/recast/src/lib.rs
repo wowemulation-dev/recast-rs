@@ -79,7 +79,11 @@ impl RecastBuilder {
         let heightfield = self.build_heightfield(vertices, indices)?;
 
         // Build the compact heightfield
-        let mut compact_heightfield = CompactHeightfield::build_from_heightfield(&heightfield)?;
+        let mut compact_heightfield = CompactHeightfield::build_from_heightfield(
+            &heightfield,
+            self.config.walkable_height as i32,
+            self.config.walkable_climb as i32,
+        )?;
 
         // Build regions using watershed partitioning
         compact_heightfield.build_regions(
@@ -304,7 +308,11 @@ impl RecastBuilder {
         convex_volumes.apply_to_heightfield(&mut heightfield)?;
 
         // Build the compact heightfield
-        let mut compact_heightfield = CompactHeightfield::build_from_heightfield(&heightfield)?;
+        let mut compact_heightfield = CompactHeightfield::build_from_heightfield(
+            &heightfield,
+            self.config.walkable_height as i32,
+            self.config.walkable_climb as i32,
+        )?;
 
         // Build regions using watershed partitioning
         compact_heightfield.build_regions(

@@ -545,7 +545,13 @@ impl DynamicTile {
     /// Build compact heightfield from heightfield
     fn build_compact_heightfield(&mut self) -> Result<(), DynamicError> {
         if let Some(ref heightfield) = self.heightfield {
-            let compact_hf = recast::CompactHeightfield::build_from_heightfield(heightfield)?;
+            let walkable_height = (self.config.walkable_height / self.config.cell_height) as i32;
+            let walkable_climb = (self.config.walkable_climb / self.config.cell_height) as i32;
+            let compact_hf = recast::CompactHeightfield::build_from_heightfield(
+                heightfield,
+                walkable_height,
+                walkable_climb,
+            )?;
             self.compact_heightfield = Some(compact_hf);
         }
         Ok(())

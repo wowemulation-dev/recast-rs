@@ -409,7 +409,8 @@ pub fn build_regions_watershed(
     let mut stack = Vec::with_capacity(256);
 
     let mut region_id = 1u16;
-    let mut level = (chf.max_distance + 1) & !1;
+    // C++ uses unsigned wrapping: (maxDist+1) & ~1. Use wrapping_add for same behavior.
+    let mut level = chf.max_distance.wrapping_add(1) & !1;
 
     // Expansion iterations - controls how much watershed "overflows"
     let expand_iters = 8;

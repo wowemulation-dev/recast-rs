@@ -1295,7 +1295,7 @@ mod tests {
         }
 
         // Build compact heightfield
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         // Build detail mesh
         let sample_dist = 0.0; // Disable sampling for simplicity

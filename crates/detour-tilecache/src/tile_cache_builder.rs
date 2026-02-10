@@ -123,7 +123,11 @@ impl TileCacheBuilder {
         self.decode_layer_to_heightfield(&mut hf, layer)?;
 
         // Convert to compact heightfield
-        let chf = CompactHeightfield::build_from_heightfield(&hf)?;
+        let chf = CompactHeightfield::build_from_heightfield(
+            &hf,
+            self.config.walkable_height,
+            self.config.walkable_climb,
+        )?;
 
         Ok(chf)
     }

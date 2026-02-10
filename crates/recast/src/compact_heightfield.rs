@@ -105,9 +105,11 @@ pub const DIR_SW: u8 = 6;
 #[allow(dead_code)]
 pub const DIR_W: u8 = 7;
 
-/// Offset in x for each direction
+/// Offset in x for each 8-direction
+#[allow(dead_code)]
 pub const DIR_OFFSET_X: [i32; 8] = [-1, 0, 1, 1, 1, 0, -1, -1];
-/// Offset in z for each direction
+/// Offset in z for each 8-direction
+#[allow(dead_code)]
 pub const DIR_OFFSET_Z: [i32; 8] = [-1, -1, -1, 0, 1, 1, 1, 0];
 
 /// Region constants
@@ -171,22 +173,37 @@ pub struct CompactHeightfield {
 
 #[allow(dead_code)]
 impl CompactHeightfield {
-    /// Builds a compact heightfield from a regular heightfield
-    pub fn build_from_heightfield(heightfield: &Heightfield) -> Result<Self, BuildError> {
+    /// Builds a compact heightfield from a regular heightfield.
+    ///
+    /// Only walkable spans (area != 0) are included, matching C++ `rcBuildCompactHeightfield`.
+    /// `walkable_height` and `walkable_climb` are used for neighbor connection criteria.
+    pub fn build_from_heightfield(
+        heightfield: &Heightfield,
+        walkable_height: i32,
+        walkable_climb: i32,
+    ) -> Result<Self, BuildError> {
         let width = heightfield.width;
         let height = heightfield.height;
         let bmin = heightfield.bmin;
-        let bmax = heightfield.bmax;
+        let mut bmax = heightfield.bmax;
         let cs = heightfield.cs;
         let ch = heightfield.ch;
 
-        // Count the number of spans in the heightfield
+        // C++ adds walkable_height * ch to bmax.y
+        bmax.y += walkable_height as f32 * ch;
+
+        const MAX_HEIGHT: i32 = 0xffff;
+
+        // Count walkable spans only (matching C++)
         let mut span_count = 0;
         for column in heightfield.spans.values() {
             let mut current = column.clone();
             while let Some(span_rc) = current {
-                span_count += 1;
-                current = span_rc.borrow().next.clone();
+                let span = span_rc.borrow();
+                if span.area != 0 {
+                    span_count += 1;
+                }
+                current = span.next.clone();
             }
         }
 
@@ -202,7 +219,6 @@ impl CompactHeightfield {
 
         for z in 0..height {
             for x in 0..width {
-                let _cell_index = (z * width + x) as usize;
                 let column = heightfield
                     .spans
                     .get(&(x, z))
@@ -214,36 +230,57 @@ impl CompactHeightfield {
                     continue;
                 }
 
-                // Count the number of spans in this cell
-                let mut span_count_in_cell = 0;
+                // Count walkable spans in this cell
+                let mut walkable_count = 0;
                 let mut current = column.clone();
                 while let Some(span_rc) = current {
-                    span_count_in_cell += 1;
-                    current = span_rc.borrow().next.clone();
+                    let span = span_rc.borrow();
+                    if span.area != 0 {
+                        walkable_count += 1;
+                    }
+                    current = span.next.clone();
+                }
+
+                if walkable_count == 0 {
+                    cells.push(CompactCell::new(None, 0));
+                    current = column.clone();
+                    // Still need to advance past this column
+                    continue;
                 }
 
                 // Add the cell
-                cells.push(CompactCell::new(Some(spans.len()), span_count_in_cell));
+                cells.push(CompactCell::new(Some(spans.len()), walkable_count));
 
-                // Add the spans
+                // Add only walkable spans (matching C++ rcBuildCompactHeightfield)
                 current = column.clone();
                 while let Some(span_rc) = current {
                     let span = span_rc.borrow();
 
-                    // y should be the minimum height of the span
-                    spans.push(CompactSpan::new(
-                        span.min,
-                        span.max,
-                        span.area,
-                        span.min as i32,
-                    ));
-                    areas.push(span.area);
-
-                    // Track max height
-                    max_height = max_height.max(span.max as u16);
-
-                    // Count walkable spans
                     if span.area != 0 {
+                        // C++ convention: y = smax (top of solid = walkable surface)
+                        let bot = span.max as i32;
+                        // Air gap: from top of this solid to bottom of next solid above
+                        let top = if let Some(ref next) = span.next {
+                            next.borrow().min as i32
+                        } else {
+                            MAX_HEIGHT
+                        };
+                        let air_height = (top - bot).clamp(0, 255);
+
+                        spans.push(CompactSpan {
+                            min: span.min,
+                            max: span.max,
+                            area: span.area,
+                            reg: 0,
+                            first_connection: None,
+                            y: bot,
+                            h: air_height as u8,
+                            con: [63; 4], // RC_NOT_CONNECTED
+                        });
+                        areas.push(span.area);
+
+                        // Track max height
+                        max_height = max_height.max(span.max as u16);
                         walkable_span_count += 1;
                     }
 
@@ -264,61 +301,78 @@ impl CompactHeightfield {
             cs,
             ch,
             cells,
-            spans: spans.clone(),
+            spans,
             connections,
             areas,
             dist,
             walkable_span_count,
             walkable_area_count: 0,
             cell_count: (width * height) as usize,
-            span_count: spans.len(),
+            span_count,
             max_height,
             max_distance: 0,
             max_regions: 0,
         };
 
         // Build connections between spans
-        chf.build_connections()?;
+        chf.build_connections(walkable_height, walkable_climb)?;
 
         Ok(chf)
     }
 
-    /// Builds connections between spans
-    fn build_connections(&mut self) -> Result<(), BuildError> {
-        // For each span, find connections to neighboring spans
+    /// Builds connections between spans.
+    ///
+    /// Matches C++ `rcBuildCompactHeightfield` connection logic:
+    /// - Only 4 cardinal directions (W=0, S=1, E=2, N=3)
+    /// - Air space overlap must be >= walkable_height
+    /// - Step height between walkable surfaces must be <= walkable_climb
+    /// - Takes first valid connection per direction (not best)
+    fn build_connections(
+        &mut self,
+        walkable_height: i32,
+        walkable_climb: i32,
+    ) -> Result<(), BuildError> {
         let width = self.width;
         let height = self.height;
 
-        // Preallocate connections (estimate: average 4 connections per span)
-        let estimated_connections = self.spans.len() * 4;
-        self.connections = Vec::with_capacity(estimated_connections);
+        // C++ 4-direction offsets: W=0, S=1, E=2, N=3
+        let dir_offset_x: [i32; 4] = [-1, 0, 1, 0];
+        let dir_offset_z: [i32; 4] = [0, 1, 0, -1];
 
-        // Process cells to find connections
+        // Map 4-dir to 8-dir for linked list storage
+        let dir4_to_dir8: [u8; 4] = [7, 5, 3, 1]; // W=7, S=5, E=3, N=1
+
+        const MAX_LAYERS: usize = 62; // RC_NOT_CONNECTED - 1
+
+        // Process cells to find connections (matching C++ exactly)
         let num_cells = (width * height) as usize;
         let mut connections_per_span: Vec<Vec<(usize, u8)>> = vec![Vec::new(); self.spans.len()];
 
-        for i in 0..num_cells {
-            let cell = &self.cells[i];
+        for cell_idx in 0..num_cells {
+            let cell = &self.cells[cell_idx];
 
             if let Some(first_span_idx) = cell.index {
-                // Get cell x, z coordinates
-                let x = (i as i32) % width;
-                let z = (i as i32) / width;
+                let x = (cell_idx as i32) % width;
+                let z = (cell_idx as i32) / width;
 
-                // Process each span in the cell
                 for s in 0..cell.count {
                     let span_idx = first_span_idx + s;
-                    let span = &self.spans[span_idx];
 
                     // Skip unwalkable spans
                     if self.areas[span_idx] == 0 {
                         continue;
                     }
 
-                    // Check neighbors in all 8 directions
-                    for dir in 0..8 {
-                        let nx = x + DIR_OFFSET_X[dir];
-                        let nz = z + DIR_OFFSET_Z[dir];
+                    let span_y = self.spans[span_idx].y;
+                    let span_h = self.spans[span_idx].h as i32;
+
+                    // Check 4 cardinal directions
+                    for dir in 0..4usize {
+                        // Initialize as not connected
+                        self.spans[span_idx].con[dir] = 63; // RC_NOT_CONNECTED
+
+                        let nx = x + dir_offset_x[dir];
+                        let nz = z + dir_offset_z[dir];
 
                         // Skip out-of-bounds neighbors
                         if nx < 0 || nz < 0 || nx >= width || nz >= height {
@@ -328,45 +382,35 @@ impl CompactHeightfield {
                         let neighbor_cell_idx = (nz * width + nx) as usize;
                         let neighbor_cell = &self.cells[neighbor_cell_idx];
 
-                        if let Some(first_neighbor_span_idx) = neighbor_cell.index {
-                            // Find spans in the neighboring cell that connect to the current span
-                            let mut best_neighbor_span_idx = usize::MAX;
-                            let mut best_height_diff = i32::MAX;
-
+                        if let Some(first_neighbor_idx) = neighbor_cell.index {
                             for ns in 0..neighbor_cell.count {
-                                let neighbor_span_idx = first_neighbor_span_idx + ns;
-                                let neighbor_span = &self.spans[neighbor_span_idx];
+                                let neighbor_idx = first_neighbor_idx + ns;
+                                let neighbor_span = &self.spans[neighbor_idx];
 
-                                // Skip unwalkable spans
-                                if self.areas[neighbor_span_idx] == 0 {
-                                    continue;
+                                // C++ connection criteria:
+                                // bot = max(span.y, neighbor.y)
+                                // top = min(span.y + span.h, neighbor.y + neighbor.h)
+                                // (top - bot) >= walkableHeight AND
+                                // abs(neighbor.y - span.y) <= walkableClimb
+                                let bot = span_y.max(neighbor_span.y);
+                                let top =
+                                    (span_y + span_h).min(neighbor_span.y + neighbor_span.h as i32);
+
+                                if (top - bot) >= walkable_height
+                                    && (neighbor_span.y - span_y).abs() <= walkable_climb
+                                {
+                                    // C++ stores layer index (offset within neighbor cell)
+                                    let layer_index = ns;
+                                    if layer_index > MAX_LAYERS {
+                                        continue;
+                                    }
+                                    self.spans[span_idx].con[dir] = layer_index;
+
+                                    // Also store in linked list for get_neighbor compatibility
+                                    connections_per_span[span_idx]
+                                        .push((neighbor_idx, dir4_to_dir8[dir]));
+                                    break; // C++ takes first valid match
                                 }
-
-                                // Calculate height difference
-                                let bot = neighbor_span.min.max(span.min);
-                                let top = neighbor_span.max.min(span.max);
-
-                                // If spans don't overlap vertically, no connection
-                                if bot > top {
-                                    continue;
-                                }
-
-                                // Calculate height difference
-                                let height_diff = (neighbor_span.min.abs_diff(span.min)
-                                    + neighbor_span.max.abs_diff(span.max))
-                                    as i32;
-
-                                // If we found a better connection
-                                if height_diff < best_height_diff {
-                                    best_height_diff = height_diff;
-                                    best_neighbor_span_idx = neighbor_span_idx;
-                                }
-                            }
-
-                            // If a valid connection was found, store it
-                            if best_neighbor_span_idx != usize::MAX {
-                                connections_per_span[span_idx]
-                                    .push((best_neighbor_span_idx, dir as u8));
                             }
                         }
                     }
@@ -374,15 +418,18 @@ impl CompactHeightfield {
             }
         }
 
-        // Now build the final connections
+        // Build the linked list connections
         let mut span_to_first_connection = vec![None; self.spans.len()];
+
+        // Estimate connections: average ~4 per walkable span
+        let estimated_connections = self.spans.len() * 4;
+        self.connections = Vec::with_capacity(estimated_connections);
 
         for (span_idx, span_connections) in connections_per_span.iter().enumerate() {
             let mut first_connection = None;
 
-            // Add connections for this span
-            for &(neighbor_span_idx, dir) in span_connections.iter().rev() {
-                let connection = CompactConnection::new(neighbor_span_idx, dir, first_connection);
+            for &(neighbor_span_idx, dir8) in span_connections.iter().rev() {
+                let connection = CompactConnection::new(neighbor_span_idx, dir8, first_connection);
                 let connection_idx = self.connections.len();
                 self.connections.push(connection);
                 first_connection = Some(connection_idx);
@@ -391,42 +438,9 @@ impl CompactHeightfield {
             span_to_first_connection[span_idx] = first_connection;
         }
 
-        // Update spans with first connection indices and con array
+        // Update spans with first connection indices
         for (span_idx, first_connection) in span_to_first_connection.iter().enumerate() {
             self.spans[span_idx].first_connection = *first_connection;
-
-            // Also update the con array for C++ compatibility
-            // Initialize all to not connected
-            self.spans[span_idx].con = [63; 4];
-
-            // Set connections in the 4-direction con array
-            for &(neighbor_idx, dir8) in &connections_per_span[span_idx] {
-                // Convert 8-direction to 4-direction
-                // 8-dir: NW=0, N=1, NE=2, E=3, SE=4, S=5, SW=6, W=7
-                // 4-dir: W=0, S=1, E=2, N=3
-                let dir4 = match dir8 {
-                    7 => 0,        // W
-                    5 => 1,        // S
-                    3 => 2,        // E
-                    1 => 3,        // N
-                    _ => continue, // Skip diagonals
-                };
-
-                // Find the index offset within the neighbor cell
-                let neighbor_cell_idx = self.get_cell_index_for_span(neighbor_idx);
-                if let Some(cell_idx) = neighbor_cell_idx {
-                    let cell = &self.cells[cell_idx];
-                    if let Some(first_idx) = cell.index {
-                        // Calculate offset within cell
-                        if neighbor_idx >= first_idx {
-                            let offset = neighbor_idx - first_idx;
-                            if offset < cell.count {
-                                self.spans[span_idx].con[dir4] = offset;
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         Ok(())
@@ -545,10 +559,19 @@ impl CompactHeightfield {
         Ok(())
     }
 
-    /// Calculates the distance field using the C++ two-pass algorithm
+    /// Calculates the distance field using the C++ two-pass algorithm.
+    ///
+    /// Uses cardinal directions (W=7, S=5, E=3, N=1 in 8-dir system) for propagation,
+    /// with diagonal checks via two consecutive cardinal hops.
     fn calculate_distance_field(&self, src: &mut [u16]) -> Result<u16, BuildError> {
         let w = self.width;
         let h = self.height;
+
+        // 8-dir constants for cardinal directions
+        const DIR_W: u8 = 7;
+        const DIR_S: u8 = 5;
+        const DIR_E: u8 = 3;
+        const DIR_N: u8 = 1;
 
         // Initialize all distances to infinity
         for distance in src.iter_mut() {
@@ -567,11 +590,9 @@ impl CompactHeightfield {
 
                         let mut neighbor_count = 0;
 
-                        // Check all 4 cardinal directions
-                        // Using 8-direction constants: N=1, E=3, S=5, W=7
-                        for dir in [1u8, 3u8, 5u8, 7u8] {
+                        // Check all 4 cardinal directions using correct 8-dir indices
+                        for dir in [DIR_N, DIR_E, DIR_S, DIR_W] {
                             if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
-                                // Check if neighbor has same area
                                 if self.areas[neighbor_idx] == self.areas[span_idx] {
                                     neighbor_count += 1;
                                 }
@@ -588,6 +609,7 @@ impl CompactHeightfield {
         }
 
         // Pass 1: Forward pass (top-left to bottom-right)
+        // C++ checks West(0) and North(3) as cardinal, then diagonals NW and NE
         for y in 0..h {
             for x in 0..w {
                 let cell_idx = (y * w + x) as usize;
@@ -597,28 +619,28 @@ impl CompactHeightfield {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
 
-                        // Check west direction (dir 0: -1, 0)
-                        if let Some(west_idx) = self.get_neighbor(span_idx, 0) {
+                        // Check West (cardinal: +2)
+                        if let Some(west_idx) = self.get_neighbor(span_idx, DIR_W) {
                             if src[west_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[west_idx].saturating_add(2);
                             }
 
-                            // Check northwest direction through west neighbor (dir 3: 0, -1)
-                            if let Some(nw_idx) = self.get_neighbor(west_idx, 3) {
+                            // NW diagonal: from West neighbor, go North (+3)
+                            if let Some(nw_idx) = self.get_neighbor(west_idx, DIR_N) {
                                 if src[nw_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[nw_idx].saturating_add(3);
                                 }
                             }
                         }
 
-                        // Check north direction (dir 3: 0, -1)
-                        if let Some(north_idx) = self.get_neighbor(span_idx, 3) {
+                        // Check North (cardinal: +2)
+                        if let Some(north_idx) = self.get_neighbor(span_idx, DIR_N) {
                             if src[north_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[north_idx].saturating_add(2);
                             }
 
-                            // Check northeast direction through north neighbor (dir 2: 1, 0)
-                            if let Some(ne_idx) = self.get_neighbor(north_idx, 2) {
+                            // NE diagonal: from North neighbor, go East (+3)
+                            if let Some(ne_idx) = self.get_neighbor(north_idx, DIR_E) {
                                 if src[ne_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[ne_idx].saturating_add(3);
                                 }
@@ -630,6 +652,7 @@ impl CompactHeightfield {
         }
 
         // Pass 2: Backward pass (bottom-right to top-left)
+        // C++ checks East(2) and South(1) as cardinal, then diagonals SE and SW
         for y in (0..h).rev() {
             for x in (0..w).rev() {
                 let cell_idx = (y * w + x) as usize;
@@ -639,28 +662,28 @@ impl CompactHeightfield {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
 
-                        // Check east direction (dir 2: 1, 0)
-                        if let Some(east_idx) = self.get_neighbor(span_idx, 2) {
+                        // Check East (cardinal: +2)
+                        if let Some(east_idx) = self.get_neighbor(span_idx, DIR_E) {
                             if src[east_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[east_idx].saturating_add(2);
                             }
 
-                            // Check southeast direction through east neighbor (dir 1: 0, 1)
-                            if let Some(se_idx) = self.get_neighbor(east_idx, 1) {
+                            // SE diagonal: from East neighbor, go South (+3)
+                            if let Some(se_idx) = self.get_neighbor(east_idx, DIR_S) {
                                 if src[se_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[se_idx].saturating_add(3);
                                 }
                             }
                         }
 
-                        // Check south direction (dir 1: 0, 1)
-                        if let Some(south_idx) = self.get_neighbor(span_idx, 1) {
+                        // Check South (cardinal: +2)
+                        if let Some(south_idx) = self.get_neighbor(span_idx, DIR_S) {
                             if src[south_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[south_idx].saturating_add(2);
                             }
 
-                            // Check southwest direction through south neighbor (dir 0: -1, 0)
-                            if let Some(sw_idx) = self.get_neighbor(south_idx, 0) {
+                            // SW diagonal: from South neighbor, go West (+3)
+                            if let Some(sw_idx) = self.get_neighbor(south_idx, DIR_W) {
                                 if src[sw_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[sw_idx].saturating_add(3);
                                 }
@@ -677,8 +700,10 @@ impl CompactHeightfield {
         Ok(max_dist)
     }
 
-    /// Applies box blur to smooth the distance field
-    /// Returns true if result is in dst, false if result is in src
+    /// Applies box blur to smooth the distance field.
+    /// Returns true if result is in dst, false if result is in src.
+    ///
+    /// Diagonals are reached via two consecutive cardinal hops, matching C++.
     fn box_blur(
         &self,
         threshold: u16,
@@ -688,6 +713,14 @@ impl CompactHeightfield {
         let w = self.width;
         let h = self.height;
         let thr = threshold * 2;
+
+        // Cardinal directions in 8-dir system
+        // C++ order: dir 0=W, 1=S, 2=E, 3=N
+        // 8-dir:     W=7, S=5, E=3, N=1
+        let cardinal_dirs: [u8; 4] = [7, 5, 3, 1];
+        // For each cardinal dir[i], the next cardinal dir[(i+1)&3] to reach diagonal:
+        // W(7) → S(5) = SW, S(5) → E(3) = SE, E(3) → N(1) = NE, N(1) → W(7) = NW
+        let next_cardinal: [u8; 4] = [5, 3, 1, 7];
 
         for y in 0..h {
             for x in 0..w {
@@ -707,18 +740,16 @@ impl CompactHeightfield {
                         let mut d = cd as i32;
                         let mut neighbor_count = 1; // Count self
 
-                        // Add neighbors in 4 cardinal directions
-                        // Using 8-direction constants: N=1, E=3, S=5, W=7
-                        for dir in [1u8, 3u8, 5u8, 7u8] {
+                        // Check 4 cardinal + 4 diagonal neighbors
+                        for i in 0..4 {
+                            let dir = cardinal_dirs[i];
                             if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
                                 d += src[neighbor_idx] as i32;
                                 neighbor_count += 1;
 
-                                // Add diagonal neighbors
-                                // For each cardinal direction, check the next diagonal
-                                // N(1) -> NE(2), E(3) -> SE(4), S(5) -> SW(6), W(7) -> NW(0)
-                                let diag_dir = (dir + 1) % 8;
-                                if let Some(diag_idx) = self.get_neighbor(neighbor_idx, diag_dir) {
+                                // Diagonal: from cardinal neighbor, go next cardinal direction
+                                let next_dir = next_cardinal[i];
+                                if let Some(diag_idx) = self.get_neighbor(neighbor_idx, next_dir) {
                                     d += src[diag_idx] as i32;
                                     neighbor_count += 1;
                                 }
@@ -1053,9 +1084,9 @@ mod tests {
         let mut heightfield = Heightfield::new(width, height, bmin, bmax, cs, ch);
 
         // Add some spans
-        // Cell (0, 0)
+        // Cell (0, 0): two spans with air gap of 2 (>= walkable_height)
         heightfield.add_span(0, 0, 0, 2, 1).unwrap();
-        heightfield.add_span(0, 0, 3, 5, 1).unwrap();
+        heightfield.add_span(0, 0, 4, 6, 1).unwrap();
 
         // Cell (1, 0)
         heightfield.add_span(1, 0, 0, 2, 1).unwrap();
@@ -1064,7 +1095,7 @@ mod tests {
         heightfield.add_span(0, 1, 0, 2, 1).unwrap();
 
         // Build compact heightfield
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         // Check the compact heightfield properties
         assert_eq!(chf.width, width);
@@ -1090,7 +1121,7 @@ mod tests {
         heightfield.add_span(1, 1, 0, 2, 1).unwrap();
 
         // Build compact heightfield
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         // Check if we can get the span at (1, 1, 1)
         let span = chf.get_span_at(1, 1, 1);
@@ -1122,7 +1153,7 @@ mod tests {
         heightfield.add_span(1, 0, 0, 1, 1).unwrap();
 
         // Build compact heightfield
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         // Check if the spans are connected
         let span0_idx = 0; // First span at (0, 0)

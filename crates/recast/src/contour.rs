@@ -431,7 +431,6 @@ impl ContourSet {
                 if let Some(first_span_idx) = cell.index {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
-                        let _span = &chf.spans[span_idx];
                         let region = region_ids[span_idx];
 
                         // Skip spans without region
@@ -443,37 +442,12 @@ impl ContourSet {
 
                         let mut res = 0u8;
 
-                        // Check all 4 directions (not diagonals)
-                        // Use proper 4-direction offsets: N, E, S, W
-                        for dir in 0..4 {
-                            let (dx, dz) = match dir {
-                                0 => (0, -1), // North
-                                1 => (1, 0),  // East
-                                2 => (0, 1),  // South
-                                3 => (-1, 0), // West
-                                _ => (0, 0),
-                            };
+                        // Check all 4 directions using C++ convention:
+                        // dir 0 = W(-1,0), dir 1 = S(0,+1), dir 2 = E(+1,0), dir 3 = N(0,-1)
+                        // This must match walk_contour's get_dir_offset_x/y and map_4dir_to_8dir.
+                        for dir in 0..4u8 {
+                            let dir8 = Self::map_4dir_to_8dir(dir);
 
-                            let nx = x + dx;
-                            let nz = y + dz;
-
-                            // Check bounds first
-                            if nx < 0 || nz < 0 || nx >= w || nz >= h {
-                                // Out of bounds = treat as same region (connected)
-                                res |= 1 << dir;
-                                continue;
-                            }
-
-                            // Map 4-direction to 8-direction for get_neighbor
-                            let dir8 = match dir {
-                                0 => 1, // N -> N
-                                1 => 3, // E -> E
-                                2 => 5, // S -> S
-                                3 => 7, // W -> W
-                                _ => 0,
-                            };
-
-                            // Check if neighbor exists and has same region
                             let neighbor_region =
                                 if let Some(neighbor_idx) = chf.get_neighbor(span_idx, dir8) {
                                     region_ids[neighbor_idx]
@@ -1404,7 +1378,7 @@ mod tests {
         }
 
         // Build compact heightfield
-        let mut chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let mut chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         // Assign regions to spans (normally done by region building)
         // For testing, assign all walkable spans to region 1

@@ -784,7 +784,7 @@ mod tests {
             }
         }
 
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
         let boundary_flags = vec![0u8; chf.spans.len()];
 
         // Mark border spans as boundaries
@@ -827,7 +827,7 @@ mod tests {
             }
         }
 
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         let region_ids = build_regions_monotone(&chf, 0, 1, 0).unwrap();
 
@@ -861,7 +861,7 @@ mod tests {
             }
         }
 
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         let region_ids = build_layer_regions(&chf, 0, 1).unwrap();
 
@@ -895,7 +895,7 @@ mod tests {
             }
         }
 
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield).unwrap();
+        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
         // Create proper boundary flags (mark edge spans as boundaries)
         let mut boundary_flags = vec![0u8; chf.spans.len()];
