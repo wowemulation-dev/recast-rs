@@ -35,10 +35,3 @@ pub enum TileCacheError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
-
-// Bridge impl
-impl From<TileCacheError> for recast_common::Error {
-    fn from(e: TileCacheError) -> Self {
-        recast_common::Error::Detour(e.to_string())
-    }
-}

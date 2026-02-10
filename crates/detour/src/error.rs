@@ -67,11 +67,3 @@ impl From<Status> for DetourError {
         }
     }
 }
-
-// Bridge impl: allow `?` to propagate DetourError into functions
-// that still return `recast_common::Result<T>`.
-impl From<DetourError> for recast_common::Error {
-    fn from(e: DetourError) -> Self {
-        recast_common::Error::Detour(e.to_string())
-    }
-}

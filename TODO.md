@@ -42,7 +42,7 @@ Execution order (bottom-up):
 - [x] `detour-crowd` -- Add `CrowdError` (2 `InvalidMesh` + `InvalidParam` calls)
 - [x] `detour-tilecache` -- Add `TileCacheError` (13 `unwrap` + 2 `InvalidMesh`)
 - [x] `detour-dynamic` -- Add `DynamicError` (4 span parsing + 2 job queue errors)
-- [ ] Delete old `Error` enum from `recast-common`, update `recast-cli` to use `anyhow`
+- [x] Delete old `Error` enum from `recast-common`, update `recast-cli` to use `anyhow`
 
 ### 1.3 Enable `-D warnings` Locally
 

@@ -26,15 +26,4 @@ pub enum DynamicError {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
-
-    /// Wraps legacy `recast_common::Error` from functions not yet migrated.
-    #[error("recast: {0}")]
-    Recast(#[from] recast_common::Error),
-}
-
-// Bridge impl
-impl From<DynamicError> for recast_common::Error {
-    fn from(e: DynamicError) -> Self {
-        recast_common::Error::Detour(e.to_string())
-    }
 }

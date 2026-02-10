@@ -18,10 +18,3 @@ pub enum CrowdError {
     #[error(transparent)]
     Detour(#[from] detour::DetourError),
 }
-
-// Bridge impl
-impl From<CrowdError> for recast_common::Error {
-    fn from(e: CrowdError) -> Self {
-        recast_common::Error::Detour(e.to_string())
-    }
-}

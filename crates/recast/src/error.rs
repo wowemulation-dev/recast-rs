@@ -103,24 +103,3 @@ pub enum ConvexVolumeError {
     #[error("vertices do not form a convex polygon")]
     NotConvex,
 }
-
-// Bridge impls: allow `?` to propagate crate-specific errors into functions
-// that still return `recast_common::Result<T>` (used by callers in other crates).
-
-impl From<ConfigError> for recast_common::Error {
-    fn from(e: ConfigError) -> Self {
-        recast_common::Error::InvalidMesh(e.to_string())
-    }
-}
-
-impl From<BuildError> for recast_common::Error {
-    fn from(e: BuildError) -> Self {
-        recast_common::Error::NavMeshGeneration(e.to_string())
-    }
-}
-
-impl From<ConvexVolumeError> for recast_common::Error {
-    fn from(e: ConvexVolumeError) -> Self {
-        recast_common::Error::InvalidMesh(e.to_string())
-    }
-}
