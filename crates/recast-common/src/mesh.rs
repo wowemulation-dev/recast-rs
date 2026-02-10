@@ -1,6 +1,6 @@
 //! Mesh utilities for triangle mesh handling
 
-use crate::Result;
+use crate::MeshError;
 use glam::Vec3;
 
 #[cfg(feature = "std")]
@@ -33,7 +33,7 @@ impl TriMesh {
     ///
     /// This method is only available when the `std` feature is enabled.
     #[cfg(feature = "std")]
-    pub fn from_obj<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn from_obj<P: AsRef<Path>>(path: P) -> Result<Self, MeshError> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
@@ -68,7 +68,7 @@ impl TriMesh {
     /// assert_eq!(mesh.vert_count, 3);
     /// assert_eq!(mesh.tri_count, 1);
     /// ```
-    pub fn from_obj_str(content: &str) -> Result<Self> {
+    pub fn from_obj_str(content: &str) -> Result<Self, MeshError> {
         let mut mesh = Self::new();
 
         for line in content.lines() {
@@ -79,7 +79,7 @@ impl TriMesh {
     }
 
     /// Parses a single line from an OBJ file
-    fn parse_obj_line(line: &str, mesh: &mut Self) -> Result<()> {
+    fn parse_obj_line(line: &str, mesh: &mut Self) -> Result<(), MeshError> {
         let mut tokens = line.split_whitespace();
 
         match tokens.next() {
@@ -88,13 +88,11 @@ impl TriMesh {
                 let x = tokens
                     .next()
                     .ok_or_else(|| {
-                        crate::Error::InvalidMesh(
-                            "Invalid vertex: missing x coordinate".to_string(),
-                        )
+                        MeshError::ObjParse("Invalid vertex: missing x coordinate".to_string())
                     })?
                     .parse::<f32>()
                     .map_err(|_| {
-                        crate::Error::InvalidMesh(
+                        MeshError::ObjParse(
                             "Invalid vertex: x coordinate is not a number".to_string(),
                         )
                     })?;
@@ -102,13 +100,11 @@ impl TriMesh {
                 let y = tokens
                     .next()
                     .ok_or_else(|| {
-                        crate::Error::InvalidMesh(
-                            "Invalid vertex: missing y coordinate".to_string(),
-                        )
+                        MeshError::ObjParse("Invalid vertex: missing y coordinate".to_string())
                     })?
                     .parse::<f32>()
                     .map_err(|_| {
-                        crate::Error::InvalidMesh(
+                        MeshError::ObjParse(
                             "Invalid vertex: y coordinate is not a number".to_string(),
                         )
                     })?;
@@ -116,13 +112,11 @@ impl TriMesh {
                 let z = tokens
                     .next()
                     .ok_or_else(|| {
-                        crate::Error::InvalidMesh(
-                            "Invalid vertex: missing z coordinate".to_string(),
-                        )
+                        MeshError::ObjParse("Invalid vertex: missing z coordinate".to_string())
                     })?
                     .parse::<f32>()
                     .map_err(|_| {
-                        crate::Error::InvalidMesh(
+                        MeshError::ObjParse(
                             "Invalid vertex: z coordinate is not a number".to_string(),
                         )
                     })?;
@@ -138,11 +132,11 @@ impl TriMesh {
 
                 for token in tokens {
                     let index_str = token.split('/').next().ok_or_else(|| {
-                        crate::Error::InvalidMesh("Invalid face: missing vertex index".to_string())
+                        MeshError::ObjParse("Invalid face: missing vertex index".to_string())
                     })?;
 
                     let index = index_str.parse::<i32>().map_err(|_| {
-                        crate::Error::InvalidMesh(
+                        MeshError::ObjParse(
                             "Invalid face: vertex index is not a number".to_string(),
                         )
                     })? - 1; // OBJ indices are 1-based
@@ -151,7 +145,7 @@ impl TriMesh {
                 }
 
                 if face_indices.len() < 3 {
-                    return Err(crate::Error::InvalidMesh(
+                    return Err(MeshError::ObjParse(
                         "Invalid face: less than 3 vertices".to_string(),
                     ));
                 }

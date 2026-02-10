@@ -1,12 +1,14 @@
 //! Common utilities and data structures used by both Recast and Detour
 
 pub mod debug;
+mod error;
 mod geometry;
 mod math;
 mod mesh;
 mod mesh_simplification;
 mod vector;
 
+pub use error::*;
 pub use geometry::*;
 pub use math::*;
 pub use mesh::*;
@@ -39,5 +41,5 @@ pub enum Error {
     Detour(String),
 }
 
-/// Result type for  operations
+/// Result type for operations
 pub type Result<T> = std::result::Result<T, Error>;

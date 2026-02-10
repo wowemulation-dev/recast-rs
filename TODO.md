@@ -36,7 +36,7 @@ for full type designs.
 
 Execution order (bottom-up):
 
-- [ ] `recast-common` -- Replace catch-all `Error` with `MeshError`
+- [x] `recast-common` -- Replace catch-all `Error` with `MeshError`
 - [ ] `recast` -- Add `ConfigError`, `BuildError`, `ConvexVolumeError` (58 error sites)
 - [ ] `detour` -- Add `DetourError`, promote `Status` to error type (242 sites)
 - [ ] `detour-crowd` -- Add `CrowdError` (2 `InvalidMesh` + `InvalidParam` calls)

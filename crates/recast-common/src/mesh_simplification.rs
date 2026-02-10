@@ -4,7 +4,7 @@
 //! which can significantly improve navigation mesh generation performance.
 
 use super::mesh::TriMesh;
-use crate::Result;
+use crate::MeshError;
 use glam::Vec3;
 use std::collections::{HashMap, HashSet};
 
@@ -186,7 +186,7 @@ impl MeshSimplifier {
     }
 
     /// Simplifies a mesh using the configured algorithm
-    pub fn simplify(&self, mesh: &TriMesh) -> Result<SimplificationResult> {
+    pub fn simplify(&self, mesh: &TriMesh) -> Result<SimplificationResult, MeshError> {
         let mut stats = SimplificationStats {
             original_vertices: mesh.vert_count,
             original_triangles: mesh.tri_count,
@@ -221,7 +221,11 @@ impl MeshSimplifier {
     }
 
     /// Preprocesses the mesh by welding vertices and removing degenerate triangles
-    fn preprocess_mesh(&self, mesh: &TriMesh, stats: &mut SimplificationStats) -> Result<TriMesh> {
+    fn preprocess_mesh(
+        &self,
+        mesh: &TriMesh,
+        stats: &mut SimplificationStats,
+    ) -> Result<TriMesh, MeshError> {
         // Step 1: Weld nearby vertices
         let (vertices, vertex_mapping) = self.weld_vertices(&mesh.vertices, mesh.vert_count)?;
         stats.vertices_welded = mesh.vert_count - vertices.len() / 3;
@@ -267,7 +271,11 @@ impl MeshSimplifier {
     }
 
     /// Welds nearby vertices together
-    fn weld_vertices(&self, vertices: &[f32], vert_count: usize) -> Result<(Vec<f32>, Vec<usize>)> {
+    fn weld_vertices(
+        &self,
+        vertices: &[f32],
+        vert_count: usize,
+    ) -> Result<(Vec<f32>, Vec<usize>), MeshError> {
         let mut welded_vertices = Vec::new();
         let mut vertex_mapping = vec![0; vert_count];
 
@@ -307,7 +315,7 @@ impl MeshSimplifier {
         &self,
         mesh: &TriMesh,
         stats: &mut SimplificationStats,
-    ) -> Result<TriMesh> {
+    ) -> Result<TriMesh, MeshError> {
         if mesh.tri_count == 0 {
             return Ok(mesh.clone());
         }
@@ -500,7 +508,11 @@ impl MeshSimplifier {
     }
 
     /// Post-processes the mesh with final cleanup
-    fn postprocess_mesh(&self, mesh: &TriMesh, stats: &mut SimplificationStats) -> Result<TriMesh> {
+    fn postprocess_mesh(
+        &self,
+        mesh: &TriMesh,
+        stats: &mut SimplificationStats,
+    ) -> Result<TriMesh, MeshError> {
         // Remove any remaining degenerate or small triangles
         let mut new_indices = Vec::new();
         let mut triangle_count = 0;
