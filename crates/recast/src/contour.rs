@@ -26,13 +26,13 @@ pub struct ContourVertex {
     pub y: i32,
     /// Z-coordinate (cell units)
     pub z: i32,
-    /// Region ID
-    pub region: u16,
+    /// Region ID (lower 16 bits) and flags (upper bits: RC_BORDER_VERTEX, RC_AREA_BORDER)
+    pub region: i32,
 }
 
 impl ContourVertex {
     /// Creates a new contour vertex
-    pub fn new(x: i32, y: i32, z: i32, region: u16) -> Self {
+    pub fn new(x: i32, y: i32, z: i32, region: i32) -> Self {
         Self { x, y, z, region }
     }
 }
@@ -59,7 +59,7 @@ impl Contour {
     }
 
     /// Adds a vertex to the contour
-    pub fn add_vertex(&mut self, x: i32, y: i32, z: i32, region: u16) {
+    pub fn add_vertex(&mut self, x: i32, y: i32, z: i32, region: i32) {
         self.vertices.push(ContourVertex::new(x, y, z, region));
     }
 
@@ -794,7 +794,7 @@ impl ContourSet {
                                 verts_to_use[idx],
                                 verts_to_use[idx + 1],
                                 verts_to_use[idx + 2],
-                                verts_to_use[idx + 3] as u16,
+                                verts_to_use[idx + 3],
                             );
                         }
                         contours.push(contour);
@@ -816,10 +816,11 @@ impl ContourSet {
         Ok(())
     }
 
-    /// Gets the height of a corner vertex following the C++ getCornerHeight algorithm
+    /// Gets the height of a corner vertex following the C++ getCornerHeight algorithm.
+    /// Uses span.con[dir] directly (matching C++ rcGetCon) instead of linked list lookup.
     fn get_corner_height(
-        _x: i32,
-        _y: i32,
+        x: i32,
+        y: i32,
         i: usize,
         dir: u8,
         chf: &CompactHeightfield,
@@ -827,44 +828,65 @@ impl ContourSet {
     ) -> (i32, bool) {
         let span = &chf.spans[i];
         let mut ch = span.y;
-        let dirp = (dir + 1) & 0x3;
+        let dirp = ((dir as usize) + 1) & 0x3;
         let mut is_border_vertex = false;
 
         let mut regs = [0u32; 4];
 
-        // Combine region and area codes to prevent border vertices between areas from being removed
+        // C++ direction offsets: 0=W(-1,0), 1=S(0,+1), 2=E(+1,0), 3=N(0,-1)
+        let dir_offset_x: [i32; 4] = [-1, 0, 1, 0];
+        let dir_offset_z: [i32; 4] = [0, 1, 0, -1];
+
+        const RC_NOT_CONNECTED: usize = 63;
+
+        // Combine region and area codes to prevent border vertices between areas
+        // from being removed
         regs[0] = region_ids[i] as u32 | ((span.area as u32) << 16);
 
         // Check neighbor in dir direction
-        if let Some(neighbor_idx) = chf.get_neighbor(i, Self::map_4dir_to_8dir(dir)) {
-            let neighbor_span = &chf.spans[neighbor_idx];
-            ch = ch.max(neighbor_span.y);
-            regs[1] = region_ids[neighbor_idx] as u32 | ((neighbor_span.area as u32) << 16);
+        if span.con[dir as usize] != RC_NOT_CONNECTED {
+            let ax = x + dir_offset_x[dir as usize];
+            let az = y + dir_offset_z[dir as usize];
+            let ai =
+                chf.cells[(ax + az * chf.width) as usize].index.unwrap() + span.con[dir as usize];
+            let as_ = &chf.spans[ai];
+            ch = ch.max(as_.y);
+            regs[1] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
 
-            // Check diagonal neighbor
-            if let Some(diag_idx) = chf.get_neighbor(neighbor_idx, Self::map_4dir_to_8dir(dirp)) {
-                let diag_span = &chf.spans[diag_idx];
-                ch = ch.max(diag_span.y);
-                regs[2] = region_ids[diag_idx] as u32 | ((diag_span.area as u32) << 16);
+            // Check diagonal neighbor (from ai in dirp)
+            if as_.con[dirp] != RC_NOT_CONNECTED {
+                let ax2 = ax + dir_offset_x[dirp];
+                let az2 = az + dir_offset_z[dirp];
+                let ai2 =
+                    chf.cells[(ax2 + az2 * chf.width) as usize].index.unwrap() + as_.con[dirp];
+                let as2 = &chf.spans[ai2];
+                ch = ch.max(as2.y);
+                regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
             }
         }
 
         // Check neighbor in dirp direction
-        if let Some(neighbor_idx) = chf.get_neighbor(i, Self::map_4dir_to_8dir(dirp)) {
-            let neighbor_span = &chf.spans[neighbor_idx];
-            ch = ch.max(neighbor_span.y);
-            regs[3] = region_ids[neighbor_idx] as u32 | ((neighbor_span.area as u32) << 16);
+        if span.con[dirp] != RC_NOT_CONNECTED {
+            let ax = x + dir_offset_x[dirp];
+            let az = y + dir_offset_z[dirp];
+            let ai = chf.cells[(ax + az * chf.width) as usize].index.unwrap() + span.con[dirp];
+            let as_ = &chf.spans[ai];
+            ch = ch.max(as_.y);
+            regs[3] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
 
-            // Check diagonal neighbor
-            if let Some(diag_idx) = chf.get_neighbor(neighbor_idx, Self::map_4dir_to_8dir(dir)) {
-                let diag_span = &chf.spans[diag_idx];
-                ch = ch.max(diag_span.y);
-                regs[2] = region_ids[diag_idx] as u32 | ((diag_span.area as u32) << 16);
+            // Check diagonal neighbor (from ai in dir)
+            if as_.con[dir as usize] != RC_NOT_CONNECTED {
+                let ax2 = ax + dir_offset_x[dir as usize];
+                let az2 = az + dir_offset_z[dir as usize];
+                let ai2 = chf.cells[(ax2 + az2 * chf.width) as usize].index.unwrap()
+                    + as_.con[dir as usize];
+                let as2 = &chf.spans[ai2];
+                ch = ch.max(as2.y);
+                regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
             }
         }
 
         // Check if vertex is special edge vertex (will be marked for removal)
-        // Following the exact C++ algorithm
         const RC_BORDER_REG: u32 = 0x8000;
 
         for j in 0..4 {
@@ -1236,8 +1258,8 @@ impl ContourSet {
         for i in 0..simplified.len() / 4 {
             let ai = ((simplified[i * 4 + 3] + 1) % (pn as i32)) as usize;
             let bi = simplified[i * 4 + 3] as usize;
-            simplified[i * 4 + 3] = (points[ai * 4 + 3] & 0x30000) | (points[bi * 4 + 3] & 0x10000);
-            // RC_CONTOUR_REG_MASK | RC_AREA_BORDER | RC_BORDER_VERTEX
+            // C++: (RC_CONTOUR_REG_MASK | RC_AREA_BORDER) = 0xffff | 0x20000 = 0x2ffff
+            simplified[i * 4 + 3] = (points[ai * 4 + 3] & 0x2ffff) | (points[bi * 4 + 3] & 0x10000);
         }
 
         Ok(())

@@ -182,7 +182,7 @@ impl PolyMesh {
                 ) as i32;
 
                 // Mark border vertices for removal (matches C++ lines 1128-1132)
-                if (vertex.region as u32 & RC_BORDER_VERTEX) != 0 {
+                if (vertex.region as u32 & RC_BORDER_VERTEX as u32) != 0 {
                     vflags[indices[j] as usize] = true;
                 }
             }
@@ -220,7 +220,7 @@ impl PolyMesh {
 
                 p[..nvp].copy_from_slice(q);
 
-                mesh.regs[mesh.npolys] = contour.vertices[0].region;
+                mesh.regs[mesh.npolys] = (contour.vertices[0].region & 0xffff) as u16;
                 mesh.areas[mesh.npolys] = contour.area;
                 mesh.npolys += 1;
 
@@ -276,17 +276,16 @@ impl PolyMesh {
         Ok(mesh)
     }
 
-    /// Triangulates a contour following the exact C++ triangulate algorithm
+    /// Triangulates a contour following the exact C++ triangulate algorithm.
+    /// Wrapper that converts `ContourVertex` to raw int arrays and delegates
+    /// to `triangulate_raw`.
     fn triangulate(
         n: usize,
         verts: &[super::contour::ContourVertex],
         indices: &mut [i32],
         tris: &mut [i32],
     ) -> Result<i32, BuildError> {
-        let mut ntris = 0;
-        let mut dst = 0;
-
-        // Convert vertices to required format for triangulation
+        // Convert vertices to required format for triangulation (4 ints per vertex)
         let mut tverts = vec![0i32; n * 4];
         for i in 0..n {
             tverts[i * 4] = verts[i].x;
@@ -295,11 +294,28 @@ impl PolyMesh {
             tverts[i * 4 + 3] = 0;
         }
 
+        Self::triangulate_raw(n, &tverts, indices, tris)
+    }
+
+    /// Core ear-clipping triangulation on raw int arrays.
+    /// `tverts` has 4 ints per vertex (x, y, z, 0).
+    /// `indices` maps polygon vertex positions to tverts indices.
+    /// `tris` receives output triangle indices (3 per triangle).
+    /// Returns number of triangles (negative if fallback was used).
+    fn triangulate_raw(
+        n: usize,
+        tverts: &[i32],
+        indices: &mut [i32],
+        tris: &mut [i32],
+    ) -> Result<i32, BuildError> {
+        let mut ntris = 0;
+        let mut dst = 0;
+
         // The last bit of the index is used to indicate if the vertex can be removed
         for i in 0..n {
             let i1 = Self::next(i, n);
             let i2 = Self::next(i1, n);
-            if Self::diagonal(i, i2, n, &tverts, indices) {
+            if Self::diagonal(i, i2, n, tverts, indices) {
                 indices[i1] |= 0x80000000u32 as i32;
             }
         }
@@ -332,7 +348,7 @@ impl PolyMesh {
                 for i in 0..current_n {
                     let i1 = Self::next(i, current_n);
                     let i2 = Self::next(i1, current_n);
-                    if Self::diagonal_loose(i, i2, current_n, &tverts, indices) {
+                    if Self::diagonal_loose(i, i2, current_n, tverts, indices) {
                         let p0 = &tverts[(indices[i] & 0x0fffffff) as usize * 4..];
                         let p2 = &tverts
                             [(indices[Self::next(i2, current_n)] & 0x0fffffff) as usize * 4..];
@@ -378,7 +394,7 @@ impl PolyMesh {
                 Self::prev(i_adj, current_n),
                 i1_adj,
                 current_n,
-                &tverts,
+                tverts,
                 indices,
             ) {
                 indices[i_adj] |= 0x80000000u32 as i32;
@@ -390,7 +406,7 @@ impl PolyMesh {
                 i_adj,
                 Self::next(i1_adj, current_n),
                 current_n,
-                &tverts,
+                tverts,
                 indices,
             ) {
                 indices[i1_adj] |= 0x80000000u32 as i32;
@@ -791,14 +807,415 @@ impl PolyMesh {
         }
     }
 
-    /// Removes edge vertices (following C++ logic)
+    /// Removes a single vertex from the mesh, re-triangulates the hole, and
+    /// merges the resulting triangles back into polygons. Ports C++ `removeVertex`.
+    fn remove_vertex(mesh: &mut PolyMesh, rem: u16, max_tris: usize) -> Result<(), BuildError> {
+        let nvp = mesh.nvp;
+
+        // Count number of polygons to remove.
+        let mut num_removed_verts = 0usize;
+        for i in 0..mesh.npolys {
+            let p = &mesh.polys[i * nvp * 2..];
+            let nv = Self::count_poly_verts(p, nvp);
+            for j in 0..nv {
+                if p[j] == rem {
+                    num_removed_verts += 1;
+                }
+            }
+        }
+
+        // Allocate temp buffers for edges and hole boundary.
+        // Each edge: (start_vert, end_vert, region, area)
+        let mut edges: Vec<i32> = Vec::with_capacity(num_removed_verts * nvp * 4);
+        let mut hole: Vec<i32> = Vec::with_capacity(num_removed_verts * nvp);
+        let mut hreg: Vec<i32> = Vec::with_capacity(num_removed_verts * nvp);
+        let mut harea: Vec<i32> = Vec::with_capacity(num_removed_verts * nvp);
+
+        // Collect edges from polygons touching rem, then remove those polygons.
+        let mut i = 0;
+        while i < mesh.npolys {
+            let p_start = i * nvp * 2;
+            let nv = Self::count_poly_verts(&mesh.polys[p_start..], nvp);
+            let has_rem = (0..nv).any(|j| mesh.polys[p_start + j] == rem);
+
+            if has_rem {
+                // Collect edges not touching rem.
+                let mut k = nv - 1;
+                for j in 0..nv {
+                    if mesh.polys[p_start + j] != rem && mesh.polys[p_start + k] != rem {
+                        edges.push(mesh.polys[p_start + k] as i32);
+                        edges.push(mesh.polys[p_start + j] as i32);
+                        edges.push(mesh.regs[i] as i32);
+                        edges.push(mesh.areas[i] as i32);
+                    }
+                    k = j;
+                }
+
+                // Remove polygon by swapping with the last one.
+                let last = mesh.npolys - 1;
+                if i != last {
+                    let (src_start, dst_start) = (last * nvp * 2, p_start);
+                    for off in 0..nvp * 2 {
+                        mesh.polys[dst_start + off] = mesh.polys[src_start + off];
+                    }
+                    mesh.regs[i] = mesh.regs[last];
+                    mesh.areas[i] = mesh.areas[last];
+                }
+                // Clear the neighbor half of what is now the last slot.
+                let clear_start = last * nvp * 2 + nvp;
+                for off in 0..nvp {
+                    mesh.polys[clear_start + off] = MESH_NULL_IDX;
+                }
+                mesh.npolys -= 1;
+                // Re-examine the same index since we swapped in a new polygon.
+            } else {
+                i += 1;
+            }
+        }
+
+        // Remove vertex from the verts array.
+        let rem_idx = rem as usize;
+        for vi in rem_idx..mesh.nverts - 1 {
+            mesh.verts[vi * 3] = mesh.verts[(vi + 1) * 3];
+            mesh.verts[vi * 3 + 1] = mesh.verts[(vi + 1) * 3 + 1];
+            mesh.verts[vi * 3 + 2] = mesh.verts[(vi + 1) * 3 + 2];
+        }
+        mesh.nverts -= 1;
+
+        // Adjust vertex indices > rem in existing polys.
+        for pi in 0..mesh.npolys {
+            let p_start = pi * nvp * 2;
+            let nv = Self::count_poly_verts(&mesh.polys[p_start..], nvp);
+            for j in 0..nv {
+                if mesh.polys[p_start + j] > rem {
+                    mesh.polys[p_start + j] -= 1;
+                }
+            }
+        }
+        // Adjust vertex indices in collected edges.
+        let nedges = edges.len() / 4;
+        for ei in 0..nedges {
+            if edges[ei * 4] > rem as i32 {
+                edges[ei * 4] -= 1;
+            }
+            if edges[ei * 4 + 1] > rem as i32 {
+                edges[ei * 4 + 1] -= 1;
+            }
+        }
+
+        if nedges == 0 {
+            return Ok(());
+        }
+
+        // Build hole boundary by chaining edges.
+        // Start with the first edge's start vertex.
+        hole.push(edges[0]);
+        hreg.push(edges[2]);
+        harea.push(edges[3]);
+
+        let mut remaining_edges = nedges;
+        // Remove edge 0 by swapping with last.
+        if remaining_edges > 1 {
+            edges[0] = edges[(remaining_edges - 1) * 4];
+            edges[1] = edges[(remaining_edges - 1) * 4 + 1];
+            edges[2] = edges[(remaining_edges - 1) * 4 + 2];
+            edges[3] = edges[(remaining_edges - 1) * 4 + 3];
+        }
+        remaining_edges -= 1;
+
+        // Keep appending connected segments to start and end of the hole.
+        loop {
+            let mut matched = false;
+
+            let mut ei = 0;
+            while ei < remaining_edges {
+                let ea = edges[ei * 4];
+                let eb = edges[ei * 4 + 1];
+                let r = edges[ei * 4 + 2];
+                let a = edges[ei * 4 + 3];
+                let mut add = false;
+
+                if hole[0] == eb {
+                    // Matches beginning of hole.
+                    hole.insert(0, ea);
+                    hreg.insert(0, r);
+                    harea.insert(0, a);
+                    add = true;
+                } else if *hole.last().unwrap() == ea {
+                    // Matches end of hole.
+                    hole.push(eb);
+                    hreg.push(r);
+                    harea.push(a);
+                    add = true;
+                }
+
+                if add {
+                    // Remove this edge by swapping with last.
+                    let last_e = remaining_edges - 1;
+                    if ei != last_e {
+                        edges[ei * 4] = edges[last_e * 4];
+                        edges[ei * 4 + 1] = edges[last_e * 4 + 1];
+                        edges[ei * 4 + 2] = edges[last_e * 4 + 2];
+                        edges[ei * 4 + 3] = edges[last_e * 4 + 3];
+                    }
+                    remaining_edges -= 1;
+                    matched = true;
+                    // Don't increment ei -- re-examine current position.
+                } else {
+                    ei += 1;
+                }
+            }
+
+            if !matched {
+                break;
+            }
+        }
+
+        // Triangulate the hole.
+        let nhole = hole.len();
+
+        let mut tri_verts = vec![0i32; nhole * 4];
+        for i in 0..nhole {
+            let pi = hole[i] as usize;
+            tri_verts[i * 4] = mesh.verts[pi * 3] as i32;
+            tri_verts[i * 4 + 1] = mesh.verts[pi * 3 + 1] as i32;
+            tri_verts[i * 4 + 2] = mesh.verts[pi * 3 + 2] as i32;
+            tri_verts[i * 4 + 3] = 0;
+        }
+
+        let mut thole: Vec<i32> = (0..nhole as i32).collect();
+        let mut tris = vec![0i32; nhole * 3];
+
+        let mut ntris = Self::triangulate_raw(nhole, &tri_verts, &mut thole, &mut tris)?;
+
+        if ntris < 0 {
+            ntris = -ntris;
+            log::warn!("remove_vertex: triangulate() returned bad results");
+        }
+
+        // Build initial polygons from triangles.
+        let mut polys = vec![MESH_NULL_IDX; (ntris as usize + 1) * nvp];
+        let mut pregs = vec![0u16; ntris as usize];
+        let mut pareas = vec![0u8; ntris as usize];
+
+        let mut npolys = 0usize;
+        for j in 0..ntris as usize {
+            let t = &tris[j * 3..];
+            if t[0] != t[1] && t[0] != t[2] && t[1] != t[2] {
+                polys[npolys * nvp] = hole[t[0] as usize] as u16;
+                polys[npolys * nvp + 1] = hole[t[1] as usize] as u16;
+                polys[npolys * nvp + 2] = hole[t[2] as usize] as u16;
+
+                if hreg[t[0] as usize] != hreg[t[1] as usize]
+                    || hreg[t[1] as usize] != hreg[t[2] as usize]
+                {
+                    pregs[npolys] = RC_MULTIPLE_REGS;
+                } else {
+                    pregs[npolys] = hreg[t[0] as usize] as u16;
+                }
+
+                pareas[npolys] = harea[t[0] as usize] as u8;
+                npolys += 1;
+            }
+        }
+        if npolys == 0 {
+            return Ok(());
+        }
+
+        // Merge triangles into larger polygons where possible.
+        if nvp > 3 {
+            let mut tmp_poly = vec![MESH_NULL_IDX; nvp];
+
+            loop {
+                let mut best_merge_val = 0;
+                let mut best_pa = 0;
+                let mut best_pb = 0;
+                let mut best_ea = 0;
+                let mut best_eb = 0;
+
+                for j in 0..npolys - 1 {
+                    let pj = &polys[j * nvp..(j + 1) * nvp];
+                    for k in j + 1..npolys {
+                        let pk = &polys[k * nvp..(k + 1) * nvp];
+                        let (v, ea, eb) = Self::get_poly_merge_value(pj, pk, &mesh.verts, nvp);
+                        if v > best_merge_val {
+                            best_merge_val = v;
+                            best_pa = j;
+                            best_pb = k;
+                            best_ea = ea;
+                            best_eb = eb;
+                        }
+                    }
+                }
+
+                if best_merge_val > 0 {
+                    let pa = polys[best_pa * nvp..(best_pa + 1) * nvp].to_vec();
+                    let pb = polys[best_pb * nvp..(best_pb + 1) * nvp].to_vec();
+                    Self::merge_poly_verts(&pa, &pb, best_ea, best_eb, &mut tmp_poly, nvp);
+
+                    // Copy merged polygon back to pa's slot.
+                    for off in 0..nvp {
+                        polys[best_pa * nvp + off] = tmp_poly[off];
+                    }
+                    if pregs[best_pa] != pregs[best_pb] {
+                        pregs[best_pa] = RC_MULTIPLE_REGS;
+                    }
+
+                    // Remove pb by swapping with last.
+                    let last = npolys - 1;
+                    if best_pb != last {
+                        for off in 0..nvp {
+                            polys[best_pb * nvp + off] = polys[last * nvp + off];
+                        }
+                        pregs[best_pb] = pregs[last];
+                        pareas[best_pb] = pareas[last];
+                    }
+                    npolys -= 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Store polygons back into the mesh.
+        for pi in 0..npolys {
+            if mesh.npolys >= max_tris {
+                break;
+            }
+            let dst = mesh.npolys * nvp * 2;
+            // Fill both poly and neighbor halves with null.
+            for off in 0..nvp * 2 {
+                mesh.polys[dst + off] = MESH_NULL_IDX;
+            }
+            // Copy polygon vertices.
+            for off in 0..nvp {
+                mesh.polys[dst + off] = polys[pi * nvp + off];
+            }
+            mesh.regs[mesh.npolys] = pregs[pi];
+            mesh.areas[mesh.npolys] = pareas[pi];
+            mesh.npolys += 1;
+
+            if mesh.npolys > max_tris {
+                return Err(BuildError::TooManyPolygons {
+                    count: mesh.npolys,
+                    max: max_tris,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Checks if a vertex can be removed from the mesh without creating
+    /// degenerate topology. Ports C++ `canRemoveVertex`.
+    fn can_remove_vertex(mesh: &PolyMesh, rem: u16) -> bool {
+        let nvp = mesh.nvp;
+
+        // Count polygons touching rem and remaining edges after removal.
+        let mut num_touched_verts = 0;
+        let mut num_remaining_edges = 0;
+        for i in 0..mesh.npolys {
+            let p = &mesh.polys[i * nvp * 2..];
+            let nv = Self::count_poly_verts(p, nvp);
+            let mut num_removed = 0;
+            for j in 0..nv {
+                if p[j] == rem {
+                    num_touched_verts += 1;
+                    num_removed += 1;
+                }
+            }
+            if num_removed > 0 {
+                num_remaining_edges += nv as i32 - (num_removed + 1);
+            }
+        }
+
+        // Too few edges remaining to form a polygon.
+        if num_remaining_edges <= 2 {
+            return false;
+        }
+
+        // Find edges which share the removed vertex.
+        let max_edges = num_touched_verts * 2;
+        // Each edge: (a, b, shared_count)
+        let mut edges = vec![0i32; max_edges * 3];
+        let mut nedges = 0usize;
+
+        for i in 0..mesh.npolys {
+            let p = &mesh.polys[i * nvp * 2..];
+            let nv = Self::count_poly_verts(p, nvp);
+
+            let mut k = nv - 1;
+            for j in 0..nv {
+                if p[j] == rem || p[k] == rem {
+                    // Arrange edge so that a=rem.
+                    let mut a = p[j] as i32;
+                    let mut b = p[k] as i32;
+                    if b == rem as i32 {
+                        std::mem::swap(&mut a, &mut b);
+                    }
+
+                    // Check if the edge already exists
+                    let mut exists = false;
+                    for m in 0..nedges {
+                        let e = &mut edges[m * 3..];
+                        if e[1] == b {
+                            e[2] += 1;
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if !exists {
+                        edges[nedges * 3] = a;
+                        edges[nedges * 3 + 1] = b;
+                        edges[nedges * 3 + 2] = 1;
+                        nedges += 1;
+                    }
+                }
+                k = j;
+            }
+        }
+
+        // There should be no more than 2 open edges.
+        let mut num_open_edges = 0;
+        for i in 0..nedges {
+            if edges[i * 3 + 2] < 2 {
+                num_open_edges += 1;
+            }
+        }
+        if num_open_edges > 2 {
+            return false;
+        }
+
+        true
+    }
+
+    /// Removes vertices flagged as border vertices. For each flagged vertex,
+    /// checks if removal is safe, then removes it and re-triangulates the hole.
+    /// Ports C++ border vertex removal loop in `rcBuildPolyMesh`.
+    ///
+    /// Note: This is only active when `border_size > 0` (tiled builds), since
+    /// border regions must exist for vertices to be flagged with `RC_BORDER_VERTEX`.
     fn remove_edge_vertices(
-        _mesh: &mut PolyMesh,
-        _vflags: &mut [bool],
-        _max_tris: usize,
+        mesh: &mut PolyMesh,
+        vflags: &mut Vec<bool>,
+        max_tris: usize,
     ) -> Result<(), BuildError> {
-        // Implementation would be complex, for now return Ok
-        // This matches the C++ removeVertex functionality
+        let mut i = 0;
+        while i < mesh.nverts {
+            if vflags[i] {
+                if !Self::can_remove_vertex(mesh, i as u16) {
+                    i += 1;
+                    continue;
+                }
+                Self::remove_vertex(mesh, i as u16, max_tris)?;
+                // remove_vertex already decremented mesh.nverts and shifted
+                // vertex data. Shift vflags to match.
+                vflags.remove(i);
+                // Don't increment i -- re-examine the same position.
+            } else {
+                i += 1;
+            }
+        }
         Ok(())
     }
 

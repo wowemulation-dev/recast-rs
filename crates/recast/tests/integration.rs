@@ -83,7 +83,7 @@ fn nav_test_generation_rust_output() {
 }
 
 #[test]
-#[ignore = "Rust produces ~0.99x polygons vs C++; remove_edge_vertices is stubbed"]
+#[ignore = "Rust produces ~0.99x polygons vs C++; remaining pipeline differences"]
 fn nav_test_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
@@ -122,7 +122,7 @@ fn dungeon_generation_rust_output() {
 }
 
 #[test]
-#[ignore = "Rust produces ~0.98x polygons vs C++; remove_edge_vertices is stubbed"]
+#[ignore = "Rust produces ~0.98x polygons vs C++; remaining pipeline differences"]
 fn dungeon_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("dungeon.obj");
 
