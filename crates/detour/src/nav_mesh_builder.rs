@@ -6,10 +6,10 @@
 use super::nav_mesh::encode_poly_ref;
 use super::{
     BVNode, DT_EXT_LINK, MeshTile, NavMeshCreateParams, NavMeshParams, OffMeshConnection, Poly,
-    PolyDetail, PolyFlags, PolyType, Status, TileHeader,
+    PolyDetail, PolyFlags, PolyType, TileHeader,
 };
+use crate::error::DetourError;
 use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
-use recast_common::{Error, Result};
 
 /// Request for creating an external link between tiles
 #[derive(Debug, Clone)]
@@ -38,7 +38,7 @@ impl NavMeshBuilder {
     ///
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
-    pub fn create_nav_mesh_data(params: &NavMeshCreateParams) -> Result<Vec<u8>> {
+    pub fn create_nav_mesh_data(params: &NavMeshCreateParams) -> Result<Vec<u8>, DetourError> {
         // Validate input parameters
         Self::validate_params(params)?;
 
@@ -50,7 +50,7 @@ impl NavMeshBuilder {
     }
 
     /// Creates a navigation mesh tile from NavMeshCreateParams
-    pub fn build_tile(params: &NavMeshCreateParams) -> Result<MeshTile> {
+    pub fn build_tile(params: &NavMeshCreateParams) -> Result<MeshTile, DetourError> {
         let mut tile = MeshTile::new();
 
         // Set up tile header
@@ -104,32 +104,32 @@ impl NavMeshBuilder {
 
     /// Validates input parameters
     #[cfg(feature = "serialization")]
-    fn validate_params(params: &NavMeshCreateParams) -> Result<()> {
+    fn validate_params(params: &NavMeshCreateParams) -> Result<(), DetourError> {
         if params.vert_count < 3 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.poly_count < 1 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.nvp < 3 || params.nvp > 6 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.verts.len() != (params.vert_count * 3) as usize {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.polys.len() != (params.poly_count * params.nvp * 2) as usize {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         Ok(())
     }
 
     /// Builds polygon structures from raw data
-    fn build_polygons(params: &NavMeshCreateParams) -> Result<Vec<Poly>> {
+    fn build_polygons(params: &NavMeshCreateParams) -> Result<Vec<Poly>, DetourError> {
         let mut polys = Vec::with_capacity(params.poly_count as usize);
         let mut poly_idx = 0;
 
@@ -181,7 +181,7 @@ impl NavMeshBuilder {
     }
 
     /// Builds detail mesh structures
-    fn build_detail_meshes(params: &NavMeshCreateParams) -> Result<Vec<PolyDetail>> {
+    fn build_detail_meshes(params: &NavMeshCreateParams) -> Result<Vec<PolyDetail>, DetourError> {
         let mut detail_meshes = Vec::with_capacity(params.poly_count as usize);
 
         for i in 0..params.poly_count as usize {
@@ -208,7 +208,9 @@ impl NavMeshBuilder {
     }
 
     /// Builds off-mesh connections
-    fn build_off_mesh_connections(params: &NavMeshCreateParams) -> Result<Vec<OffMeshConnection>> {
+    fn build_off_mesh_connections(
+        params: &NavMeshCreateParams,
+    ) -> Result<Vec<OffMeshConnection>, DetourError> {
         let mut connections = Vec::with_capacity(params.off_mesh_con_count as usize);
 
         for i in 0..params.off_mesh_con_count as usize {
@@ -241,7 +243,7 @@ impl NavMeshBuilder {
     }
 
     /// Builds BVH tree for the tile
-    fn build_bvh_for_tile(tile: &mut MeshTile) -> Result<()> {
+    fn build_bvh_for_tile(tile: &mut MeshTile) -> Result<(), DetourError> {
         let poly_count = tile.polys.len();
         if poly_count == 0 {
             return Ok(());
@@ -287,7 +289,7 @@ impl NavMeshBuilder {
         items: &mut [usize],
         item_start: usize,
         item_count: usize,
-    ) -> Result<i32> {
+    ) -> Result<i32, DetourError> {
         if item_count == 0 {
             return Ok(-1);
         }
@@ -311,7 +313,7 @@ impl NavMeshBuilder {
         let header = tile
             .header
             .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or_else(|| DetourError::InvalidParam)?;
 
         // Quantize bounds
         let (quant_bounds, _) =
@@ -379,11 +381,11 @@ impl NavMeshBuilder {
 
     /// Builds internal links between polygons within a tile
     /// Builds internal links between polygons in a tile (public interface)
-    pub fn build_internal_links_for_tile(tile: &mut MeshTile) -> Result<()> {
+    pub fn build_internal_links_for_tile(tile: &mut MeshTile) -> Result<(), DetourError> {
         Self::build_internal_links(tile)
     }
 
-    fn build_internal_links(tile: &mut MeshTile) -> Result<()> {
+    fn build_internal_links(tile: &mut MeshTile) -> Result<(), DetourError> {
         // For each polygon, check if it shares edges with neighbors
         for i in 0..tile.polys.len() {
             // Skip off-mesh connections - they don't use neighbor-based links
@@ -461,7 +463,7 @@ impl NavMeshBuilder {
         tx: i32,
         ty: i32,
         layer: i32,
-    ) -> Result<Vec<ExternalLinkRequest>> {
+    ) -> Result<Vec<ExternalLinkRequest>, DetourError> {
         // Get the tile we're connecting from
         let tile = nav_mesh.get_tile_at(tx, ty, layer);
         if tile.is_none() {
@@ -515,7 +517,7 @@ impl NavMeshBuilder {
         ty2: i32,
         layer2: i32,
         direction: u8,
-    ) -> Result<Vec<ExternalLinkRequest>> {
+    ) -> Result<Vec<ExternalLinkRequest>, DetourError> {
         // Get references to both tiles
         let tile1 = nav_mesh.get_tile_at(tx1, ty1, layer1);
         let tile2 = nav_mesh.get_tile_at(tx2, ty2, layer2);
@@ -567,7 +569,7 @@ impl NavMeshBuilder {
         target_ty: i32,
         target_layer: i32,
         side: i32,
-    ) -> Result<Vec<ExternalLinkRequest>> {
+    ) -> Result<Vec<ExternalLinkRequest>, DetourError> {
         let mut requests = Vec::new();
 
         // Get source tile data first to avoid borrow checker issues
@@ -655,7 +657,7 @@ impl NavMeshBuilder {
         target_ty: i32,
         target_layer: i32,
         side: i32,
-    ) -> Result<Vec<super::PolyRef>> {
+    ) -> Result<Vec<super::PolyRef>, DetourError> {
         let target_tile = nav_mesh.get_tile_at(target_tx, target_ty, target_layer);
         let Some(tile) = target_tile else {
             return Ok(Vec::new());

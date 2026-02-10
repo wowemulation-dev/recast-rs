@@ -10,9 +10,9 @@ use std::f32;
 use super::nav_mesh::{MeshTile, Poly};
 use super::raycast_hit::{RaycastHit, RaycastOptions, RaycastResult};
 use super::sliced_pathfinding::SlicedPathState;
-use super::{NavMesh, Path, PolyFlags, PolyRef, PolyType, QueryFilter, Status};
+use super::{NavMesh, Path, PolyFlags, PolyRef, PolyType, QueryFilter};
+use crate::error::DetourError;
 use glam::Vec3;
-use recast_common::{Error, Result};
 
 /// Maximum number of nodes in the search pool
 const DT_MAX_NODES: usize = 4096;
@@ -224,7 +224,7 @@ impl<'a> NavMeshQuery<'a> {
         center: &[f32; 3],
         half_extents: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3])> {
+    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
         // Create search bounds
         let bmin = [
             center[0] - half_extents[0],
@@ -281,7 +281,7 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         if !nearest_ref.is_valid() {
-            return Err(Error::Detour(Status::PathInvalid.to_string()));
+            return Err(DetourError::PathNotFound);
         }
 
         Ok((nearest_ref, nearest_point))
@@ -306,7 +306,7 @@ impl<'a> NavMeshQuery<'a> {
         center: &[f32; 3],
         half_extents: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3], bool)> {
+    ) -> Result<(PolyRef, [f32; 3], bool), DetourError> {
         // Create search bounds
         let bmin = [
             center[0] - half_extents[0],
@@ -365,7 +365,7 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         if !nearest_ref.is_valid() {
-            return Err(Error::Detour(Status::PathInvalid.to_string()));
+            return Err(DetourError::PathNotFound);
         }
 
         Ok((nearest_ref, nearest_point, nearest_is_over_poly))
@@ -379,11 +379,11 @@ impl<'a> NavMeshQuery<'a> {
         start_pos: &[f32; 3],
         end_pos: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || !self.nav_mesh.is_valid_poly_ref(end_ref)
         {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Return early if start and end are the same
@@ -466,7 +466,7 @@ impl<'a> NavMeshQuery<'a> {
                 current_idx = parent_idx;
             } else {
                 // Path is invalid
-                return Err(Error::Detour(Status::PathInvalid.to_string()));
+                return Err(DetourError::PathNotFound);
             }
         }
 
@@ -486,7 +486,7 @@ impl<'a> NavMeshQuery<'a> {
         goal_idx: usize,
         end_pos: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         let current_poly = self.node_pool[current_idx].poly;
         let current_parent = self.node_pool[current_idx].parent;
 
@@ -539,7 +539,7 @@ impl<'a> NavMeshQuery<'a> {
 
             // If no node could be allocated, abort
             if neighbor_idx == DT_MAX_NODES {
-                return Err(Error::Detour(Status::BufferTooSmall.to_string()));
+                return Err(DetourError::BufferTooSmall);
             }
 
             // Get node state to check if we should process it
@@ -635,7 +635,7 @@ impl<'a> NavMeshQuery<'a> {
         goal_idx: usize,
         end_pos: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         let current_node = &self.node_pool[current_idx];
         let current_poly = current_node.poly;
 
@@ -834,7 +834,7 @@ impl<'a> NavMeshQuery<'a> {
         from_pos: &[f32; 3],
         to_pos: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<f32> {
+    ) -> Result<f32, DetourError> {
         // Handle off-mesh connections specially
         if self.nav_mesh.is_off_mesh_connection(to_ref)
             || self.nav_mesh.is_off_mesh_connection(from_ref)
@@ -872,7 +872,7 @@ impl<'a> NavMeshQuery<'a> {
         from_pos: &[f32; 3],
         to_pos: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<f32> {
+    ) -> Result<f32, DetourError> {
         // Base distance cost
         let dx = to_pos[0] - from_pos[0];
         let dy = to_pos[1] - from_pos[1];
@@ -904,7 +904,7 @@ impl<'a> NavMeshQuery<'a> {
         _tile: &MeshTile,
         _poly: &Poly,
         filter: &QueryFilter,
-    ) -> Result<bool> {
+    ) -> Result<bool, DetourError> {
         // Get the polygon
         let (_, neighbor_poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
@@ -919,7 +919,7 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Gets the center of a polygon
-    pub fn get_poly_center(&self, poly_ref: PolyRef) -> Result<[f32; 3]> {
+    pub fn get_poly_center(&self, poly_ref: PolyRef) -> Result<[f32; 3], DetourError> {
         // Get the tile and poly
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
@@ -951,7 +951,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         poly_ref: PolyRef,
         pos: &[f32; 3],
-    ) -> Result<([f32; 3], bool)> {
+    ) -> Result<([f32; 3], bool), DetourError> {
         // Handle off-mesh connections
         if self.nav_mesh.is_off_mesh_connection(poly_ref) {
             return self.closest_point_on_off_mesh_connection(poly_ref, pos);
@@ -1022,7 +1022,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         connection_ref: PolyRef,
         pos: &[f32; 3],
-    ) -> Result<([f32; 3], bool)> {
+    ) -> Result<([f32; 3], bool), DetourError> {
         let connection = self.nav_mesh.get_off_mesh_connection(connection_ref)?;
 
         let start_pos = connection.start_pos();
@@ -1054,7 +1054,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         connection_ref: PolyRef,
         start_pos: &[f32; 3],
-    ) -> Result<[f32; 3]> {
+    ) -> Result<[f32; 3], DetourError> {
         let connection = self.nav_mesh.get_off_mesh_connection(connection_ref)?;
 
         let conn_start = connection.start_pos();
@@ -1081,14 +1081,14 @@ impl<'a> NavMeshQuery<'a> {
             if connection.allows_start_to_end() {
                 Ok(conn_end)
             } else {
-                Err(Error::Detour(Status::InvalidParam.to_string()))
+                Err(DetourError::InvalidParam)
             }
         } else {
             // We're closer to the end, so start is the destination
             if connection.allows_end_to_start() {
                 Ok(conn_start)
             } else {
-                Err(Error::Detour(Status::InvalidParam.to_string()))
+                Err(DetourError::InvalidParam)
             }
         }
     }
@@ -1108,7 +1108,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         prev_ref: PolyRef,
         connection_ref: PolyRef,
-    ) -> Result<([f32; 3], [f32; 3])> {
+    ) -> Result<([f32; 3], [f32; 3]), DetourError> {
         let connection = self.nav_mesh.get_off_mesh_connection(connection_ref)?;
 
         let conn_start = connection.start_pos();
@@ -1147,14 +1147,14 @@ impl<'a> NavMeshQuery<'a> {
                     if connection.allows_start_to_end() {
                         Ok((conn_start, conn_end))
                     } else {
-                        Err(Error::Detour(Status::InvalidParam.to_string()))
+                        Err(DetourError::InvalidParam)
                     }
                 } else {
                     // We're approaching from the end side, go end->start
                     if connection.allows_end_to_start() {
                         Ok((conn_end, conn_start))
                     } else {
-                        Err(Error::Detour(Status::InvalidParam.to_string()))
+                        Err(DetourError::InvalidParam)
                     }
                 }
             }
@@ -1166,9 +1166,9 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Helper method to calculate the center point of a polygon
-    fn calculate_poly_center(&self, tile: &MeshTile, poly: &Poly) -> Result<[f32; 3]> {
+    fn calculate_poly_center(&self, tile: &MeshTile, poly: &Poly) -> Result<[f32; 3], DetourError> {
         if poly.vert_count == 0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut center = [0.0f32; 3];
@@ -1178,7 +1178,7 @@ impl<'a> NavMeshQuery<'a> {
         for i in 0..vert_count {
             let vert_idx = poly.verts[i] as usize;
             if vert_idx * 3 + 2 >= tile.verts.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
 
             center[0] += tile.verts[vert_idx * 3];
@@ -1217,13 +1217,13 @@ impl<'a> NavMeshQuery<'a> {
         end_pos: &[f32; 3],
         filter: &QueryFilter,
         visited_refs: &mut Vec<PolyRef>,
-    ) -> Result<[f32; 3]> {
+    ) -> Result<[f32; 3], DetourError> {
         use recast_common::{dist_point_segment_sqr_2d_with_t, point_in_polygon_2d};
         use std::collections::VecDeque;
 
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         visited_refs.clear();
@@ -1397,10 +1397,10 @@ impl<'a> NavMeshQuery<'a> {
         dir: &[f32; 3],
         max_dist: f32,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3], f32)> {
+    ) -> Result<(PolyRef, [f32; 3], f32), DetourError> {
         // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Handle zero-length raycast (C++ compatibility)
@@ -1558,7 +1558,7 @@ impl<'a> NavMeshQuery<'a> {
         filter: &QueryFilter,
         next_pos: &mut [f32; 3],
         next_t: &mut f32,
-    ) -> Result<PolyRef> {
+    ) -> Result<PolyRef, DetourError> {
         let mut best_ref = PolyRef::new(0);
         let mut best_t = *next_t;
 
@@ -1694,10 +1694,10 @@ impl<'a> NavMeshQuery<'a> {
         filter: &QueryFilter,
         options: &RaycastOptions,
         prev_ref: Option<PolyRef>,
-    ) -> Result<RaycastResult> {
+    ) -> Result<RaycastResult, DetourError> {
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Calculate ray direction and distance
@@ -1866,10 +1866,10 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         end_ref: PolyRef,
         max_path: usize,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(end_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Find the end node in our node pool
@@ -1881,8 +1881,7 @@ impl<'a> NavMeshQuery<'a> {
             }
         }
 
-        let end_idx = end_node_idx
-            .ok_or_else(|| Error::Detour("End node not found in explored nodes".to_string()))?;
+        let end_idx = end_node_idx.ok_or_else(|| DetourError::NotFound)?;
 
         // Build path by following parent links
         let mut path = Vec::new();
@@ -1927,9 +1926,9 @@ impl<'a> NavMeshQuery<'a> {
         start_pos: &[f32; 3],
         end_pos: &[f32; 3],
         path: &[PolyRef],
-    ) -> Result<Path> {
+    ) -> Result<Path, DetourError> {
         if path.is_empty() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut result = Path::new();
@@ -2039,7 +2038,7 @@ impl<'a> NavMeshQuery<'a> {
         end_pos: &[f32; 3],
         path: &[PolyRef],
         options: u32,
-    ) -> Result<Path> {
+    ) -> Result<Path, DetourError> {
         // For now, options parameter is accepted but not used
         // This maintains C++ API compatibility
         let _ = options;
@@ -2062,7 +2061,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         from_ref: PolyRef,
         to_ref: PolyRef,
-    ) -> Result<([f32; 3], [f32; 3])> {
+    ) -> Result<([f32; 3], [f32; 3]), DetourError> {
         let (from_tile, from_poly) = self.nav_mesh.get_tile_and_poly_by_ref(from_ref)?;
         let (_to_tile, to_poly) = self.nav_mesh.get_tile_and_poly_by_ref(to_ref)?;
 
@@ -2090,7 +2089,7 @@ impl<'a> NavMeshQuery<'a> {
                     link_idx = link.next.map(|n| n as usize);
                 }
             }
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if to_poly.poly_type == PolyType::OffMeshConnection {
@@ -2116,7 +2115,7 @@ impl<'a> NavMeshQuery<'a> {
                     link_idx = link.next.map(|n| n as usize);
                 }
             }
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Regular polygon-to-polygon edge finding
@@ -2147,7 +2146,7 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         // If we couldn't find a direct link, the polygons might not be adjacent
-        Err(Error::Detour(Status::InvalidParam.to_string()))
+        Err(DetourError::InvalidParam)
     }
 
     /// Calculates the signed area of a triangle in 2D (ignoring Y)
@@ -2211,10 +2210,10 @@ impl<'a> NavMeshQuery<'a> {
         center_pos: &[f32; 3],
         radius: f32,
         filter: &QueryFilter,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(center_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Initialize search data structures
@@ -2429,7 +2428,7 @@ impl<'a> NavMeshQuery<'a> {
         tile: &super::nav_mesh::MeshTile,
         poly: &super::nav_mesh::Poly,
         point: &[f32; 3],
-    ) -> Result<bool> {
+    ) -> Result<bool, DetourError> {
         let mut inside = false;
         let px = point[0];
         let pz = point[2];
@@ -2490,10 +2489,10 @@ impl<'a> NavMeshQuery<'a> {
         center_pos: &[f32; 3],
         radius: f32,
         filter: &QueryFilter,
-    ) -> Result<(f32, [f32; 3], [f32; 3])> {
+    ) -> Result<(f32, [f32; 3], [f32; 3]), DetourError> {
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut min_distance = radius;
@@ -2557,7 +2556,7 @@ impl<'a> NavMeshQuery<'a> {
         center_pos: &[f32; 3],
         max_radius: f32,
         filter: &QueryFilter,
-    ) -> Result<(f32, [f32; 3], [f32; 3])> {
+    ) -> Result<(f32, [f32; 3], [f32; 3]), DetourError> {
         let mut min_distance = max_radius;
         let mut wall_hit = *center_pos;
         let mut wall_normal = [0.0, 0.0, 1.0];
@@ -2643,7 +2642,10 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Finds a random point on the navigation mesh
-    pub fn find_random_point(&mut self, filter: &QueryFilter) -> Result<(PolyRef, [f32; 3])> {
+    pub fn find_random_point(
+        &mut self,
+        filter: &QueryFilter,
+    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
         self.find_random_point_around(PolyRef::new(0), &[0.0, 0.0, 0.0], f32::MAX, filter)
     }
 
@@ -2661,7 +2663,7 @@ impl<'a> NavMeshQuery<'a> {
         &mut self,
         filter: &QueryFilter,
         frand: F,
-    ) -> Result<(PolyRef, [f32; 3])>
+    ) -> Result<(PolyRef, [f32; 3]), DetourError>
     where
         F: FnMut() -> f32,
     {
@@ -2684,10 +2686,14 @@ impl<'a> NavMeshQuery<'a> {
     ///
     /// # Returns
     /// * The height at the surface of the polygon, or None if the position is outside the polygon
-    pub fn get_poly_height(&self, poly_ref: PolyRef, pos: &[f32; 3]) -> Result<Option<f32>> {
+    pub fn get_poly_height(
+        &self,
+        poly_ref: PolyRef,
+        pos: &[f32; 3],
+    ) -> Result<Option<f32>, DetourError> {
         // Validate the polygon reference
         if !self.nav_mesh.is_valid_poly_ref(poly_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get the tile and polygon
@@ -2717,7 +2723,7 @@ impl<'a> NavMeshQuery<'a> {
         radius: f32,
         filter: &QueryFilter,
         mut frand: F,
-    ) -> Result<(PolyRef, [f32; 3])>
+    ) -> Result<(PolyRef, [f32; 3]), DetourError>
     where
         F: FnMut() -> f32,
     {
@@ -2745,7 +2751,7 @@ impl<'a> NavMeshQuery<'a> {
         center_pos: &[f32; 3],
         radius: f32,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3])> {
+    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
         // If no center is provided (invalid ref), find random point on entire mesh
         if !center_ref.is_valid() || !self.nav_mesh.is_valid_poly_ref(center_ref) {
             return self.find_random_point_on_mesh(filter);
@@ -2756,7 +2762,7 @@ impl<'a> NavMeshQuery<'a> {
             self.find_polys_around_circle(center_ref, center_pos, radius, filter)?;
 
         if polys_in_circle.is_empty() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Pick a random polygon from those within the circle
@@ -2792,12 +2798,15 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Finds a random point anywhere on the navigation mesh
-    fn find_random_point_on_mesh(&mut self, filter: &QueryFilter) -> Result<(PolyRef, [f32; 3])> {
+    fn find_random_point_on_mesh(
+        &mut self,
+        filter: &QueryFilter,
+    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
         // Get all valid polygons that pass the filter
         let valid_polys = self.get_all_valid_polygons(filter)?;
 
         if valid_polys.is_empty() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Pick a random polygon
@@ -2818,7 +2827,7 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Gets all valid polygons that pass the filter
-    fn get_all_valid_polygons(&self, filter: &QueryFilter) -> Result<Vec<PolyRef>> {
+    fn get_all_valid_polygons(&self, filter: &QueryFilter) -> Result<Vec<PolyRef>, DetourError> {
         let mut valid_polys = Vec::new();
 
         // Use a much more efficient approach: get polygons from a large search area
@@ -2859,11 +2868,11 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Generates a random point within a specific polygon
-    fn get_random_point_in_polygon(&mut self, poly_ref: PolyRef) -> Result<[f32; 3]> {
+    fn get_random_point_in_polygon(&mut self, poly_ref: PolyRef) -> Result<[f32; 3], DetourError> {
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
         if poly.vert_count < 3 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get polygon vertices
@@ -2925,10 +2934,10 @@ impl<'a> NavMeshQuery<'a> {
         radius: f32,
         filter: &QueryFilter,
         max_result: usize,
-    ) -> Result<(Vec<PolyRef>, Vec<PolyRef>)> {
+    ) -> Result<(Vec<PolyRef>, Vec<PolyRef>), DetourError> {
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || radius < 0.0 || max_result == 0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut result_refs = Vec::new();
@@ -3059,7 +3068,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         tile: &super::nav_mesh::MeshTile,
         poly: &super::nav_mesh::Poly,
-    ) -> Result<Vec<[f32; 3]>> {
+    ) -> Result<Vec<[f32; 3]>, DetourError> {
         let mut vertices = Vec::new();
 
         for i in 0..poly.vert_count as usize {
@@ -3075,7 +3084,11 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Checks if two polygons are directly connected by a link
-    fn are_polygons_connected(&self, poly_a: PolyRef, poly_b: PolyRef) -> Result<bool> {
+    fn are_polygons_connected(
+        &self,
+        poly_a: PolyRef,
+        poly_b: PolyRef,
+    ) -> Result<bool, DetourError> {
         let (tile_a, poly_a_data) = self.nav_mesh.get_tile_and_poly_by_ref(poly_a)?;
 
         // Check if poly_a has a link to poly_b
@@ -3178,11 +3191,11 @@ impl<'a> NavMeshQuery<'a> {
         end_pos: &[f32; 3],
         filter: &QueryFilter,
         options: u32,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || !self.nav_mesh.is_valid_poly_ref(end_ref)
         {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Initialize sliced pathfinding state
@@ -3268,7 +3281,7 @@ impl<'a> NavMeshQuery<'a> {
         start_pos: &[f32; 3],
         end_pos: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         self.init_sliced_find_path(start_ref, end_ref, start_pos, end_pos, filter, 0)
     }
 
@@ -3282,9 +3295,12 @@ impl<'a> NavMeshQuery<'a> {
     ///
     /// # Returns
     /// The current state of the pathfinding (InProgress, Success, Failed, PartialPath)
-    pub fn update_sliced_find_path(&mut self, max_iter: i32) -> Result<(i32, SlicedPathState)> {
+    pub fn update_sliced_find_path(
+        &mut self,
+        max_iter: i32,
+    ) -> Result<(i32, SlicedPathState), DetourError> {
         if !self.sliced_state.active {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if self.sliced_state.state != SlicedPathState::InProgress {
@@ -3344,9 +3360,12 @@ impl<'a> NavMeshQuery<'a> {
     ///
     /// # Returns
     /// The computed path as a vector of polygon references
-    pub fn finalize_sliced_find_path(&mut self, max_path: usize) -> Result<Vec<PolyRef>> {
+    pub fn finalize_sliced_find_path(
+        &mut self,
+        max_path: usize,
+    ) -> Result<Vec<PolyRef>, DetourError> {
         if !self.sliced_state.active {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let result = match self.sliced_state.state {
@@ -3357,8 +3376,8 @@ impl<'a> NavMeshQuery<'a> {
                 }
                 Ok(path)
             }
-            SlicedPathState::InProgress => Err(Error::Detour(Status::InProgress.to_string())),
-            SlicedPathState::Failed => Err(Error::Detour(Status::PathInvalid.to_string())),
+            SlicedPathState::InProgress => Err(DetourError::InProgress),
+            SlicedPathState::Failed => Err(DetourError::PathNotFound),
         };
 
         // Clear the sliced state
@@ -3384,19 +3403,19 @@ impl<'a> NavMeshQuery<'a> {
         &mut self,
         existing: &[PolyRef],
         max_path: usize,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         if !self.sliced_state.active {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if existing.is_empty() || max_path == 0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Check if the query has failed
         if self.sliced_state.state == SlicedPathState::Failed {
             self.sliced_state.active = false;
-            return Err(Error::Detour(Status::PathInvalid.to_string()));
+            return Err(DetourError::PathNotFound);
         }
 
         let mut path = Vec::with_capacity(max_path);
@@ -3479,7 +3498,7 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Expands neighbors for sliced pathfinding (helper method)
-    fn expand_neighbors_sliced(&mut self, current_idx: usize) -> Result<()> {
+    fn expand_neighbors_sliced(&mut self, current_idx: usize) -> Result<(), DetourError> {
         let current_poly = self.node_pool[current_idx].poly;
         let current_g = self.node_pool[current_idx].g;
 
@@ -3555,7 +3574,7 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Finds or creates a node for the given polygon reference
-    fn find_or_create_node(&mut self, poly_ref: PolyRef) -> Result<usize> {
+    fn find_or_create_node(&mut self, poly_ref: PolyRef) -> Result<usize, DetourError> {
         // Look for existing node
         for (i, node) in self.node_pool.iter().enumerate() {
             if node.poly == poly_ref {
@@ -3573,11 +3592,11 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         // No free nodes available
-        Err(Error::Detour(Status::OutOfMemory.to_string()))
+        Err(DetourError::OutOfMemory)
     }
 
     /// Reconstructs the path from the goal node back to the start
-    fn reconstruct_path(&self, goal_idx: usize) -> Result<Vec<PolyRef>> {
+    fn reconstruct_path(&self, goal_idx: usize) -> Result<Vec<PolyRef>, DetourError> {
         let mut path = Vec::new();
         let mut current_idx = goal_idx;
 
@@ -3639,15 +3658,15 @@ impl<'a> NavMeshQuery<'a> {
         start_ref: PolyRef,
         verts: &[[f32; 3]],
         filter: &QueryFilter,
-    ) -> Result<Vec<(PolyRef, Option<PolyRef>, f32)>> {
+    ) -> Result<Vec<(PolyRef, Option<PolyRef>, f32)>, DetourError> {
         use recast_common::intersect_segment_poly_2d;
 
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if verts.len() < 3 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Calculate the center of the shape
@@ -3860,7 +3879,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         poly_ref: PolyRef,
         pos: &[f32; 3],
-    ) -> Result<[f32; 3]> {
+    ) -> Result<[f32; 3], DetourError> {
         use recast_common::distance_pt_poly_edges_sqr;
 
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
@@ -3919,7 +3938,11 @@ impl<'a> NavMeshQuery<'a> {
     /// # Returns
     ///
     /// The midpoint of the edge between the two polygons
-    pub fn get_edge_mid_point(&self, from_ref: PolyRef, to_ref: PolyRef) -> Result<[f32; 3]> {
+    pub fn get_edge_mid_point(
+        &self,
+        from_ref: PolyRef,
+        to_ref: PolyRef,
+    ) -> Result<[f32; 3], DetourError> {
         let (left, right) = self.get_portal_points(from_ref, to_ref)?;
 
         // Calculate midpoint
@@ -3952,7 +3975,7 @@ impl<'a> NavMeshQuery<'a> {
         half_extents: &[f32; 3],
         filter: &QueryFilter,
         max_polys: usize,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         let mut collect_query = super::poly_query::CollectPolysQuery::new(max_polys);
         self.query_polygons_with_query(center, half_extents, filter, &mut collect_query)?;
         Ok(collect_query.polys().to_vec())
@@ -3967,7 +3990,7 @@ impl<'a> NavMeshQuery<'a> {
         half_extents: &[f32; 3],
         filter: &QueryFilter,
         query: &mut dyn super::poly_query::PolyQuery,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         // Calculate search bounds
         let bmin = [
             center[0] - half_extents[0],
@@ -4042,9 +4065,9 @@ impl<'a> NavMeshQuery<'a> {
         poly_ref: PolyRef,
         filter: &QueryFilter,
         max_segments: usize,
-    ) -> Result<Vec<[f32; 6]>> {
+    ) -> Result<Vec<[f32; 6]>, DetourError> {
         if !poly_ref.is_valid() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
@@ -4180,7 +4203,7 @@ impl<'a> NavMeshQuery<'a> {
         extents: &[f32; 3],
         filter: &QueryFilter,
         query: &mut Q,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         self.query_polygons_with_query(center, extents, filter, query)
     }
 
@@ -4771,7 +4794,7 @@ mod tests {
     // navigation mesh setup to test pathfinding properly.
 
     // Helper function to create a simple nav mesh for testing
-    fn create_simple_nav_mesh() -> Result<NavMesh> {
+    fn create_simple_nav_mesh() -> Result<NavMesh, DetourError> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -4844,7 +4867,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sliced_pathfinding_simple() -> Result<()> {
+    fn test_sliced_pathfinding_simple() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -4915,7 +4938,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sliced_pathfinding_with_iterations() -> Result<()> {
+    fn test_sliced_pathfinding_with_iterations() -> Result<(), DetourError> {
         // Create a 3x3 grid nav mesh
         let nav_mesh = create_3x3_grid_navmesh();
         let mut query = NavMeshQuery::new(&nav_mesh);
@@ -5018,7 +5041,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sliced_pathfinding_partial() -> Result<()> {
+    fn test_sliced_pathfinding_partial() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5046,7 +5069,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sliced_pathfinding_any_angle() -> Result<()> {
+    fn test_sliced_pathfinding_any_angle() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5077,7 +5100,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_polygons() -> Result<()> {
+    fn test_query_polygons() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5095,7 +5118,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_polygons_with_custom_query() -> Result<()> {
+    fn test_query_polygons_with_custom_query() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5115,7 +5138,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_nearest_poly_query() -> Result<()> {
+    fn test_find_nearest_poly_query() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5263,7 +5286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_poly_height() -> Result<()> {
+    fn test_get_poly_height() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5299,7 +5322,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_random_point_with_custom_rand() -> Result<()> {
+    fn test_find_random_point_with_custom_rand() -> Result<(), DetourError> {
         let nav_mesh = create_3x3_grid_navmesh();
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5324,7 +5347,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_random_point_around_circle_with_custom_rand() -> Result<()> {
+    fn test_find_random_point_around_circle_with_custom_rand() -> Result<(), DetourError> {
         let nav_mesh = create_3x3_grid_navmesh();
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -5365,7 +5388,7 @@ mod tests {
     }
 
     #[test]
-    fn test_api_harmonization_methods() -> Result<()> {
+    fn test_api_harmonization_methods() -> Result<(), DetourError> {
         let nav_mesh = create_simple_nav_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();

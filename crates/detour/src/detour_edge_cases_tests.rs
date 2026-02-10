@@ -12,11 +12,10 @@ mod tests {
         MAX_VERTS_PER_POLY, NavMesh, NavMeshParams, NavMeshQuery, PolyFlags, PolyRef, QueryFilter,
         nav_mesh::encode_poly_ref_with_salt,
     };
-    use recast_common::Result;
 
     /// Test operations on an empty navigation mesh
     #[test]
-    fn test_empty_navmesh_operations() -> Result<()> {
+    fn test_empty_navmesh_operations() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -56,7 +55,7 @@ mod tests {
 
     /// Test operations with single polygon mesh
     #[test]
-    fn test_single_polygon_mesh() -> Result<()> {
+    fn test_single_polygon_mesh() -> Result<(), Box<dyn std::error::Error>> {
         // Create a mesh with just one triangle polygon
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
@@ -90,7 +89,7 @@ mod tests {
 
     /// Test queries at exact polygon boundaries
     #[test]
-    fn test_polygon_boundary_queries() -> Result<()> {
+    fn test_polygon_boundary_queries() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -112,7 +111,7 @@ mod tests {
 
     /// Test maximum polygon size (MAX_VERTS_PER_POLY vertices)
     #[test]
-    fn test_maximum_polygon_vertices() -> Result<()> {
+    fn test_maximum_polygon_vertices() -> Result<(), Box<dyn std::error::Error>> {
         // This tests that we handle polygons with the maximum allowed vertices
         // In practice, this would require a custom mesh builder
         assert_eq!(
@@ -128,7 +127,7 @@ mod tests {
 
     /// Test degenerate polygon cases
     #[test]
-    fn test_degenerate_polygons() -> Result<()> {
+    fn test_degenerate_polygons() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -146,7 +145,7 @@ mod tests {
 
     /// Test extremely long paths
     #[test]
-    fn test_extremely_long_paths() -> Result<()> {
+    fn test_extremely_long_paths() -> Result<(), Box<dyn std::error::Error>> {
         // With our minimal mesh, we can't create truly long paths
         // This is a placeholder for when we have multi-tile support
         let nav_mesh = create_minimal_test_navmesh()?;
@@ -174,7 +173,7 @@ mod tests {
 
     /// Test numerical precision edge cases
     #[test]
-    fn test_numerical_precision_edge_cases() -> Result<()> {
+    fn test_numerical_precision_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -201,7 +200,7 @@ mod tests {
 
     /// Test raycast edge cases
     #[test]
-    fn test_raycast_edge_cases() -> Result<()> {
+    fn test_raycast_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -234,7 +233,7 @@ mod tests {
 
     /// Test invalid polygon references
     #[test]
-    fn test_invalid_polygon_references() -> Result<()> {
+    fn test_invalid_polygon_references() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -263,7 +262,7 @@ mod tests {
 
     /// Test query filter edge cases
     #[test]
-    fn test_query_filter_edge_cases() -> Result<()> {
+    fn test_query_filter_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -296,7 +295,7 @@ mod tests {
 
     /// Test concurrent query operations (basic thread safety)
     #[test]
-    fn test_concurrent_queries() -> Result<()> {
+    fn test_concurrent_queries() -> Result<(), Box<dyn std::error::Error>> {
         use std::sync::Arc;
         use std::thread;
 
@@ -332,7 +331,7 @@ mod tests {
     /// Test pathfinding with obstacles (when implemented)
     #[test]
     #[ignore] // TODO: Enable when dynamic obstacles are implemented
-    fn test_pathfinding_with_dynamic_obstacles() -> Result<()> {
+    fn test_pathfinding_with_dynamic_obstacles() -> Result<(), Box<dyn std::error::Error>> {
         // Placeholder for dynamic obstacle testing
         Ok(())
     }
@@ -340,7 +339,7 @@ mod tests {
     /// Test mesh modification edge cases (when implemented)
     #[test]
     #[ignore] // TODO: Enable when mesh modification is implemented
-    fn test_mesh_modification_edge_cases() -> Result<()> {
+    fn test_mesh_modification_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         // Placeholder for testing adding/removing tiles
         Ok(())
     }

@@ -5,13 +5,12 @@
 
 use crate::nav_mesh_builder::NavMeshBuilder;
 use crate::{NavMesh, NavMeshCreateParams, NavMeshParams, PolyFlags};
-use recast_common::Result;
 
 /// Creates a minimal navigation mesh matching C++ createMinimalNavMesh()
 ///
 /// This creates a simple 2x2 quad polygon at the origin, exactly matching
 /// the C++ test pattern for basic functionality testing.
-pub fn create_minimal_test_navmesh() -> Result<NavMesh> {
+pub fn create_minimal_test_navmesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
     // Create NavMeshParams matching C++ pattern
     let nav_mesh_params = NavMeshParams {
         origin: [0.0, 0.0, 0.0],
@@ -94,7 +93,7 @@ pub fn create_minimal_test_navmesh() -> Result<NavMesh> {
 ///
 /// This creates a 3x3 grid of connected polygons for multi-polygon testing,
 /// matching the C++ createComplexNavMesh() pattern.
-pub fn create_complex_test_navmesh() -> Result<NavMesh> {
+pub fn create_complex_test_navmesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
     let nav_mesh_params = NavMeshParams {
         origin: [0.0, 0.0, 0.0],
         tile_width: 10.0,
@@ -187,7 +186,7 @@ pub fn create_complex_test_navmesh() -> Result<NavMesh> {
 }
 
 /// Creates a larger rectangular mesh for stress testing
-pub fn create_large_test_navmesh() -> Result<NavMesh> {
+pub fn create_large_test_navmesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
     let nav_mesh_params = NavMeshParams {
         origin: [0.0, 0.0, 0.0],
         tile_width: 30.0,
@@ -281,7 +280,7 @@ mod tests {
     use crate::{NavMeshQuery, QueryFilter};
 
     #[test]
-    fn test_minimal_mesh_creation() -> Result<()> {
+    fn test_minimal_mesh_creation() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -300,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_complex_mesh_creation() -> Result<()> {
+    fn test_complex_mesh_creation() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();

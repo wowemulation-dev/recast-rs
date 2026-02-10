@@ -11,7 +11,6 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
-    use recast_common::Result;
     use std::mem;
 
     /// Helper to get approximate memory size of a type
@@ -20,7 +19,7 @@ mod tests {
     }
 
     /// Helper to create a large navigation mesh with specified tile count
-    fn create_large_navmesh(tiles_per_side: i32) -> Result<NavMesh> {
+    fn create_large_navmesh(tiles_per_side: i32) -> Result<NavMesh, Box<dyn std::error::Error>> {
         let tile_size = 32.0;
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
@@ -126,7 +125,7 @@ mod tests {
 
     /// Test memory usage with increasing tile counts
     #[test]
-    fn test_memory_scaling_with_tiles() -> Result<()> {
+    fn test_memory_scaling_with_tiles() -> Result<(), Box<dyn std::error::Error>> {
         let tile_counts = vec![1, 2, 4, 8, 16];
         let mut memory_sizes = Vec::new();
 
@@ -179,7 +178,7 @@ mod tests {
 
     /// Test query performance with large meshes
     #[test]
-    fn test_query_scalability() -> Result<()> {
+    fn test_query_scalability() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_navmesh(10)?; // 100 tiles
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -232,7 +231,7 @@ mod tests {
 
     /// Test memory cleanup and tile removal
     #[test]
-    fn test_memory_cleanup() -> Result<()> {
+    fn test_memory_cleanup() -> Result<(), Box<dyn std::error::Error>> {
         let tiles_per_side = 5;
         let tile_size = 32.0;
         let params = NavMeshParams {
@@ -349,7 +348,7 @@ mod tests {
 
     /// Test maximum path length handling
     #[test]
-    fn test_maximum_path_length() -> Result<()> {
+    fn test_maximum_path_length() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_navmesh(20)?; // 400 tiles
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -409,7 +408,7 @@ mod tests {
 
     /// Test memory usage with many small queries
     #[test]
-    fn test_many_small_queries() -> Result<()> {
+    fn test_many_small_queries() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_navmesh(5)?;
         let filter = QueryFilter::default();
 
@@ -438,7 +437,7 @@ mod tests {
 
     /// Test tile replacement and memory reuse
     #[test]
-    fn test_tile_replacement() -> Result<()> {
+    fn test_tile_replacement() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -517,7 +516,7 @@ mod tests {
 
     /// Test bounds query scalability
     #[test]
-    fn test_bounds_query_scalability() -> Result<()> {
+    fn test_bounds_query_scalability() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_navmesh(10)?;
         let filter = QueryFilter::default();
 
@@ -555,7 +554,7 @@ mod tests {
     /// Test stress scenario with maximum configuration
     #[test]
     #[ignore] // This test is expensive, run with --ignored
-    fn test_stress_maximum_configuration() -> Result<()> {
+    fn test_stress_maximum_configuration() -> Result<(), Box<dyn std::error::Error>> {
         // Create a very large mesh (50x50 = 2500 tiles)
         let tiles_per_side = 50;
         let nav_mesh = create_large_navmesh(tiles_per_side)?;

@@ -8,7 +8,6 @@
 
 use crate::test_mesh_helpers::*;
 use crate::{NavMeshQuery, PolyFlags, PolyRef, QueryFilter};
-use recast_common::Result;
 use std::collections::HashSet;
 
 /// Test suite for moveAlongSurface function
@@ -16,7 +15,7 @@ mod move_along_surface_tests {
     use super::*;
 
     #[test]
-    fn test_move_along_surface_basic() -> Result<()> {
+    fn test_move_along_surface_basic() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -63,7 +62,7 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_cross_polygon() -> Result<()> {
+    fn test_move_along_surface_cross_polygon() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -112,7 +111,7 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_blocked_by_wall() -> Result<()> {
+    fn test_move_along_surface_blocked_by_wall() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -151,7 +150,7 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_invalid_start_ref() -> Result<()> {
+    fn test_move_along_surface_invalid_start_ref() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -174,7 +173,7 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_zero_distance() -> Result<()> {
+    fn test_move_along_surface_zero_distance() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -210,7 +209,8 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_search_radius_constraint() -> Result<()> {
+    fn test_move_along_surface_search_radius_constraint() -> Result<(), Box<dyn std::error::Error>>
+    {
         let nav_mesh = create_large_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -262,7 +262,7 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_visited_refs_cleared() -> Result<()> {
+    fn test_move_along_surface_visited_refs_cleared() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -309,7 +309,7 @@ mod poly_flags_tests {
     use super::*;
 
     #[test]
-    fn test_set_get_poly_flags_basic() -> Result<()> {
+    fn test_set_get_poly_flags_basic() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -342,7 +342,7 @@ mod poly_flags_tests {
     }
 
     #[test]
-    fn test_set_poly_flags_invalid_ref() -> Result<()> {
+    fn test_set_poly_flags_invalid_ref() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
 
         let invalid_ref = PolyRef::new(0);
@@ -357,7 +357,7 @@ mod poly_flags_tests {
     }
 
     #[test]
-    fn test_get_poly_flags_invalid_ref() -> Result<()> {
+    fn test_get_poly_flags_invalid_ref() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
 
         let invalid_ref = PolyRef::new(0);
@@ -372,7 +372,7 @@ mod poly_flags_tests {
     }
 
     #[test]
-    fn test_poly_flags_all_combinations() -> Result<()> {
+    fn test_poly_flags_all_combinations() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -408,7 +408,7 @@ mod poly_flags_tests {
     }
 
     #[test]
-    fn test_poly_flags_persistence() -> Result<()> {
+    fn test_poly_flags_persistence() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -438,7 +438,7 @@ mod poly_area_tests {
     use super::*;
 
     #[test]
-    fn test_set_get_poly_area_basic() -> Result<()> {
+    fn test_set_get_poly_area_basic() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -464,7 +464,7 @@ mod poly_area_tests {
     }
 
     #[test]
-    fn test_set_poly_area_invalid_ref() -> Result<()> {
+    fn test_set_poly_area_invalid_ref() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
 
         let invalid_ref = PolyRef::new(0);
@@ -479,7 +479,7 @@ mod poly_area_tests {
     }
 
     #[test]
-    fn test_get_poly_area_invalid_ref() -> Result<()> {
+    fn test_get_poly_area_invalid_ref() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
 
         let invalid_ref = PolyRef::new(0);
@@ -494,7 +494,7 @@ mod poly_area_tests {
     }
 
     #[test]
-    fn test_poly_area_all_values() -> Result<()> {
+    fn test_poly_area_all_values() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -514,7 +514,7 @@ mod poly_area_tests {
     }
 
     #[test]
-    fn test_poly_area_persistence() -> Result<()> {
+    fn test_poly_area_persistence() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -536,7 +536,7 @@ mod poly_area_tests {
     }
 
     #[test]
-    fn test_poly_area_independent_from_flags() -> Result<()> {
+    fn test_poly_area_independent_from_flags() -> Result<(), Box<dyn std::error::Error>> {
         let mut nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -573,7 +573,7 @@ mod find_local_neighbourhood_tests {
     use super::*;
 
     #[test]
-    fn test_find_local_neighbourhood_basic() -> Result<()> {
+    fn test_find_local_neighbourhood_basic() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -613,7 +613,7 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_small_radius() -> Result<()> {
+    fn test_find_local_neighbourhood_small_radius() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -639,7 +639,7 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_large_radius() -> Result<()> {
+    fn test_find_local_neighbourhood_large_radius() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -672,7 +672,7 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_max_result_limit() -> Result<()> {
+    fn test_find_local_neighbourhood_max_result_limit() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -694,7 +694,7 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_invalid_params() -> Result<()> {
+    fn test_find_local_neighbourhood_invalid_params() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -723,7 +723,8 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_parent_relationships() -> Result<()> {
+    fn test_find_local_neighbourhood_parent_relationships() -> Result<(), Box<dyn std::error::Error>>
+    {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -763,7 +764,7 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_non_overlapping() -> Result<()> {
+    fn test_find_local_neighbourhood_non_overlapping() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -796,7 +797,7 @@ mod find_local_neighbourhood_tests {
     }
 
     #[test]
-    fn test_find_local_neighbourhood_zero_radius() -> Result<()> {
+    fn test_find_local_neighbourhood_zero_radius() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -828,7 +829,7 @@ mod edge_case_tests {
 
     /// Test behavior with very small floating point values
     #[test]
-    fn test_floating_point_precision() -> Result<()> {
+    fn test_floating_point_precision() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -859,7 +860,7 @@ mod edge_case_tests {
 
     /// Test with extreme coordinates
     #[test]
-    fn test_extreme_coordinates() -> Result<()> {
+    fn test_extreme_coordinates() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();

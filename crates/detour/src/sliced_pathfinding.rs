@@ -6,8 +6,8 @@
 use std::collections::VecDeque;
 
 use super::nav_mesh_query::NavMeshQuery;
-use super::{PolyRef, QueryFilter, Status};
-use recast_common::{Error, Result};
+use super::{PolyRef, QueryFilter};
+use crate::error::DetourError;
 
 /// Maximum number of polygons to process in a single slice
 const DEFAULT_MAX_SLICE_SIZE: usize = 256;
@@ -84,13 +84,13 @@ impl<'a> SlicedPathfindingQuery<'a> {
         start_pos: [f32; 3],
         end_pos: [f32; 3],
         filter: QueryFilter,
-    ) -> Result<Self> {
+    ) -> Result<Self, DetourError> {
         // Validate input
         if !query.nav_mesh().is_valid_poly_ref(start_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
         if !query.nav_mesh().is_valid_poly_ref(end_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut sliced_query = Self {
@@ -123,14 +123,14 @@ impl<'a> SlicedPathfindingQuery<'a> {
         end_pos: [f32; 3],
         filter: QueryFilter,
         config: SlicedPathConfig,
-    ) -> Result<Self> {
+    ) -> Result<Self, DetourError> {
         let mut sliced_query = Self::new(query, start_ref, end_ref, start_pos, end_pos, filter)?;
         sliced_query.config = config;
         Ok(sliced_query)
     }
 
     /// Initializes the pathfinding process
-    fn initialize_pathfinding(&mut self) -> Result<()> {
+    fn initialize_pathfinding(&mut self) -> Result<(), DetourError> {
         // If start and end are the same, we're done
         if self.start_ref == self.end_ref {
             self.current_path.push(self.start_ref);
@@ -154,7 +154,10 @@ impl<'a> SlicedPathfindingQuery<'a> {
     }
 
     /// Creates intermediate waypoints for very long paths
-    fn create_intermediate_waypoints(&mut self, max_segment_distance: f32) -> Result<()> {
+    fn create_intermediate_waypoints(
+        &mut self,
+        max_segment_distance: f32,
+    ) -> Result<(), DetourError> {
         let total_distance = self.calculate_distance(&self.start_pos, &self.end_pos);
         let num_segments = (total_distance / max_segment_distance).ceil() as usize;
 
@@ -190,7 +193,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
     }
 
     /// Executes one slice of the pathfinding algorithm
-    pub fn execute_slice(&mut self) -> Result<SlicedPathState> {
+    pub fn execute_slice(&mut self) -> Result<SlicedPathState, DetourError> {
         if self.state != SlicedPathState::InProgress {
             return Ok(self.state);
         }
@@ -270,7 +273,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
         end_ref: PolyRef,
         start_pos: &[f32; 3],
         end_pos: &[f32; 3],
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         // Use the regular pathfinding but with limited iteration count
         let _max_iterations_backup = self.config.max_iterations;
 
@@ -304,7 +307,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
     }
 
     /// Executes the pathfinding to completion
-    pub fn execute_to_completion(&mut self) -> Result<SlicedPathState> {
+    pub fn execute_to_completion(&mut self) -> Result<SlicedPathState, DetourError> {
         while self.state == SlicedPathState::InProgress {
             self.execute_slice()?;
 
@@ -357,7 +360,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
     }
 
     /// Resets the pathfinding query to start over
-    pub fn reset(&mut self) -> Result<()> {
+    pub fn reset(&mut self) -> Result<(), DetourError> {
         self.state = SlicedPathState::InProgress;
         self.current_path.clear();
         self.goal_queue.clear();
@@ -367,9 +370,13 @@ impl<'a> SlicedPathfindingQuery<'a> {
     }
 
     /// Updates the end goal of the pathfinding (useful for moving targets)
-    pub fn update_end_goal(&mut self, new_end_ref: PolyRef, new_end_pos: [f32; 3]) -> Result<()> {
+    pub fn update_end_goal(
+        &mut self,
+        new_end_ref: PolyRef,
+        new_end_pos: [f32; 3],
+    ) -> Result<(), DetourError> {
         if !self.query.nav_mesh().is_valid_poly_ref(new_end_ref) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         self.end_ref = new_end_ref;
@@ -397,7 +404,7 @@ pub fn find_path_sliced<'a>(
     end_pos: [f32; 3],
     filter: &QueryFilter,
     config: Option<SlicedPathConfig>,
-) -> Result<Vec<PolyRef>> {
+) -> Result<Vec<PolyRef>, DetourError> {
     let config = config.unwrap_or_default();
     let mut sliced_query = SlicedPathfindingQuery::new_with_config(
         query,
@@ -415,10 +422,10 @@ pub fn find_path_sliced<'a>(
         SlicedPathState::Success | SlicedPathState::PartialPath => {
             Ok(sliced_query.get_path().to_vec())
         }
-        SlicedPathState::Failed => Err(Error::Detour(Status::PathInvalid.to_string())),
+        SlicedPathState::Failed => Err(DetourError::PathNotFound),
         SlicedPathState::InProgress => {
             // This shouldn't happen after execute_to_completion
-            Err(Error::Detour(Status::Failure.to_string()))
+            Err(DetourError::Failure)
         }
     }
 }

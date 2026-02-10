@@ -13,6 +13,7 @@ pub mod bvh_tree;
 pub mod detour_common;
 pub mod detour_math;
 pub mod dt_status;
+pub mod error;
 mod hierarchical_pathfinding;
 pub mod nav_mesh;
 mod nav_mesh_builder;
@@ -58,6 +59,7 @@ mod test_mesh_helpers;
 pub use dt_status::{
     DtStatus, dt_status_detail, dt_status_failed, dt_status_in_progress, dt_status_succeed,
 };
+pub use error::DetourError;
 pub use hierarchical_pathfinding::{
     Cluster, ClusterConnection, HierarchicalConfig, HierarchicalPath, HierarchicalPathfinder,
     Portal,

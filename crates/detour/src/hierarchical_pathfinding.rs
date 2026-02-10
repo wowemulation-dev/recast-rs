@@ -12,8 +12,9 @@
 use super::nav_mesh::NavMesh;
 use super::status::Status;
 use super::{PolyRef, QueryFilter};
+use crate::error::DetourError;
 use glam::Vec3;
-use recast_common::{Error, Result};
+
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 
@@ -166,7 +167,7 @@ struct PathCache {
 
 impl HierarchicalPathfinder {
     /// Creates a new hierarchical pathfinder from a navigation mesh
-    pub fn new(nav_mesh: NavMesh, config: HierarchicalConfig) -> Result<Self> {
+    pub fn new(nav_mesh: NavMesh, config: HierarchicalConfig) -> Result<Self, DetourError> {
         let mut pathfinder = Self {
             nav_mesh,
             levels: Vec::new(),
@@ -185,7 +186,7 @@ impl HierarchicalPathfinder {
         start: Vec3,
         end: Vec3,
         filter: &QueryFilter,
-    ) -> Result<HierarchicalPath> {
+    ) -> Result<HierarchicalPath, DetourError> {
         // Find starting and ending clusters at each level
         let start_clusters = self.find_clusters_at_position(start)?;
         let end_clusters = self.find_clusters_at_position(end)?;
@@ -239,7 +240,7 @@ impl HierarchicalPathfinder {
     }
 
     /// Builds the hierarchical levels
-    fn build_hierarchy(&mut self, config: &HierarchicalConfig) -> Result<()> {
+    fn build_hierarchy(&mut self, config: &HierarchicalConfig) -> Result<(), DetourError> {
         // Build each level of the hierarchy
         for level in 0..config.max_levels {
             let cluster_size =
@@ -252,7 +253,7 @@ impl HierarchicalPathfinder {
     }
 
     /// Builds a single level of the hierarchy
-    fn build_level(&self, level: usize, cluster_size: f32) -> Result<HierarchyLevel> {
+    fn build_level(&self, level: usize, cluster_size: f32) -> Result<HierarchyLevel, DetourError> {
         let mut clusters = Vec::new();
         let mut spatial_index = HashMap::new();
 
@@ -321,7 +322,7 @@ impl HierarchicalPathfinder {
     }
 
     /// Finds clusters that contain the given position
-    pub fn find_clusters_at_position(&self, position: Vec3) -> Result<Vec<usize>> {
+    pub fn find_clusters_at_position(&self, position: Vec3) -> Result<Vec<usize>, DetourError> {
         let mut cluster_ids = Vec::new();
 
         for level in &self.levels {
@@ -359,11 +360,9 @@ impl HierarchicalPathfinder {
         start_cluster: usize,
         end_cluster: usize,
         _filter: &QueryFilter,
-    ) -> Result<Vec<usize>> {
+    ) -> Result<Vec<usize>, DetourError> {
         if level >= self.levels.len() {
-            return Err(Error::NavMeshGeneration(
-                "Invalid hierarchy level".to_string(),
-            ));
+            return Err(DetourError::Failure);
         }
 
         let hierarchy_level = &self.levels[level];
@@ -379,8 +378,7 @@ impl HierarchicalPathfinder {
         let h_start = self.heuristic_cost(hierarchy_level, start_cluster, end_cluster);
         f_score.insert(start_cluster, h_start);
         open_set.push(Reverse((
-            ordered_float::NotNan::new(h_start)
-                .map_err(|_| Error::Detour(Status::Failure.to_string()))?,
+            ordered_float::NotNan::new(h_start).map_err(|_| DetourError::Failure)?,
             start_cluster,
         )));
 
@@ -418,8 +416,7 @@ impl HierarchicalPathfinder {
                     f_score.insert(neighbor, f_neighbor);
 
                     open_set.push(Reverse((
-                        ordered_float::NotNan::new(f_neighbor)
-                            .map_err(|_| Error::Detour(Status::Failure.to_string()))?,
+                        ordered_float::NotNan::new(f_neighbor).map_err(|_| DetourError::Failure)?,
                         neighbor,
                     )));
                 }
@@ -449,7 +446,7 @@ impl HierarchicalPathfinder {
         cluster_paths: &[Vec<usize>],
         start: Vec3,
         end: Vec3,
-    ) -> Result<Vec<Vec3>> {
+    ) -> Result<Vec<Vec3>, DetourError> {
         if cluster_paths.is_empty() {
             return Ok(vec![start, end]);
         }
@@ -489,7 +486,7 @@ impl HierarchicalPathfinder {
         }
     }
 
-    fn find_polygons_in_bounds(&self, bounds: &ClusterBounds) -> Result<Vec<PolyRef>> {
+    fn find_polygons_in_bounds(&self, bounds: &ClusterBounds) -> Result<Vec<PolyRef>, DetourError> {
         // For now, return dummy polygon references
         // In a real implementation, this would query the navigation mesh
         // for polygons that intersect with the given bounds
@@ -523,7 +520,11 @@ impl HierarchicalPathfinder {
             && point.z <= bounds.max.z
     }
 
-    fn find_nearest_cluster(&self, level: &HierarchyLevel, position: Vec3) -> Result<usize> {
+    fn find_nearest_cluster(
+        &self,
+        level: &HierarchyLevel,
+        position: Vec3,
+    ) -> Result<usize, DetourError> {
         let mut nearest_idx = 0;
         let mut nearest_distance = f32::INFINITY;
 
@@ -538,7 +539,10 @@ impl HierarchicalPathfinder {
         Ok(nearest_idx)
     }
 
-    fn build_cluster_connections(&self, clusters: &[Cluster]) -> Result<Vec<ClusterConnection>> {
+    fn build_cluster_connections(
+        &self,
+        clusters: &[Cluster],
+    ) -> Result<Vec<ClusterConnection>, DetourError> {
         let mut connections = Vec::new();
 
         // For each pair of clusters, check if they are adjacent and create connections

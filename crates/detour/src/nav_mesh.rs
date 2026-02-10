@@ -8,10 +8,9 @@ use std::collections::HashMap;
 use super::bvh_tree::{Aabb, BVHItem, BVHTree};
 use super::{
     MAX_VERTS_PER_POLY, NavMeshFlags, NavMeshParams, PolyFlags, PolyRef, PolyType, QueryFilter,
-    Status,
 };
+use crate::error::DetourError;
 use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
-use recast_common::{Error, Result};
 
 /// Maximum number of nodes in the navigation mesh node pool
 #[allow(dead_code)]
@@ -588,7 +587,7 @@ pub struct NavMesh {
 
 impl NavMesh {
     /// Creates a new navigation mesh
-    pub fn new(params: NavMeshParams) -> Result<Self> {
+    pub fn new(params: NavMeshParams) -> Result<Self, DetourError> {
         // Validate parameters
         if params.origin[0].is_infinite()
             || params.origin[0].is_nan()
@@ -597,23 +596,23 @@ impl NavMesh {
             || params.origin[2].is_infinite()
             || params.origin[2].is_nan()
         {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.tile_width <= 0.0 || params.tile_height <= 0.0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.max_tiles <= 0 || params.max_polys_per_tile <= 0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.max_tiles >= (1 << DT_TILE_BITS) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if params.max_polys_per_tile >= (1 << DT_POLY_BITS) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Allocate tiles
@@ -655,13 +654,13 @@ impl NavMesh {
     /// This method loads navmesh data in the C++ binary format.
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
-    pub fn init(&mut self, nav_data: &[u8]) -> Result<()> {
+    pub fn init(&mut self, nav_data: &[u8]) -> Result<(), DetourError> {
         use super::binary_format::{DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION, load_tile_from_binary};
         use byteorder::{NativeEndian, ReadBytesExt};
         use std::io::Cursor;
 
         if nav_data.len() < 4 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut cursor = Cursor::new(nav_data);
@@ -675,7 +674,7 @@ impl NavMesh {
             cursor.set_position(4); // Skip magic we already read
             let version = cursor.read_u32::<NativeEndian>()?;
             if version != DT_NAVMESH_VERSION {
-                return Err(Error::Detour(Status::WrongVersion.to_string()));
+                return Err(DetourError::WrongVersion);
             }
 
             let tile_count = cursor.read_i32::<NativeEndian>()?;
@@ -724,7 +723,7 @@ impl NavMesh {
                 let pos = cursor.position() as usize;
 
                 if pos + tile_size > nav_data.len() {
-                    return Err(Error::Detour(Status::InvalidParam.to_string()));
+                    return Err(DetourError::InvalidParam);
                 }
 
                 let tile_data = &nav_data[pos..pos + tile_size];
@@ -738,10 +737,7 @@ impl NavMesh {
             let tile = load_tile_from_binary(nav_data)?;
 
             // Extract parameters from tile header
-            let header = tile
-                .header
-                .as_ref()
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
             // Re-initialize with parameters from tile
             self.params = NavMeshParams {
@@ -780,7 +776,7 @@ impl NavMesh {
         data: &[u8],
         flags: u8,
         _last_ref: Option<PolyRef>,
-    ) -> Result<PolyRef> {
+    ) -> Result<PolyRef, DetourError> {
         // Parse tile data from binary format
         let mut tile = super::binary_format::load_tile_from_binary(data)?;
 
@@ -792,12 +788,9 @@ impl NavMesh {
     }
 
     /// Adds a MeshTile directly to the navigation mesh
-    pub fn add_mesh_tile(&mut self, mut tile: MeshTile) -> Result<PolyRef> {
+    pub fn add_mesh_tile(&mut self, mut tile: MeshTile) -> Result<PolyRef, DetourError> {
         // Extract tile coordinates from header
-        let header = tile
-            .header
-            .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
         let tile_x = header.x;
         let tile_y = header.y;
@@ -858,18 +851,18 @@ impl NavMesh {
         tile_x: i32,
         tile_y: i32,
         tile_layer: i32,
-    ) -> Result<PolyRef> {
+    ) -> Result<PolyRef, DetourError> {
         // Check if we have a free tile slot
         let tile_idx = match self.next_free {
             Some(idx) => idx,
-            None => return Err(Error::Detour(Status::OutOfMemory.to_string())),
+            None => return Err(DetourError::OutOfMemory),
         };
 
         // Get next free info and update it
         let next_free = {
             let tile = match self.tiles.get_mut(tile_idx) {
                 Some(Some(tile)) => tile,
-                _ => return Err(Error::Detour(Status::Failure.to_string())),
+                _ => return Err(DetourError::Failure),
             };
             tile.next
         };
@@ -1031,7 +1024,7 @@ impl NavMesh {
         let tile_salt = {
             let tile = match self.tiles.get_mut(tile_idx) {
                 Some(Some(tile)) => tile,
-                _ => return Err(Error::Detour(Status::Failure.to_string())),
+                _ => return Err(DetourError::Failure),
             };
 
             tile.header = Some(header);
@@ -1089,13 +1082,13 @@ impl NavMesh {
     }
 
     /// Builds a BVH tree for a tile
-    fn build_tile_bvh(&mut self, tile_idx: usize) -> Result<()> {
+    fn build_tile_bvh(&mut self, tile_idx: usize) -> Result<(), DetourError> {
         // Get mutable reference to the tile
         let tile = self
             .tiles
             .get_mut(tile_idx)
             .and_then(|opt| opt.as_mut())
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(DetourError::InvalidParam)?;
 
         // Clear existing BVH nodes
         tile.bvh_nodes.clear();
@@ -1146,7 +1139,7 @@ impl NavMesh {
         items: &mut [usize],
         item_start: usize,
         item_count: usize,
-    ) -> Result<i32> {
+    ) -> Result<i32, DetourError> {
         if item_count == 0 {
             return Ok(-1);
         }
@@ -1167,10 +1160,7 @@ impl NavMesh {
         }
 
         // Get tile header for quantization
-        let header = tile
-            .header
-            .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
         // Quantize bounds
         let (quant_bounds, _) =
@@ -1250,19 +1240,16 @@ impl NavMesh {
     }
 
     /// Connects a tile to its neighboring tiles by building links
-    pub fn connect_tile(&mut self, tile_idx: usize) -> Result<()> {
+    pub fn connect_tile(&mut self, tile_idx: usize) -> Result<(), DetourError> {
         // Get tile header info for the tile we're connecting
         let (tile_x, tile_y, tile_layer) = {
             let tile = self
                 .tiles
                 .get(tile_idx)
                 .and_then(|t| t.as_ref())
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+                .ok_or(DetourError::InvalidParam)?;
 
-            let header = tile
-                .header
-                .as_ref()
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
             (header.x, header.y, header.layer)
         };
@@ -1288,11 +1275,11 @@ impl NavMesh {
     }
 
     /// Updates internal link references to use the correct tile ID and salt
-    fn update_internal_link_references(&mut self, tile_idx: usize) -> Result<()> {
+    fn update_internal_link_references(&mut self, tile_idx: usize) -> Result<(), DetourError> {
         let tile_salt = if let Some(Some(tile)) = self.tiles.get(tile_idx) {
             tile.salt
         } else {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         };
 
         // Update all internal link references in this tile
@@ -1315,7 +1302,11 @@ impl NavMesh {
     }
 
     /// Connects two specific tiles by building links between their boundary polygons
-    fn connect_two_tiles(&mut self, tile_a_idx: usize, tile_b_idx: usize) -> Result<()> {
+    fn connect_two_tiles(
+        &mut self,
+        tile_a_idx: usize,
+        tile_b_idx: usize,
+    ) -> Result<(), DetourError> {
         // Get immutable references to both tiles' data first
         let (tile_a_bounds, _tile_b_bounds, _tile_width, _tile_height, tile_a_coord, tile_b_coord) = {
             let tiles = &self.tiles;
@@ -1323,20 +1314,14 @@ impl NavMesh {
             let tile_a = tiles
                 .get(tile_a_idx)
                 .and_then(|t| t.as_ref())
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+                .ok_or(DetourError::InvalidParam)?;
             let tile_b = tiles
                 .get(tile_b_idx)
                 .and_then(|t| t.as_ref())
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+                .ok_or(DetourError::InvalidParam)?;
 
-            let header_a = tile_a
-                .header
-                .as_ref()
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
-            let header_b = tile_b
-                .header
-                .as_ref()
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            let header_a = tile_a.header.as_ref().ok_or(DetourError::InvalidParam)?;
+            let header_b = tile_b.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
             // Determine which edge they share
             let dx = header_b.x - header_a.x;
@@ -1380,10 +1365,10 @@ impl NavMesh {
             let tiles = &self.tiles;
             let tile_a = tiles[tile_a_idx]
                 .as_ref()
-                .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
+                .ok_or_else(|| DetourError::InvalidParam)?;
             let tile_b = tiles[tile_b_idx]
                 .as_ref()
-                .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
+                .ok_or_else(|| DetourError::InvalidParam)?;
 
             // Check each polygon in tile A
             for (poly_a_idx, poly_a) in tile_a.polys.iter().enumerate() {
@@ -1521,15 +1506,15 @@ impl NavMesh {
         edge: u8,
         side: u8,
         boundary_flag: u8,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         let tile = self
             .tiles
             .get_mut(tile_idx)
             .and_then(|t| t.as_mut())
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(DetourError::InvalidParam)?;
 
         if poly_idx >= tile.polys.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Allocate a new link
@@ -1549,26 +1534,23 @@ impl NavMesh {
     }
 
     /// Removes a tile from the navigation mesh
-    pub fn remove_tile(&mut self, reference: PolyRef) -> Result<()> {
+    pub fn remove_tile(&mut self, reference: PolyRef) -> Result<(), DetourError> {
         // Extract tile ID from the reference
         let tile_id = decode_tile_id(reference);
 
         // Convert to tile index
-        let tile_idx =
-            tile_id_to_index(tile_id).ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
         // Check if the tile index is valid
         if tile_idx >= self.max_tiles as usize {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
         let tile = self
             .tiles
             .get_mut(tile_idx)
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(DetourError::InvalidParam)?;
         // Remove the tile
-        let old_tile = tile
-            .take()
-            .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
+        let old_tile = tile.take().ok_or_else(|| DetourError::InvalidParam)?;
 
         // Remove tile from the hash lookup
         if let Some(header) = &old_tile.header {
@@ -1591,7 +1573,7 @@ impl NavMesh {
     }
 
     /// Allocates a tile from the free list
-    fn allocate_tile(&mut self) -> Result<usize> {
+    fn allocate_tile(&mut self) -> Result<usize, DetourError> {
         if let Some(tile_idx) = self.next_free {
             // Get the next free tile
             if let Some(Some(tile)) = self.tiles.get(tile_idx) {
@@ -1599,22 +1581,23 @@ impl NavMesh {
             }
             Ok(tile_idx)
         } else {
-            Err(Error::Detour(Status::Failure.to_string()))
+            Err(DetourError::Failure)
         }
     }
 
     /// Sets a tile at a specific index in the navigation mesh
-    pub fn set_tile_at_index(&mut self, tile_idx: usize, mut tile: MeshTile) -> Result<()> {
+    pub fn set_tile_at_index(
+        &mut self,
+        tile_idx: usize,
+        mut tile: MeshTile,
+    ) -> Result<(), DetourError> {
         // Validate index
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Extract tile coordinates from header
-        let header = tile
-            .header
-            .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
         let tile_x = header.x;
         let tile_y = header.y;
@@ -1664,7 +1647,11 @@ impl NavMesh {
     }
 
     /// Gets all tiles that overlap the given bounds
-    pub fn get_tiles_in_bounds(&self, bmin: &[f32; 3], bmax: &[f32; 3]) -> Result<Vec<&MeshTile>> {
+    pub fn get_tiles_in_bounds(
+        &self,
+        bmin: &[f32; 3],
+        bmax: &[f32; 3],
+    ) -> Result<Vec<&MeshTile>, DetourError> {
         let mut result = Vec::new();
 
         // Calculate tile coordinates for the bounds
@@ -1707,14 +1694,18 @@ impl NavMesh {
     }
 
     /// Gets the bounding box of a polygon
-    pub fn get_poly_bounds(&self, tile: &MeshTile, poly: &Poly) -> Result<([f32; 3], [f32; 3])> {
+    pub fn get_poly_bounds(
+        &self,
+        tile: &MeshTile,
+        poly: &Poly,
+    ) -> Result<([f32; 3], [f32; 3]), DetourError> {
         let mut bmin = [f32::MAX; 3];
         let mut bmax = [f32::MIN; 3];
 
         for i in 0..poly.vert_count as usize {
             let vert_idx = poly.verts[i] as usize;
             if vert_idx * 3 + 2 >= tile.verts.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
 
             let x = tile.verts[vert_idx * 3];
@@ -1738,31 +1729,30 @@ impl NavMesh {
         &self,
         reference: PolyRef,
         pos: &[f32; 3],
-    ) -> Result<([f32; 3], bool)> {
+    ) -> Result<([f32; 3], bool), DetourError> {
         // Extract tile and poly IDs from the reference
         let tile_id = decode_tile_id(reference);
         let poly_id = decode_poly_id(reference);
 
         // Convert to tile index
-        let tile_idx =
-            tile_id_to_index(tile_id).ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
         // Check if the tile index is valid
         if tile_idx >= self.max_tiles as usize {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get the tile
         let tile = match &self.tiles.get(tile_idx) {
             Some(Some(tile)) => tile,
             _ => {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
         };
 
         // Check if the poly ID is valid
         if poly_id >= tile.polys.len() as u32 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get the polygon
@@ -1779,7 +1769,7 @@ impl NavMesh {
         for i in 0..poly.vert_count as usize {
             let vert_idx = poly.verts[i] as usize;
             if vert_idx * 3 + 2 >= tile.verts.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
             verts.extend_from_slice(&tile.verts[vert_idx * 3..(vert_idx + 1) * 3]);
         }
@@ -1814,35 +1804,37 @@ impl NavMesh {
         &self,
         _pos: &[f32; 3],
         _ext_bounds: &[f32; 3],
-    ) -> Result<(PolyRef, [f32; 3])> {
+    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
         // TODO: Implement polygon search using BVH trees
         Ok((PolyRef::new(0), [0.0; 3]))
     }
 
     /// Gets the tile and polygon for a reference
-    pub fn get_tile_and_poly_by_ref(&self, reference: PolyRef) -> Result<(&MeshTile, &Poly)> {
+    pub fn get_tile_and_poly_by_ref(
+        &self,
+        reference: PolyRef,
+    ) -> Result<(&MeshTile, &Poly), DetourError> {
         // Extract tile and poly IDs from the reference
         let tile_id = decode_tile_id(reference);
         let poly_id = decode_poly_id(reference);
 
         // Convert to tile index
-        let tile_idx =
-            tile_id_to_index(tile_id).ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
         // Check if the tile index is valid
         if tile_idx >= self.max_tiles as usize {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get the tile
         let tile = match &self.tiles.get(tile_idx) {
             Some(Some(tile)) => tile,
-            _ => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            _ => return Err(DetourError::InvalidParam),
         };
 
         // Check if the poly ID is valid
         if poly_id >= tile.polys.len() as u32 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get the polygon
@@ -1855,29 +1847,28 @@ impl NavMesh {
     pub fn get_tile_and_poly_by_ref_mut(
         &mut self,
         reference: PolyRef,
-    ) -> Result<(&mut MeshTile, &mut Poly)> {
+    ) -> Result<(&mut MeshTile, &mut Poly), DetourError> {
         // Extract tile and poly IDs from the reference
         let tile_id = decode_tile_id(reference);
         let poly_id = decode_poly_id(reference);
 
         // Convert to tile index
-        let tile_idx =
-            tile_id_to_index(tile_id).ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
         // Check if the tile index is valid
         if tile_idx >= self.max_tiles as usize {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Get the tile
         let tile = match self.tiles.get_mut(tile_idx) {
             Some(Some(tile)) => tile,
-            _ => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            _ => return Err(DetourError::InvalidParam),
         };
 
         // Check if the poly ID is valid
         if poly_id >= tile.polys.len() as u32 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Can't return direct mutable references to both tile and poly because of Rust's borrowing rules
@@ -1939,7 +1930,7 @@ impl NavMesh {
     }
 
     /// Builds the global BVH tree for all polygons in the navigation mesh
-    pub fn build_bvh_tree(&mut self) -> Result<()> {
+    pub fn build_bvh_tree(&mut self) -> Result<(), DetourError> {
         let mut items = Vec::new();
 
         // Collect all polygons from all tiles
@@ -2017,7 +2008,7 @@ impl NavMesh {
         bmin: &[f32; 3],
         bmax: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         // If we have a BVH tree, use it for efficient queries
         if let Some(bvh) = &self.global_bvh {
             let query_bounds = Aabb::new(*bmin, *bmax);
@@ -2101,7 +2092,7 @@ impl NavMesh {
         bmin: &[f32; 3],
         bmax: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         // Get the tile at the specified coordinates
         match self.get_tile_at(tile_x, tile_y, 0) {
             Some(tile) => self.query_polygons_in_tile_internal(tile, bmin, bmax, filter),
@@ -2116,7 +2107,7 @@ impl NavMesh {
         qmin: &[f32; 3],
         qmax: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         let mut result = Vec::new();
 
         // Get the base reference for this tile
@@ -2236,7 +2227,7 @@ impl NavMesh {
         filter: &QueryFilter,
         salt: u32,
         tile_id: u32,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         let mut result = Vec::new();
 
         for (i, poly) in tile.polys.iter().enumerate() {
@@ -2288,7 +2279,7 @@ impl NavMesh {
         qmin: &[f32; 3],
         qmax: &[f32; 3],
         filter: &QueryFilter,
-    ) -> Result<Vec<PolyRef>> {
+    ) -> Result<Vec<PolyRef>, DetourError> {
         let mut result = Vec::new();
 
         // Check each off-mesh connection in the tile
@@ -2488,7 +2479,7 @@ impl NavMesh {
         tile: &MeshTile,
         poly: &Poly,
         pos: &[f32; 3],
-    ) -> Result<Option<f32>> {
+    ) -> Result<Option<f32>, DetourError> {
         // Off-mesh connections don't have detail polygons
         if poly.poly_type == PolyType::OffMeshConnection {
             return Ok(None);
@@ -2675,9 +2666,9 @@ impl NavMesh {
         tile: &mut MeshTile,
         poly_idx: usize,
         link: Link,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         if poly_idx >= tile.polys.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Find a free slot in the links array or add a new one
@@ -2697,9 +2688,9 @@ impl NavMesh {
 
     /// Removes all links for a polygon
     /// This is typically used during navigation mesh updates
-    pub fn clear_polygon_links(tile: &mut MeshTile, poly_idx: usize) -> Result<()> {
+    pub fn clear_polygon_links(tile: &mut MeshTile, poly_idx: usize) -> Result<(), DetourError> {
         if poly_idx >= tile.polys.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Clear the polygon's first link pointer
@@ -2781,7 +2772,7 @@ impl NavMesh {
         poly_mesh: &PolyMesh,
         detail_mesh: &PolyMeshDetail,
         flags: NavMeshFlags,
-    ) -> Result<Self> {
+    ) -> Result<Self, DetourError> {
         // Create a new navigation mesh
         let mut nav_mesh = Self::new(params)?;
 
@@ -2988,23 +2979,22 @@ impl NavMesh {
 
     /// Saves the navigation mesh to a file in JSON format
     #[cfg(feature = "serialization")]
-    pub fn save_to_json<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+    pub fn save_to_json<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), DetourError> {
         let json = serde_json::to_string_pretty(self)
-            .map_err(|_e| Error::Detour(Status::Failure.to_string()))?;
+            .map_err(|e| DetourError::Serialization(Box::new(e)))?;
 
-        std::fs::write(path, json).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        std::fs::write(path, json).map_err(|e| DetourError::Io(e))?;
 
         Ok(())
     }
 
     /// Loads a navigation mesh from a JSON file
     #[cfg(feature = "serialization")]
-    pub fn load_from_json<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let json = std::fs::read_to_string(path)
-            .map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+    pub fn load_from_json<P: AsRef<std::path::Path>>(path: P) -> Result<Self, DetourError> {
+        let json = std::fs::read_to_string(path).map_err(|e| DetourError::Io(e))?;
 
         let nav_mesh =
-            serde_json::from_str(&json).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            serde_json::from_str(&json).map_err(|e| DetourError::Serialization(Box::new(e)))?;
 
         Ok(nav_mesh)
     }
@@ -3013,10 +3003,13 @@ impl NavMesh {
     ///
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
-    pub fn save_to_cpp_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+    pub fn save_to_cpp_binary<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), DetourError> {
         // For now, only support single-tile meshes
         if self.tiles.len() != 1 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Find the first valid tile
@@ -3024,10 +3017,10 @@ impl NavMesh {
             .tiles
             .iter()
             .find_map(|t| t.as_ref())
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(DetourError::InvalidParam)?;
 
         let data = super::binary_format::save_tile_to_binary(tile)?;
-        std::fs::write(path, data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        std::fs::write(path, data).map_err(|e| DetourError::Io(e))?;
 
         Ok(())
     }
@@ -3036,15 +3029,12 @@ impl NavMesh {
     ///
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
-    pub fn load_from_cpp_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+    pub fn load_from_cpp_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self, DetourError> {
+        let data = std::fs::read(path).map_err(|e| DetourError::Io(e))?;
         let tile = super::binary_format::load_tile_from_binary(&data)?;
 
         // Extract parameters from tile
-        let header = tile
-            .header
-            .as_ref()
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
         let params = NavMeshParams {
             origin: header.bmin,
@@ -3080,8 +3070,8 @@ impl NavMesh {
     ///
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
-    pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self> {
-        let data = std::fs::read(path).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+    pub fn load_from_binary<P: AsRef<std::path::Path>>(path: P) -> Result<Self, DetourError> {
+        let data = std::fs::read(path).map_err(|e| DetourError::Io(e))?;
         super::binary_format::load_nav_mesh_from_binary(&data)
     }
 
@@ -3089,41 +3079,40 @@ impl NavMesh {
     ///
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
-    pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<()> {
+    pub fn save_to_binary<P: AsRef<std::path::Path>>(&self, path: P) -> Result<(), DetourError> {
         let data = super::binary_format::save_nav_mesh_to_binary(self)?;
-        std::fs::write(path, data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+        std::fs::write(path, data).map_err(|e| DetourError::Io(e))?;
         Ok(())
     }
 
     /// Serializes the navigation mesh to JSON bytes
     #[cfg(feature = "serialization")]
-    pub fn to_json_bytes(&self) -> Result<Vec<u8>> {
-        let json =
-            serde_json::to_vec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+    pub fn to_json_bytes(&self) -> Result<Vec<u8>, DetourError> {
+        let json = serde_json::to_vec(self).map_err(|e| DetourError::Serialization(Box::new(e)))?;
         Ok(json)
     }
 
     /// Deserializes a navigation mesh from JSON bytes
     #[cfg(feature = "serialization")]
-    pub fn from_json_bytes(data: &[u8]) -> Result<Self> {
+    pub fn from_json_bytes(data: &[u8]) -> Result<Self, DetourError> {
         let nav_mesh =
-            serde_json::from_slice(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            serde_json::from_slice(data).map_err(|e| DetourError::Serialization(Box::new(e)))?;
         Ok(nav_mesh)
     }
 
     /// Serializes the navigation mesh to binary bytes
     #[cfg(feature = "serialization")]
-    pub fn to_binary_bytes(&self) -> Result<Vec<u8>> {
+    pub fn to_binary_bytes(&self) -> Result<Vec<u8>, DetourError> {
         let data =
-            postcard::to_allocvec(self).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            postcard::to_allocvec(self).map_err(|e| DetourError::Serialization(Box::new(e)))?;
         Ok(data)
     }
 
     /// Deserializes a navigation mesh from binary bytes
     #[cfg(feature = "serialization")]
-    pub fn from_binary_bytes(data: &[u8]) -> Result<Self> {
+    pub fn from_binary_bytes(data: &[u8]) -> Result<Self, DetourError> {
         let nav_mesh =
-            postcard::from_bytes(data).map_err(|_| Error::Detour(Status::Failure.to_string()))?;
+            postcard::from_bytes(data).map_err(|e| DetourError::Serialization(Box::new(e)))?;
         Ok(nav_mesh)
     }
 
@@ -3138,7 +3127,7 @@ impl NavMesh {
         area: u8,
         direction: u8,
         user_id: u32,
-    ) -> Result<PolyRef> {
+    ) -> Result<PolyRef, DetourError> {
         // Find tiles that could contain the start or end positions
         let start_tile_pos = self.world_to_tile(start_pos);
         let _end_tile_pos = self.world_to_tile(end_pos);
@@ -3152,7 +3141,7 @@ impl NavMesh {
             let connection_count = if let Some(Some(tile)) = self.tiles.get(tile_idx) {
                 tile.off_mesh_connections.len()
             } else {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             };
 
             // Generate the polygon reference before mutable borrow
@@ -3179,11 +3168,14 @@ impl NavMesh {
         }
 
         // If we couldn't find a suitable tile, create a new tile or return an error
-        Err(Error::Detour(Status::InvalidParam.to_string()))
+        Err(DetourError::InvalidParam)
     }
 
     /// Removes an off-mesh connection by its polygon reference
-    pub fn remove_off_mesh_connection(&mut self, connection_ref: PolyRef) -> Result<()> {
+    pub fn remove_off_mesh_connection(
+        &mut self,
+        connection_ref: PolyRef,
+    ) -> Result<(), DetourError> {
         // Find the tile and connection index from the polygon reference
         let (tile_idx, connection_idx) = self.decode_off_mesh_ref(connection_ref)?;
 
@@ -3201,7 +3193,7 @@ impl NavMesh {
             }
         }
 
-        Err(Error::Detour(Status::NotFound.to_string()))
+        Err(DetourError::NotFound)
     }
 
     /// Gets all off-mesh connections in the navigation mesh
@@ -3246,7 +3238,10 @@ impl NavMesh {
     }
 
     /// Gets an off-mesh connection by its polygon reference
-    pub fn get_off_mesh_connection(&self, connection_ref: PolyRef) -> Result<&OffMeshConnection> {
+    pub fn get_off_mesh_connection(
+        &self,
+        connection_ref: PolyRef,
+    ) -> Result<&OffMeshConnection, DetourError> {
         let (tile_idx, connection_idx) = self.decode_off_mesh_ref(connection_ref)?;
 
         if let Some(Some(tile)) = self.tiles.get(tile_idx) {
@@ -3255,7 +3250,7 @@ impl NavMesh {
             }
         }
 
-        Err(Error::Detour(Status::NotFound.to_string()))
+        Err(DetourError::NotFound)
     }
 
     /// Converts world coordinates to tile coordinates
@@ -3279,12 +3274,12 @@ impl NavMesh {
     }
 
     /// Decodes an off-mesh connection reference to tile and connection indices
-    fn decode_off_mesh_ref(&self, connection_ref: PolyRef) -> Result<(usize, usize)> {
+    fn decode_off_mesh_ref(&self, connection_ref: PolyRef) -> Result<(usize, usize), DetourError> {
         let ref_val = connection_ref.id();
 
         // Check if this is an off-mesh connection reference (high bit set)
         if (ref_val & 0x80000000) == 0 {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let tile_idx = ((ref_val >> 16) & 0x7FFF) as usize;
@@ -3308,7 +3303,7 @@ impl NavMesh {
 
     /// Helper method for testing - creates a test tile
     #[cfg(test)]
-    pub fn create_test_tile(&mut self, x: i32, y: i32, layer: i32) -> Result<()> {
+    pub fn create_test_tile(&mut self, x: i32, y: i32, layer: i32) -> Result<(), DetourError> {
         // Find the next free tile
         let tile_idx = if let Some(free_idx) = self.next_free {
             // Update next_free to point to the next tile in the free list
@@ -3319,7 +3314,7 @@ impl NavMesh {
             }
             free_idx
         } else {
-            return Err(Error::Detour(Status::BufferTooSmall.to_string()));
+            return Err(DetourError::BufferTooSmall);
         };
 
         // Update the existing tile instead of creating a new one
@@ -3338,7 +3333,7 @@ impl NavMesh {
             tile.bvh_root = None;
             tile.flags = 0;
         } else {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Add to position lookup
@@ -3358,7 +3353,7 @@ impl NavMesh {
     ///
     /// # Returns
     /// * `Ok(())` - Success
-    /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
+    /// * `Err(DetourError)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
     /// ```no_run
@@ -3374,29 +3369,33 @@ impl NavMesh {
     /// # Performance
     /// Time complexity: O(1)
     /// Space complexity: O(1)
-    pub fn set_poly_flags(&mut self, reference: PolyRef, flags: PolyFlags) -> Result<()> {
+    pub fn set_poly_flags(
+        &mut self,
+        reference: PolyRef,
+        flags: PolyFlags,
+    ) -> Result<(), DetourError> {
         if !reference.is_valid() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         let (tile_id, poly_id) = decode_poly_ref(reference);
         let tile_idx = match tile_id_to_index(tile_id) {
             Some(idx) => idx,
-            None => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            None => return Err(DetourError::InvalidParam),
         };
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if let Some(Some(tile)) = self.tiles.get_mut(tile_idx) {
             if poly_id as usize >= tile.polys.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
             tile.polys[poly_id as usize].flags = flags;
             Ok(())
         } else {
-            Err(Error::Detour(Status::InvalidParam.to_string()))
+            Err(DetourError::InvalidParam)
         }
     }
 
@@ -3410,7 +3409,7 @@ impl NavMesh {
     ///
     /// # Returns
     /// * `Ok(PolyFlags)` - Current flags for the polygon
-    /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
+    /// * `Err(DetourError)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
     /// ```no_run
@@ -3428,28 +3427,28 @@ impl NavMesh {
     /// # Performance
     /// Time complexity: O(1)
     /// Space complexity: O(1)
-    pub fn get_poly_flags(&self, reference: PolyRef) -> Result<PolyFlags> {
+    pub fn get_poly_flags(&self, reference: PolyRef) -> Result<PolyFlags, DetourError> {
         if !reference.is_valid() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         let (tile_id, poly_id) = decode_poly_ref(reference);
         let tile_idx = match tile_id_to_index(tile_id) {
             Some(idx) => idx,
-            None => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            None => return Err(DetourError::InvalidParam),
         };
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if let Some(Some(tile)) = self.tiles.get(tile_idx) {
             if poly_id as usize >= tile.polys.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
             Ok(tile.polys[poly_id as usize].flags)
         } else {
-            Err(Error::Detour(Status::InvalidParam.to_string()))
+            Err(DetourError::InvalidParam)
         }
     }
 
@@ -3464,7 +3463,7 @@ impl NavMesh {
     ///
     /// # Returns
     /// * `Ok(())` - Success
-    /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
+    /// * `Err(DetourError)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
     /// ```no_run
@@ -3480,29 +3479,29 @@ impl NavMesh {
     /// # Performance
     /// Time complexity: O(1)
     /// Space complexity: O(1)
-    pub fn set_poly_area(&mut self, reference: PolyRef, area: u8) -> Result<()> {
+    pub fn set_poly_area(&mut self, reference: PolyRef, area: u8) -> Result<(), DetourError> {
         if !reference.is_valid() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         let (tile_id, poly_id) = decode_poly_ref(reference);
         let tile_idx = match tile_id_to_index(tile_id) {
             Some(idx) => idx,
-            None => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            None => return Err(DetourError::InvalidParam),
         };
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if let Some(Some(tile)) = self.tiles.get_mut(tile_idx) {
             if poly_id as usize >= tile.polys.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
             tile.polys[poly_id as usize].area = area;
             Ok(())
         } else {
-            Err(Error::Detour(Status::InvalidParam.to_string()))
+            Err(DetourError::InvalidParam)
         }
     }
 
@@ -3516,7 +3515,7 @@ impl NavMesh {
     ///
     /// # Returns
     /// * `Ok(u8)` - Area type ID for the polygon (0-255)
-    /// * `Err(Error::Detour)` - Invalid polygon reference or tile not found
+    /// * `Err(DetourError)` - Invalid polygon reference or tile not found
     ///
     /// # Examples
     /// ```no_run
@@ -3537,28 +3536,28 @@ impl NavMesh {
     /// # Performance
     /// Time complexity: O(1)
     /// Space complexity: O(1)
-    pub fn get_poly_area(&self, reference: PolyRef) -> Result<u8> {
+    pub fn get_poly_area(&self, reference: PolyRef) -> Result<u8, DetourError> {
         if !reference.is_valid() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         let (tile_id, poly_id) = decode_poly_ref(reference);
         let tile_idx = match tile_id_to_index(tile_id) {
             Some(idx) => idx,
-            None => return Err(Error::Detour(Status::InvalidParam.to_string())),
+            None => return Err(DetourError::InvalidParam),
         };
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if let Some(Some(tile)) = self.tiles.get(tile_idx) {
             if poly_id as usize >= tile.polys.len() {
-                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                return Err(DetourError::InvalidParam);
             }
             Ok(tile.polys[poly_id as usize].area)
         } else {
-            Err(Error::Detour(Status::InvalidParam.to_string()))
+            Err(DetourError::InvalidParam)
         }
     }
 
@@ -3585,45 +3584,44 @@ impl NavMesh {
         &self,
         prev_ref: PolyRef,
         poly_ref: PolyRef,
-    ) -> Result<([f32; 3], [f32; 3])> {
+    ) -> Result<([f32; 3], [f32; 3]), DetourError> {
         if !poly_ref.is_valid() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         // Decode the polygon reference
         let (salt, tile_id, poly_id) = decode_poly_ref_full(poly_ref);
-        let tile_idx =
-            tile_id_to_index(tile_id).ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let tile = self
             .tiles
             .get(tile_idx)
             .and_then(|opt| opt.as_ref())
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(DetourError::InvalidParam)?;
 
         // Check salt matches
         if salt != (tile.salt & DT_SALT_MASK) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if poly_id as usize >= tile.polys.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let poly = &tile.polys[poly_id as usize];
 
         // Make sure this is an off-mesh connection polygon
         if poly.poly_type != PolyType::OffMeshConnection {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         // Off-mesh connections have exactly 2 vertices
         if poly.vert_count != 2 {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         // Figure out which way to hand out the vertices
@@ -3658,7 +3656,7 @@ impl NavMesh {
         let v1_idx = poly.verts[idx1] as usize * 3;
 
         if v0_idx + 2 >= tile.verts.len() || v1_idx + 2 >= tile.verts.len() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         let start_pos = [
@@ -3676,40 +3674,42 @@ impl NavMesh {
     }
 
     /// Gets the off-mesh connection data associated with a polygon reference
-    pub fn get_off_mesh_connection_by_ref(&self, reference: PolyRef) -> Result<&OffMeshConnection> {
+    pub fn get_off_mesh_connection_by_ref(
+        &self,
+        reference: PolyRef,
+    ) -> Result<&OffMeshConnection, DetourError> {
         if !reference.is_valid() {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         // Decode the polygon reference
         let (salt, tile_id, poly_id) = decode_poly_ref_full(reference);
-        let tile_idx =
-            tile_id_to_index(tile_id).ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+        let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
         if tile_idx >= self.tiles.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let tile = self
             .tiles
             .get(tile_idx)
             .and_then(|opt| opt.as_ref())
-            .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+            .ok_or(DetourError::InvalidParam)?;
 
         // Check salt matches
         if salt != (tile.salt & DT_SALT_MASK) {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         if poly_id as usize >= tile.polys.len() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let poly = &tile.polys[poly_id as usize];
 
         // Make sure this is an off-mesh connection polygon
         if poly.poly_type != PolyType::OffMeshConnection {
-            return Err(Error::Detour(Status::Failure.to_string()));
+            return Err(DetourError::Failure);
         }
 
         // Find the corresponding off-mesh connection
@@ -3722,7 +3722,7 @@ impl NavMesh {
             }
         }
 
-        Err(Error::Detour(Status::Failure.to_string()))
+        Err(DetourError::Failure)
     }
 
     /// Gets the size in bytes required to store the tile state
@@ -3738,13 +3738,13 @@ impl NavMesh {
     }
 
     /// Stores the non-structural tile state (polygon flags and areas)
-    pub fn store_tile_state(&self, tile: &MeshTile, data: &mut [u8]) -> Result<usize> {
+    pub fn store_tile_state(&self, tile: &MeshTile, data: &mut [u8]) -> Result<usize, DetourError> {
         const DT_NAVMESH_STATE_MAGIC: u32 = 0x5354544E; // 'STTN'
         const DT_NAVMESH_STATE_VERSION: u32 = 1;
 
         let required_size = self.get_tile_state_size(tile);
         if data.len() < required_size {
-            return Err(Error::Detour(Status::BufferTooSmall.to_string()));
+            return Err(DetourError::BufferTooSmall);
         }
 
         let mut offset = 0;
@@ -3766,7 +3766,7 @@ impl NavMesh {
         {
             encode_poly_ref_with_salt(tile.salt & DT_SALT_MASK, (tile_idx + 1) as u32, 0)
         } else {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         };
         data[offset..offset + 4].copy_from_slice(&tile_ref.id().to_le_bytes());
         offset += 4;
@@ -3790,13 +3790,17 @@ impl NavMesh {
     }
 
     /// Restores the non-structural tile state (polygon flags and areas)
-    pub fn restore_tile_state(&mut self, tile: &mut MeshTile, data: &[u8]) -> Result<()> {
+    pub fn restore_tile_state(
+        &mut self,
+        tile: &mut MeshTile,
+        data: &[u8],
+    ) -> Result<(), DetourError> {
         const DT_NAVMESH_STATE_MAGIC: u32 = 0x5354544E; // 'STTN'
         const DT_NAVMESH_STATE_VERSION: u32 = 1;
 
         let required_size = self.get_tile_state_size(tile);
         if data.len() < required_size {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         let mut offset = 0;
@@ -3811,7 +3815,7 @@ impl NavMesh {
         ]);
         offset += 4;
         if magic != DT_NAVMESH_STATE_MAGIC {
-            return Err(Error::Detour(Status::WrongMagic.to_string()));
+            return Err(DetourError::WrongMagic);
         }
 
         // Version
@@ -3823,7 +3827,7 @@ impl NavMesh {
         ]);
         offset += 4;
         if version != DT_NAVMESH_STATE_VERSION {
-            return Err(Error::Detour(Status::WrongVersion.to_string()));
+            return Err(DetourError::WrongVersion);
         }
 
         // Tile reference - verify it matches
@@ -3843,11 +3847,11 @@ impl NavMesh {
         {
             encode_poly_ref_with_salt(tile.salt & DT_SALT_MASK, (tile_idx + 1) as u32, 0).id()
         } else {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         };
 
         if stored_ref != current_ref {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
+            return Err(DetourError::InvalidParam);
         }
 
         // Restore poly states
@@ -3952,13 +3956,11 @@ impl NavMesh {
     }
 
     /// Gets the PolyRef for a specific polygon in a tile
-    pub fn get_poly_ref(&self, tile: &MeshTile, poly: &Poly) -> Result<PolyRef> {
+    pub fn get_poly_ref(&self, tile: &MeshTile, poly: &Poly) -> Result<PolyRef, DetourError> {
         // Find the base reference for the tile
         let base_ref = self.get_poly_ref_base(tile);
         if base_ref == 0 {
-            return Err(Error::Detour(
-                "Failed to get tile base reference".to_string(),
-            ));
+            return Err(DetourError::Failure);
         }
 
         // Find the polygon index within the tile
@@ -3966,7 +3968,7 @@ impl NavMesh {
             .polys
             .iter()
             .position(|p| std::ptr::eq(p, poly))
-            .ok_or_else(|| Error::Detour("Polygon not found in tile".to_string()))?;
+            .ok_or_else(|| DetourError::NotFound)?;
 
         // Combine base ref with polygon index
         Ok(PolyRef::new(base_ref | (poly_idx as u32)))
@@ -3977,7 +3979,7 @@ impl NavMesh {
     pub fn apply_external_links(
         &mut self,
         requests: Vec<crate::ExternalLinkRequest>,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         for request in requests {
             self.create_external_link(request)?;
         }
@@ -3990,14 +3992,14 @@ impl NavMesh {
         tile_idx: usize,
         actual_tile_id: u32,
         params: &super::NavMeshCreateParams,
-    ) -> Result<()> {
+    ) -> Result<(), DetourError> {
         // Get tile data first
         let tile_data = {
             let tile = self
                 .tiles
                 .get(tile_idx)
                 .and_then(|t| t.as_ref())
-                .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+                .ok_or(DetourError::InvalidParam)?;
 
             let mut connections = Vec::new();
             for off_mesh_con in &tile.off_mesh_connections {
@@ -4033,7 +4035,7 @@ impl NavMesh {
 
         let tile_salt = self.tiles[tile_idx]
             .as_ref()
-            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?
+            .ok_or_else(|| DetourError::Failure)?
             .salt
             & DT_SALT_MASK;
 
@@ -4126,7 +4128,10 @@ impl NavMesh {
     }
 
     /// Creates a single external link between tiles following existing patterns
-    fn create_external_link(&mut self, request: crate::ExternalLinkRequest) -> Result<()> {
+    fn create_external_link(
+        &mut self,
+        request: crate::ExternalLinkRequest,
+    ) -> Result<(), DetourError> {
         let (tx, ty, layer) = request.source_tile;
 
         // Find the tile index using the position lookup
@@ -4134,13 +4139,13 @@ impl NavMesh {
             .pos_lookup
             .get(&(tx, ty, layer))
             .copied()
-            .ok_or_else(|| Error::Detour("Source tile not found".to_string()))?;
+            .ok_or_else(|| DetourError::NotFound)?;
 
         // Get mutable access to the source tile using the established pattern
         if let Some(Some(tile)) = self.tiles.get_mut(tile_idx) {
             // Check if polygon index is valid
             if request.source_poly >= tile.polys.len() {
-                return Err(Error::Detour("Invalid source polygon index".to_string()));
+                return Err(DetourError::InvalidParam);
             }
 
             // Create the external link
@@ -4169,7 +4174,7 @@ impl NavMesh {
                 poly.first_link = Some(link_idx);
             }
         } else {
-            return Err(Error::Detour("Source tile not accessible".to_string()));
+            return Err(DetourError::NotFound);
         }
 
         Ok(())

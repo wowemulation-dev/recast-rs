@@ -8,10 +8,9 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
-    use recast_common::Result;
 
     /// Helper to create a simple two-island mesh with an off-mesh connection
-    fn create_two_island_mesh_with_connection() -> Result<NavMesh> {
+    fn create_two_island_mesh_with_connection() -> Result<NavMesh, Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -105,7 +104,7 @@ mod tests {
 
     /// Test basic off-mesh connection creation
     #[test]
-    fn test_off_mesh_connection_creation() -> Result<()> {
+    fn test_off_mesh_connection_creation() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_two_island_mesh_with_connection()?;
 
         // Verify mesh was created with expected polygons
@@ -122,7 +121,7 @@ mod tests {
 
     /// Test pathfinding across off-mesh connection
     #[test]
-    fn test_pathfinding_with_off_mesh_connection() -> Result<()> {
+    fn test_pathfinding_with_off_mesh_connection() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_two_island_mesh_with_connection()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let mut filter = QueryFilter::default();
@@ -161,7 +160,7 @@ mod tests {
 
     /// Test off-mesh connection directionality
     #[test]
-    fn test_off_mesh_connection_directionality() -> Result<()> {
+    fn test_off_mesh_connection_directionality() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Create mesh with unidirectional connection and verify
         // pathfinding only works in one direction
 
@@ -170,7 +169,7 @@ mod tests {
 
     /// Test off-mesh connection with custom area types
     #[test]
-    fn test_off_mesh_connection_area_filtering() -> Result<()> {
+    fn test_off_mesh_connection_area_filtering() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_two_island_mesh_with_connection()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -216,7 +215,7 @@ mod tests {
 
     /// Test multiple off-mesh connections
     #[test]
-    fn test_multiple_off_mesh_connections() -> Result<()> {
+    fn test_multiple_off_mesh_connections() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Create mesh with multiple connections and verify
         // pathfinding chooses optimal connection
 
@@ -225,7 +224,7 @@ mod tests {
 
     /// Test off-mesh connection endpoint queries
     #[test]
-    fn test_off_mesh_connection_endpoints() -> Result<()> {
+    fn test_off_mesh_connection_endpoints() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_two_island_mesh_with_connection()?;
         let query = NavMeshQuery::new(&nav_mesh);
 
@@ -237,7 +236,7 @@ mod tests {
 
     /// Test off-mesh connection with different radii
     #[test]
-    fn test_off_mesh_connection_radius() -> Result<()> {
+    fn test_off_mesh_connection_radius() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Test that connection radius affects path planning
         // and agent movement
 
@@ -246,7 +245,7 @@ mod tests {
 
     /// Test invalid off-mesh connections
     #[test]
-    fn test_invalid_off_mesh_connections() -> Result<()> {
+    fn test_invalid_off_mesh_connections() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Test creating off-mesh connections with:
         // - Invalid polygon references
         // - Zero or negative radius
@@ -258,7 +257,7 @@ mod tests {
 
     /// Test off-mesh connection user IDs
     #[test]
-    fn test_off_mesh_connection_user_ids() -> Result<()> {
+    fn test_off_mesh_connection_user_ids() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Verify user IDs are preserved and can be queried
 
         Ok(())
@@ -266,7 +265,7 @@ mod tests {
 
     /// Test pathfinding straight path with off-mesh connections
     #[test]
-    fn test_straight_path_with_off_mesh() -> Result<()> {
+    fn test_straight_path_with_off_mesh() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_two_island_mesh_with_connection()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let mut filter = QueryFilter::default();
@@ -301,7 +300,7 @@ mod tests {
 
     /// Test move_along_surface with off-mesh connections
     #[test]
-    fn test_move_along_surface_with_off_mesh() -> Result<()> {
+    fn test_move_along_surface_with_off_mesh() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Test that move_along_surface properly handles
         // off-mesh connection boundaries
 
@@ -310,7 +309,7 @@ mod tests {
 
     /// Test raycast interaction with off-mesh connections
     #[test]
-    fn test_raycast_with_off_mesh() -> Result<()> {
+    fn test_raycast_with_off_mesh() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Verify raycast behavior when ray intersects
         // off-mesh connection areas
 

@@ -7,10 +7,9 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read, Write};
 
 use super::MAX_VERTS_PER_POLY;
-use super::Status;
 use super::nav_mesh::{BVNode, MeshTile, OffMeshConnection, Poly, PolyDetail, TileHeader};
 use super::{NavMesh, NavMeshParams, PolyFlags, PolyRef, PolyType};
-use recast_common::{Error, Result};
+use crate::error::DetourError;
 
 /// Magic number for navigation mesh files ('DNAV')
 pub const DT_NAVMESH_MAGIC: u32 = 0x5641_4E44; // 'DNAV' in little-endian
@@ -58,14 +57,14 @@ struct PolyState {
 }
 
 impl TileState {
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         writer.write_u32::<LittleEndian>(self.magic)?;
         writer.write_u32::<LittleEndian>(self.version)?;
         writer.write_u32::<LittleEndian>(self.tile_ref.id())?;
         Ok(())
     }
 
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         Ok(Self {
             magic: reader.read_u32::<LittleEndian>()?,
             version: reader.read_u32::<LittleEndian>()?,
@@ -75,13 +74,13 @@ impl TileState {
 }
 
 impl PolyState {
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         writer.write_u16::<LittleEndian>(self.flags)?;
         writer.write_u8(self.area)?;
         Ok(())
     }
 
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         Ok(Self {
             flags: reader.read_u16::<LittleEndian>()?,
             area: reader.read_u8()?,
@@ -118,7 +117,7 @@ struct MeshHeader {
 
 impl MeshHeader {
     /// Reads a mesh header from a reader
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         Ok(Self {
             magic: reader.read_u32::<LittleEndian>()?,
             version: reader.read_u32::<LittleEndian>()?,
@@ -153,7 +152,7 @@ impl MeshHeader {
     }
 
     /// Writes a mesh header to a writer
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         writer.write_u32::<LittleEndian>(self.magic)?;
         writer.write_u32::<LittleEndian>(self.version)?;
         writer.write_i32::<LittleEndian>(self.x)?;
@@ -197,7 +196,7 @@ struct PolyData {
 
 impl PolyData {
     /// Reads polygon data from a reader
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         let first_link = reader.read_u32::<LittleEndian>()?;
 
         let mut verts = [0u16; DT_VERTS_PER_POLYGON];
@@ -225,7 +224,7 @@ impl PolyData {
     }
 
     /// Writes polygon data to a writer
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         writer.write_u32::<LittleEndian>(self.first_link)?;
 
         for &v in &self.verts {
@@ -307,7 +306,7 @@ struct BVNodeData {
 
 impl BVNodeData {
     /// Reads BV node data from a reader
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         Ok(Self {
             bmin: [
                 reader.read_u16::<LittleEndian>()?,
@@ -324,7 +323,7 @@ impl BVNodeData {
     }
 
     /// Writes BV node data to a writer
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         writer.write_u16::<LittleEndian>(self.bmin[0])?;
         writer.write_u16::<LittleEndian>(self.bmin[1])?;
         writer.write_u16::<LittleEndian>(self.bmin[2])?;
@@ -351,7 +350,7 @@ struct OffMeshConnectionData {
 
 impl OffMeshConnectionData {
     /// Reads off-mesh connection data from a reader
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         let mut pos = [0.0; 6];
         for p in &mut pos {
             *p = reader.read_f32::<LittleEndian>()?;
@@ -369,7 +368,7 @@ impl OffMeshConnectionData {
     }
 
     /// Writes off-mesh connection data to a writer
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         for &p in &self.pos {
             writer.write_f32::<LittleEndian>(p)?;
         }
@@ -384,7 +383,7 @@ impl OffMeshConnectionData {
 }
 
 /// Loads a navigation mesh tile from C++ binary format
-pub fn load_tile_from_binary(data: &[u8]) -> Result<MeshTile> {
+pub fn load_tile_from_binary(data: &[u8]) -> Result<MeshTile, DetourError> {
     let mut cursor = Cursor::new(data);
 
     // Read header
@@ -392,10 +391,10 @@ pub fn load_tile_from_binary(data: &[u8]) -> Result<MeshTile> {
 
     // Validate magic and version
     if header.magic != DT_NAVMESH_MAGIC {
-        return Err(Error::Detour(Status::WrongMagic.to_string()));
+        return Err(DetourError::WrongMagic);
     }
     if header.version != DT_NAVMESH_VERSION {
-        return Err(Error::Detour(Status::WrongVersion.to_string()));
+        return Err(DetourError::WrongVersion);
     }
 
     // Create tile
@@ -510,14 +509,11 @@ pub fn load_tile_from_binary(data: &[u8]) -> Result<MeshTile> {
 }
 
 /// Saves a navigation mesh tile to C++ binary format
-pub fn save_tile_to_binary(tile: &MeshTile) -> Result<Vec<u8>> {
+pub fn save_tile_to_binary(tile: &MeshTile) -> Result<Vec<u8>, DetourError> {
     let mut buffer = Vec::new();
 
     // Get tile header info
-    let header_info = tile
-        .header
-        .as_ref()
-        .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+    let header_info = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
     // Calculate BV quantization factor
     let bv_quant_factor = if tile.bvh_nodes.is_empty() {
@@ -653,7 +649,7 @@ struct NavMeshParamsData {
 }
 
 impl NavMeshSetHeader {
-    fn write_to<W: Write>(&self, writer: &mut W) -> Result<()> {
+    fn write_to<W: Write>(&self, writer: &mut W) -> Result<(), DetourError> {
         writer.write_u32::<LittleEndian>(self.magic)?;
         writer.write_u32::<LittleEndian>(self.version)?;
         writer.write_i32::<LittleEndian>(self.tile_count)?;
@@ -670,7 +666,7 @@ impl NavMeshSetHeader {
         Ok(())
     }
 
-    fn read_from<R: Read>(reader: &mut R) -> Result<Self> {
+    fn read_from<R: Read>(reader: &mut R) -> Result<Self, DetourError> {
         let magic = reader.read_u32::<LittleEndian>()?;
         let version = reader.read_u32::<LittleEndian>()?;
         let tile_count = reader.read_i32::<LittleEndian>()?;
@@ -701,7 +697,7 @@ impl NavMeshSetHeader {
 }
 
 /// Saves a complete multi-tile navigation mesh to binary format
-pub fn save_nav_mesh_to_binary(nav_mesh: &NavMesh) -> Result<Vec<u8>> {
+pub fn save_nav_mesh_to_binary(nav_mesh: &NavMesh) -> Result<Vec<u8>, DetourError> {
     let mut buffer = Vec::new();
 
     // Get all tiles
@@ -740,7 +736,7 @@ pub fn save_nav_mesh_to_binary(nav_mesh: &NavMesh) -> Result<Vec<u8>> {
 }
 
 /// Loads a complete navigation mesh from binary format (supports multi-tile)
-pub fn load_nav_mesh_from_binary(data: &[u8]) -> Result<NavMesh> {
+pub fn load_nav_mesh_from_binary(data: &[u8]) -> Result<NavMesh, DetourError> {
     let mut cursor = Cursor::new(data);
 
     // Check if this is a multi-tile format by peeking at magic/version
@@ -781,7 +777,7 @@ pub fn load_nav_mesh_from_binary(data: &[u8]) -> Result<NavMesh> {
                             let pos = cursor.position() as usize;
 
                             if pos + tile_size > data.len() {
-                                return Err(Error::Detour(Status::InvalidParam.to_string()));
+                                return Err(DetourError::InvalidParam);
                             }
 
                             let tile_data = &data[pos..pos + tile_size];
@@ -802,10 +798,7 @@ pub fn load_nav_mesh_from_binary(data: &[u8]) -> Result<NavMesh> {
     let tile = load_tile_from_binary(data)?;
 
     // Extract parameters from tile
-    let header = tile
-        .header
-        .as_ref()
-        .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
+    let header = tile.header.as_ref().ok_or(DetourError::InvalidParam)?;
 
     let params = NavMeshParams {
         origin: header.bmin,
@@ -837,11 +830,11 @@ pub fn get_tile_state_size(tile: &MeshTile) -> usize {
 }
 
 /// Stores tile state to a byte buffer
-pub fn store_tile_state(tile: &MeshTile, tile_ref: PolyRef) -> Result<Vec<u8>> {
+pub fn store_tile_state(tile: &MeshTile, tile_ref: PolyRef) -> Result<Vec<u8>, DetourError> {
     let header = tile
         .header
         .as_ref()
-        .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
+        .ok_or_else(|| DetourError::InvalidParam)?;
     let size = get_tile_state_size(tile);
     let mut buffer = Vec::with_capacity(size);
 
@@ -879,23 +872,27 @@ pub fn store_tile_state(tile: &MeshTile, tile_ref: PolyRef) -> Result<Vec<u8>> {
 }
 
 /// Restores tile state from a byte buffer
-pub fn restore_tile_state(tile: &mut MeshTile, data: &[u8], expected_ref: PolyRef) -> Result<()> {
+pub fn restore_tile_state(
+    tile: &mut MeshTile,
+    data: &[u8],
+    expected_ref: PolyRef,
+) -> Result<(), DetourError> {
     let header = tile
         .header
         .as_ref()
-        .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
+        .ok_or_else(|| DetourError::InvalidParam)?;
     let mut cursor = Cursor::new(data);
 
     // Read and validate header
     let state_header = TileState::read_from(&mut cursor)?;
     if state_header.magic != DT_NAVMESH_STATE_MAGIC {
-        return Err(Error::Detour(Status::WrongMagic.to_string()));
+        return Err(DetourError::WrongMagic);
     }
     if state_header.version != DT_NAVMESH_STATE_VERSION {
-        return Err(Error::Detour(Status::WrongVersion.to_string()));
+        return Err(DetourError::WrongVersion);
     }
     if state_header.tile_ref != expected_ref {
-        return Err(Error::Detour(Status::InvalidParam.to_string()));
+        return Err(DetourError::InvalidParam);
     }
 
     // Skip alignment

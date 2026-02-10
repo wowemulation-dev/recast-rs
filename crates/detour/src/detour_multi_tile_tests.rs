@@ -8,10 +8,9 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
-    use recast_common::Result;
 
     /// Helper to create a simple 2x2 tile mesh
-    fn create_2x2_tile_mesh() -> Result<NavMesh> {
+    fn create_2x2_tile_mesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
         let tile_size = 10.0;
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
@@ -142,7 +141,7 @@ mod tests {
 
     /// Test basic multi-tile mesh creation
     #[test]
-    fn test_multi_tile_creation() -> Result<()> {
+    fn test_multi_tile_creation() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_2x2_tile_mesh()?;
 
         assert_eq!(nav_mesh.get_max_tiles(), 4, "Should support 4 tiles");
@@ -160,7 +159,7 @@ mod tests {
 
     /// Test navigation across tile boundaries
     #[test]
-    fn test_cross_tile_navigation() -> Result<()> {
+    fn test_cross_tile_navigation() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_2x2_tile_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -194,7 +193,7 @@ mod tests {
 
     /// Test queries near tile boundaries
     #[test]
-    fn test_tile_boundary_queries() -> Result<()> {
+    fn test_tile_boundary_queries() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_2x2_tile_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -218,7 +217,7 @@ mod tests {
 
     /// Test adding and removing tiles dynamically
     #[test]
-    fn test_dynamic_tile_management() -> Result<()> {
+    fn test_dynamic_tile_management() -> Result<(), Box<dyn std::error::Error>> {
         let tile_size = 10.0;
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
@@ -286,7 +285,7 @@ mod tests {
 
     /// Test tile coordinate calculations
     #[test]
-    fn test_tile_coordinate_conversion() -> Result<()> {
+    fn test_tile_coordinate_conversion() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_2x2_tile_mesh()?;
 
         // Test various world positions to tile coordinates
@@ -315,7 +314,7 @@ mod tests {
 
     /// Test maximum tile limit
     #[test]
-    fn test_maximum_tile_limit() -> Result<()> {
+    fn test_maximum_tile_limit() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -372,7 +371,7 @@ mod tests {
     /// Test pathfinding performance across many tiles
     #[test]
     #[ignore] // Can be expensive, run with --ignored flag
-    fn test_large_multi_tile_pathfinding() -> Result<()> {
+    fn test_large_multi_tile_pathfinding() -> Result<(), Box<dyn std::error::Error>> {
         // Create a larger grid (10x10 tiles)
         let grid_size = 10;
         let tile_size = 10.0;
@@ -493,7 +492,7 @@ mod tests {
 
     /// Test tile layer support
     #[test]
-    fn test_tile_layers() -> Result<()> {
+    fn test_tile_layers() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -559,7 +558,7 @@ mod tests {
 
     /// Test tile connection validation
     #[test]
-    fn test_tile_connection_validation() -> Result<()> {
+    fn test_tile_connection_validation() -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Test that tiles properly connect at boundaries
         // - Verify portal edges are created
         // - Test disconnected tiles don't create invalid paths
@@ -569,7 +568,7 @@ mod tests {
 
     /// Test tile reference encoding/decoding
     #[test]
-    fn test_tile_reference_encoding() -> Result<()> {
+    fn test_tile_reference_encoding() -> Result<(), Box<dyn std::error::Error>> {
         // Test encoding and decoding of tile references
         let test_cases = vec![
             (0, 0),

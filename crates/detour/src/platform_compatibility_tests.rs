@@ -6,13 +6,12 @@
 #[cfg(test)]
 mod tests {
     use crate::{NavMesh, NavMeshParams, PolyFlags, PolyRef, QueryFilter};
-    use recast_common::Result;
     use std::mem;
     use std::path::{Path, PathBuf};
 
     /// Test file path handling across platforms
     #[test]
-    fn test_cross_platform_paths() -> Result<()> {
+    fn test_cross_platform_paths() -> Result<(), Box<dyn std::error::Error>> {
         // Test various path formats
         let test_paths = vec![
             "assets/test.obj",
@@ -44,7 +43,7 @@ mod tests {
 
     /// Test endianness handling for serialization
     #[test]
-    fn test_endianness_handling() -> Result<()> {
+    fn test_endianness_handling() -> Result<(), Box<dyn std::error::Error>> {
         // Create test data with known values
         let test_u16: u16 = 0x1234;
         let test_u32: u32 = 0x12345678;
@@ -82,7 +81,7 @@ mod tests {
 
     /// Test memory alignment requirements
     #[test]
-    fn test_memory_alignment() -> Result<()> {
+    fn test_memory_alignment() -> Result<(), Box<dyn std::error::Error>> {
         // Test structure alignment
         assert_eq!(
             mem::align_of::<NavMeshParams>() % 4,
@@ -109,7 +108,7 @@ mod tests {
 
     /// Test floating point precision across platforms
     #[test]
-    fn test_floating_point_consistency() -> Result<()> {
+    fn test_floating_point_consistency() -> Result<(), Box<dyn std::error::Error>> {
         // Test that floating point operations are consistent
         let a = 0.1_f32;
         let b = 0.2_f32;
@@ -165,7 +164,7 @@ mod tests {
 
     /// Test NavMesh creation with extreme values
     #[test]
-    fn test_extreme_values_handling() -> Result<()> {
+    fn test_extreme_values_handling() -> Result<(), Box<dyn std::error::Error>> {
         // Test with very large world coordinates
         let params = NavMeshParams {
             origin: [1e6, 0.0, 1e6],
@@ -248,7 +247,7 @@ mod tests {
 
     /// Test coordinate system consistency
     #[test]
-    fn test_coordinate_system_consistency() -> Result<()> {
+    fn test_coordinate_system_consistency() -> Result<(), Box<dyn std::error::Error>> {
         // Recast uses Y-up coordinate system
         // Test that our math operations preserve this
 
@@ -318,7 +317,7 @@ mod tests {
 
     /// Test that NavMesh handles different coordinate scales
     #[test]
-    fn test_coordinate_scale_handling() -> Result<()> {
+    fn test_coordinate_scale_handling() -> Result<(), Box<dyn std::error::Error>> {
         // Test meter scale
         let meter_params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],

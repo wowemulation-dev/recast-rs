@@ -8,10 +8,9 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
-    use recast_common::Result;
 
     /// Helper to create a grid mesh for spatial query testing
-    fn create_grid_mesh(grid_size: i32) -> Result<NavMesh> {
+    fn create_grid_mesh(grid_size: i32) -> Result<NavMesh, Box<dyn std::error::Error>> {
         let cell_size = 2.0;
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
@@ -136,7 +135,7 @@ mod tests {
 
     /// Test query_polygons within bounds
     #[test]
-    fn test_query_polygons_in_bounds() -> Result<()> {
+    fn test_query_polygons_in_bounds() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -160,7 +159,7 @@ mod tests {
 
     /// Test query with empty bounds
     #[test]
-    fn test_query_empty_bounds() -> Result<()> {
+    fn test_query_empty_bounds() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -177,7 +176,7 @@ mod tests {
 
     /// Test query with inverted bounds
     #[test]
-    fn test_query_inverted_bounds() -> Result<()> {
+    fn test_query_inverted_bounds() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -195,7 +194,7 @@ mod tests {
 
     /// Test query entire mesh
     #[test]
-    fn test_query_entire_mesh() -> Result<()> {
+    fn test_query_entire_mesh() -> Result<(), Box<dyn std::error::Error>> {
         let grid_size = 5;
         let nav_mesh = create_grid_mesh(grid_size)?;
         let _query = NavMeshQuery::new(&nav_mesh);
@@ -219,7 +218,7 @@ mod tests {
 
     /// Test find_polys_around_circle
     #[test]
-    fn test_find_polys_around_circle() -> Result<()> {
+    fn test_find_polys_around_circle() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -249,7 +248,7 @@ mod tests {
 
     /// Test find_polys_around_circle with zero radius
     #[test]
-    fn test_find_polys_circle_zero_radius() -> Result<()> {
+    fn test_find_polys_circle_zero_radius() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -277,7 +276,7 @@ mod tests {
 
     /// Test find_polys_around_circle with large radius
     #[test]
-    fn test_find_polys_circle_large_radius() -> Result<()> {
+    fn test_find_polys_circle_large_radius() -> Result<(), Box<dyn std::error::Error>> {
         let grid_size = 5;
         let nav_mesh = create_grid_mesh(grid_size)?;
         let mut query = NavMeshQuery::new(&nav_mesh);
@@ -348,7 +347,7 @@ mod tests {
     /// Test find_polys_in_path (when implemented)
     #[test]
     #[ignore] // Enable when method is implemented
-    fn test_find_polys_in_path() -> Result<()> {
+    fn test_find_polys_in_path() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let mut query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -375,7 +374,7 @@ mod tests {
 
     /// Test spatial queries with filters
     #[test]
-    fn test_spatial_queries_with_filters() -> Result<()> {
+    fn test_spatial_queries_with_filters() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let query = NavMeshQuery::new(&nav_mesh);
 
@@ -406,7 +405,7 @@ mod tests {
     /// Test query performance with large bounds
     #[test]
     #[ignore] // Performance test - run with --ignored
-    fn test_query_performance_large_bounds() -> Result<()> {
+    fn test_query_performance_large_bounds() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(50)?; // Large grid
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -431,7 +430,7 @@ mod tests {
 
     /// Test query with BVH tree optimization
     #[test]
-    fn test_query_with_bvh_optimization() -> Result<()> {
+    fn test_query_with_bvh_optimization() -> Result<(), Box<dyn std::error::Error>> {
         // Create mesh with BVH tree
         let nav_mesh = create_grid_mesh(10)?;
         let _query = NavMeshQuery::new(&nav_mesh);
@@ -456,7 +455,7 @@ mod tests {
 
     /// Test overlapping spatial queries
     #[test]
-    fn test_overlapping_spatial_queries() -> Result<()> {
+    fn test_overlapping_spatial_queries() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -484,7 +483,7 @@ mod tests {
 
     /// Test query at mesh boundaries
     #[test]
-    fn test_query_at_mesh_boundaries() -> Result<()> {
+    fn test_query_at_mesh_boundaries() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_grid_mesh(5)?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();

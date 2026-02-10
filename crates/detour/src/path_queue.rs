@@ -1,5 +1,5 @@
+use crate::error::DetourError;
 use crate::{NavMesh, NavMeshQuery, PolyRef, QueryFilter, Status};
-use recast_common::Error;
 
 pub const DT_PATHQ_INVALID: u32 = 0;
 const MAX_QUEUE: usize = 8;
@@ -68,7 +68,7 @@ impl<'a> DtPathQueue<'a> {
         max_path_size: usize,
         _max_search_node_count: usize,
         nav: &'a NavMesh,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, DetourError> {
         self.max_path_size = max_path_size;
 
         // Initialize the navigation mesh query
@@ -79,7 +79,7 @@ impl<'a> DtPathQueue<'a> {
         Ok(true)
     }
 
-    pub fn update(&mut self, max_iters: usize) -> Result<(), Error> {
+    pub fn update(&mut self, max_iters: usize) -> Result<(), DetourError> {
         let mut iter_count = 0;
 
         // Process pending queries
@@ -202,7 +202,7 @@ impl<'a> DtPathQueue<'a> {
         reference: DtPathQueueRef,
         path: &mut Vec<PolyRef>,
         max_path: usize,
-    ) -> Result<Status, Error> {
+    ) -> Result<Status, DetourError> {
         for query in &self.queue {
             if query.reference == reference {
                 if query.status == Status::Success {

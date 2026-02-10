@@ -7,7 +7,6 @@
 mod tests {
     use crate::nav_mesh_query::NavMeshQuery;
     use crate::{NavMesh, NavMeshParams, PolyRef, QueryFilter};
-    use recast_common::Result;
 
     #[test]
     fn test_navmesh_invalid_params() {
@@ -55,7 +54,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_invalid_polygon_refs() -> Result<()> {
+    fn test_query_invalid_polygon_refs() -> Result<(), Box<dyn std::error::Error>> {
         // Create minimal valid navmesh
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
@@ -90,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_invalid_positions() -> Result<()> {
+    fn test_query_invalid_positions() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -126,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_invalid_extents() -> Result<()> {
+    fn test_query_invalid_extents() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -161,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_invalid_directions() -> Result<()> {
+    fn test_raycast_invalid_directions() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -198,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_invalid_distances() -> Result<()> {
+    fn test_raycast_invalid_distances() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -232,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pathfinding_invalid_params() -> Result<()> {
+    fn test_pathfinding_invalid_params() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -265,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sliced_pathfinding_invalid_params() -> Result<()> {
+    fn test_sliced_pathfinding_invalid_params() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -297,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn test_query_filter_edge_cases() -> Result<()> {
+    fn test_query_filter_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 10.0,
@@ -347,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn test_concurrent_access_safety() -> Result<()> {
+    fn test_concurrent_access_safety() -> Result<(), Box<dyn std::error::Error>> {
         // Test that read-only queries are safe for concurrent access
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],

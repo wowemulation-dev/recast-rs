@@ -8,10 +8,9 @@ mod tests {
     use crate::nav_mesh_query::NavMeshQuery;
     use crate::test_mesh_helpers::*;
     use crate::{PolyFlags, QueryFilter};
-    use recast_common::Result;
 
     #[test]
-    fn test_basic_raycast_scenarios() -> Result<()> {
+    fn test_basic_raycast_scenarios() -> Result<(), Box<dyn std::error::Error>> {
         println!("Creating minimal test mesh...");
         let nav_mesh = create_minimal_test_navmesh()?;
         println!("Created nav mesh successfully");
@@ -52,13 +51,13 @@ mod tests {
             }
             Err(e) => {
                 println!("Failed to find polygon: {:?}", e);
-                Err(e)
+                Err(e.into())
             }
         }
     }
 
     #[test]
-    fn test_raycast_wall_intersections() -> Result<()> {
+    fn test_raycast_wall_intersections() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -90,7 +89,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_across_polygons() -> Result<()> {
+    fn test_raycast_across_polygons() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -134,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_edge_cases() -> Result<()> {
+    fn test_raycast_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -174,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_precision_edge_cases() -> Result<()> {
+    fn test_raycast_precision_edge_cases() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -210,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_filter_interactions() -> Result<()> {
+    fn test_raycast_filter_interactions() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
 
@@ -243,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_multi_polygon_traversal() -> Result<()> {
+    fn test_raycast_multi_polygon_traversal() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_complex_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -293,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_boundary_detection() -> Result<()> {
+    fn test_raycast_boundary_detection() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -358,7 +357,7 @@ mod tests {
     }
 
     #[test]
-    fn test_raycast_iteration_limits() -> Result<()> {
+    fn test_raycast_iteration_limits() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_large_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();

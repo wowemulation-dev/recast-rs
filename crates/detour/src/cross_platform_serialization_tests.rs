@@ -8,12 +8,11 @@ mod tests {
     use crate::binary_format::{DT_NAVMESH_MAGIC, DT_NAVMESH_VERSION};
     use crate::{NavMeshParams, PolyFlags, PolyRef};
     use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
-    use recast_common::Result;
     use std::io::Cursor;
 
     /// Test that we can write and read data in little-endian format
     #[test]
-    fn test_little_endian_serialization() -> Result<()> {
+    fn test_little_endian_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let mut buffer = Vec::new();
 
         // Write test data in little-endian
@@ -34,7 +33,7 @@ mod tests {
 
     /// Test that we can write and read data in big-endian format
     #[test]
-    fn test_big_endian_serialization() -> Result<()> {
+    fn test_big_endian_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let mut buffer = Vec::new();
 
         // Write test data in big-endian
@@ -55,7 +54,7 @@ mod tests {
 
     /// Test cross-endian compatibility
     #[test]
-    fn test_cross_endian_compatibility() -> Result<()> {
+    fn test_cross_endian_compatibility() -> Result<(), Box<dyn std::error::Error>> {
         // Write in little-endian
         let mut le_buffer = Vec::new();
         le_buffer.write_u32::<LittleEndian>(0x12345678)?;
@@ -86,7 +85,7 @@ mod tests {
 
     /// Test PolyRef serialization consistency
     #[test]
-    fn test_polyref_serialization() -> Result<()> {
+    fn test_polyref_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let poly_refs = vec![
             PolyRef::new(0),
             PolyRef::new(1),
@@ -117,7 +116,7 @@ mod tests {
 
     /// Test floating point array serialization
     #[test]
-    fn test_float_array_serialization() -> Result<()> {
+    fn test_float_array_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let positions: Vec<[f32; 3]> = vec![
             [1.0, 2.0, 3.0],
             [-1.0, -2.0, -3.0],
@@ -161,7 +160,7 @@ mod tests {
 
     /// Test struct padding and alignment in serialization
     #[test]
-    fn test_struct_padding() -> Result<()> {
+    fn test_struct_padding() -> Result<(), Box<dyn std::error::Error>> {
         #[repr(C)]
         struct TestStruct {
             a: u8,
@@ -205,7 +204,7 @@ mod tests {
 
     /// Test serialization of navigation mesh parameters
     #[test]
-    fn test_navmesh_params_serialization() -> Result<()> {
+    fn test_navmesh_params_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [100.0, 200.0, 300.0],
             tile_width: 32.0,
@@ -250,7 +249,7 @@ mod tests {
 
     /// Test bitflags serialization
     #[test]
-    fn test_bitflags_serialization() -> Result<()> {
+    fn test_bitflags_serialization() -> Result<(), Box<dyn std::error::Error>> {
         let flags_values = vec![
             PolyFlags::WALK,
             PolyFlags::SWIM,

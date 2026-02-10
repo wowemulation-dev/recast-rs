@@ -8,10 +8,9 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
-    use recast_common::Result;
 
     /// Helper to create a mesh with multiple area types
-    fn create_multi_area_mesh() -> Result<NavMesh> {
+    fn create_multi_area_mesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
         let params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 20.0,
@@ -114,7 +113,7 @@ mod tests {
 
     /// Test basic flag filtering
     #[test]
-    fn test_flag_filtering() -> Result<()> {
+    fn test_flag_filtering() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -141,7 +140,7 @@ mod tests {
 
     /// Test area cost modifications
     #[test]
-    fn test_area_costs() -> Result<()> {
+    fn test_area_costs() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -187,7 +186,7 @@ mod tests {
 
     /// Test include flags
     #[test]
-    fn test_include_flags() -> Result<()> {
+    fn test_include_flags() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -209,7 +208,7 @@ mod tests {
 
     /// Test combining include and exclude flags
     #[test]
-    fn test_combined_flag_filtering() -> Result<()> {
+    fn test_combined_flag_filtering() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -229,7 +228,7 @@ mod tests {
 
     /// Test zero area cost
     #[test]
-    fn test_zero_area_cost() -> Result<()> {
+    fn test_zero_area_cost() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -258,7 +257,7 @@ mod tests {
 
     /// Test negative area cost (invalid)
     #[test]
-    fn test_negative_area_cost() -> Result<()> {
+    fn test_negative_area_cost() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
 
@@ -279,7 +278,7 @@ mod tests {
 
     /// Test maximum area cost
     #[test]
-    fn test_maximum_area_cost() -> Result<()> {
+    fn test_maximum_area_cost() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
@@ -307,7 +306,7 @@ mod tests {
 
     /// Test filter with custom area assignments
     #[test]
-    fn test_custom_area_filtering() -> Result<()> {
+    fn test_custom_area_filtering() -> Result<(), Box<dyn std::error::Error>> {
         // This tests that different area types are properly respected
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
@@ -331,7 +330,7 @@ mod tests {
 
     /// Test empty flag filters
     #[test]
-    fn test_empty_flag_filters() -> Result<()> {
+    fn test_empty_flag_filters() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
 
@@ -352,7 +351,7 @@ mod tests {
 
     /// Test all flags set
     #[test]
-    fn test_all_flags_set() -> Result<()> {
+    fn test_all_flags_set() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
 
@@ -371,7 +370,7 @@ mod tests {
 
     /// Test pathfinding with different filters
     #[test]
-    fn test_pathfinding_filter_variations() -> Result<()> {
+    fn test_pathfinding_filter_variations() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_multi_area_mesh()?;
         let mut query = NavMeshQuery::new(&nav_mesh);
 
