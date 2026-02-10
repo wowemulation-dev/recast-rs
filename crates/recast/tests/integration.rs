@@ -75,15 +75,15 @@ fn nav_test_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("nav_test.obj");
 
     // Current Rust output (regression test)
-    // After fixing compact heightfield y/h semantics and connection criteria (was 2580/4344)
-    assert_eq!(poly_mesh.npolys, 1894);
-    assert_eq!(poly_mesh.nverts, 3114);
-    assert_eq!(detail_mesh.vert_count, 3164);
-    assert_eq!(detail_mesh.tri_count, 3774);
+    // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
+    assert_eq!(poly_mesh.npolys, 644);
+    assert_eq!(poly_mesh.nverts, 1346);
+    assert_eq!(detail_mesh.vert_count, 1346);
+    assert_eq!(detail_mesh.tri_count, 1337);
 }
 
 #[test]
-#[ignore = "Rust produces ~3.5x more polygons than C++; remaining pipeline divergence"]
+#[ignore = "Rust produces ~1.2x more polygons than C++; remaining region merging divergence"]
 fn nav_test_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
@@ -114,15 +114,15 @@ fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
     // Current Rust output (regression test)
-    // After fixing compact heightfield y/h semantics and connection criteria (was 1091/2073)
-    assert_eq!(poly_mesh.npolys, 908);
-    assert_eq!(poly_mesh.nverts, 1771);
-    assert_eq!(detail_mesh.vert_count, 1771);
-    assert_eq!(detail_mesh.tri_count, 1770);
+    // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
+    assert_eq!(poly_mesh.npolys, 304);
+    assert_eq!(poly_mesh.nverts, 529);
+    assert_eq!(detail_mesh.vert_count, 529);
+    assert_eq!(detail_mesh.tri_count, 577);
 }
 
 #[test]
-#[ignore = "Rust produces ~4.2x more polygons than C++; remaining pipeline divergence"]
+#[ignore = "Rust produces ~1.4x more polygons than C++; remaining region merging divergence"]
 fn dungeon_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("dungeon.obj");
 
@@ -154,15 +154,16 @@ fn bridge_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("bridge.obj");
 
     // Current Rust output (regression test)
-    // After fixing compact heightfield y/h semantics and connection criteria (was 56/116)
-    assert_eq!(poly_mesh.npolys, 52);
-    assert_eq!(poly_mesh.nverts, 141);
-    assert_eq!(detail_mesh.vert_count, 141);
-    assert_eq!(detail_mesh.tri_count, 104);
+    // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
+    // Bridge now matches C++ exactly
+    assert_eq!(poly_mesh.npolys, 8);
+    assert_eq!(poly_mesh.nverts, 18);
+    assert_eq!(detail_mesh.vert_count, 18);
+    assert_eq!(detail_mesh.tri_count, 16);
 }
 
 #[test]
-#[ignore = "Rust produces ~6.5x more polygons than C++; remaining pipeline divergence"]
+#[ignore = "bridge matches C++ polygon count; grid_width off-by-one remains"]
 fn bridge_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("bridge.obj");
 
