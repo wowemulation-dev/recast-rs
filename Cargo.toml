@@ -7,6 +7,7 @@ members = [
     "crates/detour-tilecache",
     "crates/detour-dynamic",
     "crates/recast-cli",
+    "examples",
 ]
 resolver = "3"
 

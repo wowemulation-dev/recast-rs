@@ -1,0 +1,36 @@
+[package]
+name = "recast-rs-examples"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+recast-common = { workspace = true }
+recast = { workspace = true }
+detour = { workspace = true, features = ["serialization"] }
+detour-crowd = { workspace = true }
+detour-tilecache = { workspace = true, features = ["serialization"] }
+glam = { workspace = true }
+
+[lints]
+workspace = true
+
+[[example]]
+name = "basic_navmesh"
+path = "examples/basic_navmesh.rs"
+
+[[example]]
+name = "pathfinding"
+path = "examples/pathfinding.rs"
+
+[[example]]
+name = "crowd_simulation"
+path = "examples/crowd_simulation.rs"
+
+[[example]]
+name = "tilecache_obstacles"
+path = "examples/tilecache_obstacles.rs"
+
+[[example]]
+name = "serialization"
+path = "examples/serialization.rs"

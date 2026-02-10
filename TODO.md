@@ -60,7 +60,7 @@ Zero examples exist. Create `examples/` workspace crate with shared
 helpers and 5 examples. See roadmap section 2.1 for API call sequences
 and expected output.
 
-- [ ] Create `examples/` crate, add to workspace members, add `data/nav_test.obj` (113 KB)
+- [x] Create `examples/` crate, add to workspace members, add `data/nav_test.obj` (113 KB)
 - [ ] Write shared helpers in `src/common.rs` (`build_navmesh_from_obj`, `print_stats`)
 - [ ] `basic_navmesh.rs` -- Recast generation pipeline, print stats
 - [ ] `pathfinding.rs` -- OBJ to navmesh to A* path to waypoints
