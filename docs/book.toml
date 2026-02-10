@@ -1,0 +1,13 @@
+[book]
+title = "recast-rs"
+authors = ["WoW Emulation"]
+description = "Navigation mesh generation and pathfinding in Rust"
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/wowemulation-dev/recast-rs"
+edit-url-template = "https://github.com/wowemulation-dev/recast-rs/edit/main/docs/{path}"

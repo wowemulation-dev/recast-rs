@@ -17,3 +17,6 @@ Thumbs.db
 
 # Rust/Cargo
 /target/
+
+# mdbook output
+/docs/book/
