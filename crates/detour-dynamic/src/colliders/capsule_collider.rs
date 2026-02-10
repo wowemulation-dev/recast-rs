@@ -1,9 +1,9 @@
 //! Capsule collider implementation matching
 
 use super::{Collider, ColliderType, base::ColliderBase};
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 /// A capsule collider (cylinder with hemispherical caps) matching 's DtCapsuleCollider
@@ -85,7 +85,7 @@ impl Collider for CapsuleCollider {
         cell_size: f32,
         cell_height: f32,
         world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeCapsule
         // For now, we'll use a simple voxel-based approach
         // TODO: Implement proper capsule rasterization in recast crate

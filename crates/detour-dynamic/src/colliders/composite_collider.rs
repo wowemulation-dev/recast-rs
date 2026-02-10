@@ -1,9 +1,9 @@
 //! Composite collider implementation matching
 
 use super::{Collider, ColliderType};
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -146,7 +146,7 @@ impl Collider for CompositeCollider {
         cell_size: f32,
         cell_height: f32,
         world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         // Rasterize all child colliders
         for collider in &self.colliders {
             collider.rasterize(heightfield, cell_size, cell_height, world_min)?;

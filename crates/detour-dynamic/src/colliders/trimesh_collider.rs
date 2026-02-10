@@ -1,9 +1,9 @@
 //! Triangle mesh collider implementation matching
 
 use super::{Collider, ColliderType, base::ColliderBase};
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 /// A triangle mesh collider matching 's DtTrimeshCollider
@@ -113,7 +113,7 @@ impl Collider for TrimeshCollider {
         _cell_size: f32,
         cell_height: f32,
         _world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeTrimesh
         // Calculate flag merge threshold in heightfield units
         let flag_merge_threshold = (self.base.flag_merge_threshold / cell_height).floor() as i32;

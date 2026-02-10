@@ -1,9 +1,9 @@
 //! Cylinder collider implementation matching
 
 use super::{Collider, ColliderType, base::ColliderBase};
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 /// A cylindrical collider matching 's DtCylinderCollider
@@ -94,7 +94,7 @@ impl Collider for CylinderCollider {
         cell_size: f32,
         cell_height: f32,
         world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeCylinder
         // For now, we'll use a simple voxel-based approach
         // TODO: Implement proper cylinder rasterization in recast crate

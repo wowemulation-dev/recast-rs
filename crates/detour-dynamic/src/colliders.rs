@@ -9,9 +9,9 @@ pub mod cylinder_collider;
 pub mod sphere_collider;
 pub mod trimesh_collider;
 
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 // Re-export collider types
@@ -52,7 +52,7 @@ pub trait Collider: std::any::Any + Send + Sync {
         cell_size: f32,
         cell_height: f32,
         world_min: &Vec3,
-    ) -> Result<()>;
+    ) -> Result<(), DynamicError>;
 
     /// Get a unique identifier for this collider type
     fn collider_type(&self) -> ColliderType;

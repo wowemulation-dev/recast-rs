@@ -82,9 +82,13 @@ pub mod colliders;
 pub mod config;
 pub mod dynamic_navmesh;
 pub mod dynamic_tile;
+pub mod error;
 pub mod io;
 pub mod jobs;
 pub mod voxel_query;
+
+// Re-export error type
+pub use error::DynamicError;
 
 // Re-export main types
 pub use checkpoint::{CheckpointManager, DynamicTileCheckpoint};

@@ -1,6 +1,5 @@
 use super::{ColliderAdditionJob, ColliderRemovalJob};
-use crate::{colliders::Collider, dynamic_tile::DynamicTile};
-use recast_common::Result;
+use crate::{colliders::Collider, dynamic_tile::DynamicTile, error::DynamicError};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -10,7 +9,7 @@ pub trait DynamicTileJob {
     fn affected_tiles(&self) -> &HashSet<(i32, i32)>;
 
     /// Process this job on the given tile
-    fn process(&self, tile: &mut DynamicTile) -> Result<()>;
+    fn process(&self, tile: &mut DynamicTile) -> Result<(), DynamicError>;
 
     /// Get a description of this job for debugging
     fn description(&self) -> String;
@@ -39,7 +38,7 @@ impl JobProcessor {
     pub fn process_jobs_for_tiles(
         &mut self,
         tiles: &mut std::collections::HashMap<(i32, i32), DynamicTile>,
-    ) -> Result<usize> {
+    ) -> Result<usize, DynamicError> {
         let mut processed_count = 0;
 
         // Process jobs in order
@@ -92,7 +91,7 @@ impl JobProcessor {
     pub fn process_all_jobs_on_tiles(
         &mut self,
         tiles: &mut std::collections::HashMap<(i32, i32), DynamicTile>,
-    ) -> Result<usize> {
+    ) -> Result<usize, DynamicError> {
         let mut processed_count = 0;
 
         // Process jobs in order
@@ -152,7 +151,7 @@ mod tests {
             &self.affected_tiles
         }
 
-        fn process(&self, _tile: &mut DynamicTile) -> Result<()> {
+        fn process(&self, _tile: &mut DynamicTile) -> Result<(), DynamicError> {
             // Test job does nothing
             Ok(())
         }

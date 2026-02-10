@@ -1,9 +1,9 @@
 //! Convex triangle mesh collider implementation matching
 
 use super::{Collider, ColliderType, base::ColliderBase};
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 ///
@@ -82,7 +82,7 @@ impl Collider for ConvexTrimeshCollider {
         _cell_size: f32,
         cell_height: f32,
         _world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeConvex
         // This is optimized for convex meshes
         let flag_merge_threshold = (self.base.flag_merge_threshold / cell_height).floor() as i16;

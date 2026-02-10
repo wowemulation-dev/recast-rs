@@ -1,7 +1,7 @@
 use super::DynamicTileJob;
 use crate::colliders::Collider;
 use crate::dynamic_tile::DynamicTile;
-use recast_common::Result;
+use crate::error::DynamicError;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -35,7 +35,7 @@ impl DynamicTileJob for ColliderAdditionJob {
         &self.affected_tiles
     }
 
-    fn process(&self, tile: &mut DynamicTile) -> Result<()> {
+    fn process(&self, tile: &mut DynamicTile) -> Result<(), DynamicError> {
         // Add the collider to this tile
         tile.add_collider(self.collider_id, self.collider.clone())?;
 

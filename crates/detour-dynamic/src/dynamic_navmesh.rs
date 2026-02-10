@@ -6,13 +6,13 @@
 use crate::colliders::Collider;
 use crate::config::DynamicNavMeshConfig;
 use crate::dynamic_tile::{DynamicTile, DynamicTileManager};
+use crate::error::DynamicError;
 use crate::io::{VoxelFile, VoxelTile};
 use crate::jobs::{DynamicTileJob, JobProcessor};
 use crate::voxel_query::{VoxelQuery, VoxelRaycastHit};
 use detour::{NavMesh, NavMeshParams};
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{
@@ -49,8 +49,8 @@ pub struct DynamicNavMesh {
 
 impl DynamicNavMesh {
     /// Create a new dynamic navigation mesh
-    pub fn new(config: DynamicNavMeshConfig) -> Result<Self> {
-        config.validate().map_err(recast_common::Error::Recast)?;
+    pub fn new(config: DynamicNavMeshConfig) -> Result<Self, DynamicError> {
+        config.validate().map_err(DynamicError::InvalidConfig)?;
 
         let tile_manager = DynamicTileManager::new(config.clone());
         let job_processor = JobProcessor::new();
@@ -90,7 +90,7 @@ impl DynamicNavMesh {
         })
     }
 
-    pub fn from_voxel_file(voxel_file: VoxelFile) -> Result<Self> {
+    pub fn from_voxel_file(voxel_file: VoxelFile) -> Result<Self, DynamicError> {
         // Create config from voxel file parameters
         let mut config = DynamicNavMeshConfig::new(
             voxel_file.use_tiles,
@@ -173,7 +173,7 @@ impl DynamicNavMesh {
     }
 
     /// Add a tile from voxel data
-    fn add_voxel_tile(&mut self, voxel_tile: VoxelTile) -> Result<()> {
+    fn add_voxel_tile(&mut self, voxel_tile: VoxelTile) -> Result<(), DynamicError> {
         // Create dynamic tile from voxel tile
         let tile = DynamicTile::from_voxel(voxel_tile, self.config.clone())?;
 
@@ -188,14 +188,18 @@ impl DynamicNavMesh {
         config: DynamicNavMeshConfig,
         grid_width: i32,
         grid_height: i32,
-    ) -> Result<Self> {
+    ) -> Result<Self, DynamicError> {
         let mut dynamic_navmesh = Self::new(config)?;
         dynamic_navmesh.initialize_tile_grid(grid_width, grid_height)?;
         Ok(dynamic_navmesh)
     }
 
     /// Initialize a grid of tiles covering the world bounds
-    pub fn initialize_tile_grid(&mut self, grid_width: i32, grid_height: i32) -> Result<()> {
+    pub fn initialize_tile_grid(
+        &mut self,
+        grid_width: i32,
+        grid_height: i32,
+    ) -> Result<(), DynamicError> {
         let world_size_x = self.config.world_max.x - self.config.world_min.x;
         let world_size_z = self.config.world_max.z - self.config.world_min.z;
 
@@ -222,14 +226,20 @@ impl DynamicNavMesh {
     }
 
     /// Add a tile synchronously (helper for initialization)
-    fn add_tile_sync(&mut self, x: i32, y: i32, bounds_min: Vec3, bounds_max: Vec3) -> Result<()> {
+    fn add_tile_sync(
+        &mut self,
+        x: i32,
+        y: i32,
+        bounds_min: Vec3,
+        bounds_max: Vec3,
+    ) -> Result<(), DynamicError> {
         let tile = DynamicTile::new(x, y, bounds_min, bounds_max, self.config.clone());
         let key = Self::lookup_key(x, y);
         self.tiles.insert(key, tile);
         Ok(())
     }
 
-    pub fn add_collider(&mut self, collider: Arc<dyn Collider>) -> Result<u64> {
+    pub fn add_collider(&mut self, collider: Arc<dyn Collider>) -> Result<u64, DynamicError> {
         let collider_id = self.current_collider_id.fetch_add(1, Ordering::SeqCst);
 
         let (collider_min, collider_max) = collider.bounds();
@@ -254,14 +264,14 @@ impl DynamicNavMesh {
             affected_tiles.into_iter().collect(),
         );
 
-        self.job_sender.send(Box::new(job)).map_err(|_| {
-            recast_common::Error::Recast("Failed to queue collider addition job".to_string())
-        })?;
+        self.job_sender
+            .send(Box::new(job))
+            .map_err(|_| DynamicError::JobQueueFull)?;
 
         Ok(collider_id)
     }
 
-    pub fn remove_collider(&mut self, collider_id: u64) -> Result<()> {
+    pub fn remove_collider(&mut self, collider_id: u64) -> Result<(), DynamicError> {
         let affected_tile_refs = self.get_tiles_by_collider(collider_id);
         let affected_tiles: Vec<(i32, i32)> = affected_tile_refs
             .iter()
@@ -271,14 +281,14 @@ impl DynamicNavMesh {
         let job =
             crate::jobs::ColliderRemovalJob::new(collider_id, affected_tiles.into_iter().collect());
 
-        self.job_sender.send(Box::new(job)).map_err(|_| {
-            recast_common::Error::Recast("Failed to queue collider removal job".to_string())
-        })?;
+        self.job_sender
+            .send(Box::new(job))
+            .map_err(|_| DynamicError::JobQueueFull)?;
 
         Ok(())
     }
 
-    pub fn update(&mut self) -> Result<bool> {
+    pub fn update(&mut self) -> Result<bool, DynamicError> {
         let affected_tile_coords = self.process_queue()?;
 
         if !affected_tile_coords.is_empty() {
@@ -294,7 +304,10 @@ impl DynamicNavMesh {
     }
 
     /// Rebuild specific affected tiles
-    fn rebuild_affected_tiles(&mut self, _affected_tile_coords: &[(i32, i32)]) -> Result<()> {
+    fn rebuild_affected_tiles(
+        &mut self,
+        _affected_tile_coords: &[(i32, i32)],
+    ) -> Result<(), DynamicError> {
         // For simplicity, rebuild all tiles that need rebuilding
         // In a real implementation, we'd only rebuild the specific affected tiles
         let tile_keys: Vec<i64> = self.tiles.keys().copied().collect();
@@ -315,7 +328,7 @@ impl DynamicNavMesh {
         &mut self,
         tile_coords: Vec<(i32, i32)>,
         force_full_rebuild: bool,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         for coords in tile_coords {
             self.job_processor.rebuild_tile(coords, force_full_rebuild);
         }
@@ -323,7 +336,7 @@ impl DynamicNavMesh {
     }
 
     /// Update the navigation mesh from all tiles
-    pub fn update_nav_mesh(&mut self) -> Result<bool> {
+    pub fn update_nav_mesh(&mut self) -> Result<bool, DynamicError> {
         if !self.dirty {
             return Ok(false);
         }
@@ -378,7 +391,7 @@ impl DynamicNavMesh {
     }
 
     /// Initialize the global voxel query system
-    pub fn initialize_voxel_query(&mut self) -> Result<()> {
+    pub fn initialize_voxel_query(&mut self) -> Result<(), DynamicError> {
         self.voxel_query = Some(self.create_voxel_query());
         Ok(())
     }
@@ -491,7 +504,7 @@ impl DynamicNavMesh {
             .collect()
     }
 
-    fn process_queue(&mut self) -> Result<Vec<(i32, i32)>> {
+    fn process_queue(&mut self) -> Result<Vec<(i32, i32)>, DynamicError> {
         let jobs = self.consume_queue();
         let mut affected_tile_coords = Vec::new();
 
@@ -555,13 +568,13 @@ impl DynamicNavMesh {
         Vec::new()
     }
 
-    pub fn build(&mut self) -> Result<()> {
+    pub fn build(&mut self) -> Result<(), DynamicError> {
         self.process_queue()?;
         self.rebuild_all_tiles()
     }
 
     /// Rebuild all tiles
-    fn rebuild_all_tiles(&mut self) -> Result<()> {
+    fn rebuild_all_tiles(&mut self) -> Result<(), DynamicError> {
         let tile_keys: Vec<i64> = self.tiles.keys().copied().collect();
 
         for key in tile_keys {
@@ -578,7 +591,7 @@ impl DynamicNavMesh {
     }
 
     /// This performs a full build of all tiles with optimized performance
-    pub async fn build_async(&mut self) -> Result<bool> {
+    pub async fn build_async(&mut self) -> Result<bool, DynamicError> {
         // Process all pending jobs first (using new queue system)
         let _affected_coords = self.process_queue()?;
 
@@ -687,7 +700,7 @@ impl DynamicNavMesh {
     ///
     /// Note: In Rust, we execute the update synchronously within an async context.
     /// For true parallelism, tiles would need to be thread-safe (Send + Sync).
-    pub async fn update_async(&mut self) -> Result<bool> {
+    pub async fn update_async(&mut self) -> Result<bool, DynamicError> {
         // Simply delegate to the synchronous update method
         // This implements pattern where Update(TaskFactory) processes tiles
         self.update()

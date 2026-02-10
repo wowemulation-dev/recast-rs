@@ -1,6 +1,6 @@
 use super::DynamicTileJob;
 use crate::dynamic_tile::DynamicTile;
-use recast_common::Result;
+use crate::error::DynamicError;
 use std::collections::HashSet;
 
 /// Job for removing a collider from dynamic tiles
@@ -26,7 +26,7 @@ impl DynamicTileJob for ColliderRemovalJob {
         &self.affected_tiles
     }
 
-    fn process(&self, tile: &mut DynamicTile) -> Result<()> {
+    fn process(&self, tile: &mut DynamicTile) -> Result<(), DynamicError> {
         // Remove the collider from this tile
         let removed = tile.remove_collider(self.collider_id);
 

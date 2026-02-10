@@ -6,12 +6,12 @@
 
 use crate::colliders::Collider;
 use crate::config::DynamicNavMeshConfig;
+use crate::error::DynamicError;
 use crate::io::VoxelTile;
 use crate::voxel_query::VoxelQuery;
 use async_lock::RwLock;
 use glam::Vec3;
 use recast::{CompactHeightfield, ContourSet, Heightfield, PolyMesh, PolyMeshDetail};
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -59,7 +59,7 @@ pub struct DynamicTile {
     pub heightfield: Option<Heightfield>,
     /// Current compact heightfield (if available)
     pub compact_heightfield: Option<CompactHeightfield>,
-    /// Current contour set (if available)  
+    /// Current contour set (if available)
     pub contour_set: Option<ContourSet>,
     /// Current polygon mesh (if available)
     pub poly_mesh: Option<PolyMesh>,
@@ -103,7 +103,10 @@ impl DynamicTile {
         }
     }
 
-    pub fn from_voxel(voxel_tile: VoxelTile, config: DynamicNavMeshConfig) -> Result<Self> {
+    pub fn from_voxel(
+        voxel_tile: VoxelTile,
+        config: DynamicNavMeshConfig,
+    ) -> Result<Self, DynamicError> {
         // Reconstruct the heightfield from voxel span data
         let heightfield = Self::reconstruct_heightfield(&voxel_tile)?;
 
@@ -144,7 +147,7 @@ impl DynamicTile {
         Ok(tile)
     }
 
-    fn reconstruct_heightfield(voxel_tile: &VoxelTile) -> Result<Heightfield> {
+    fn reconstruct_heightfield(voxel_tile: &VoxelTile) -> Result<Heightfield, DynamicError> {
         let mut heightfield = Heightfield::new(
             voxel_tile.width,
             voxel_tile.depth,
@@ -169,9 +172,11 @@ impl DynamicTile {
 
         // Pre-validate total data size to avoid per-iteration checks
         if span_data.len() < total_cells as usize * 2 {
-            return Err(recast_common::Error::Recast(
-                "Invalid span data: insufficient data for span counts".to_string(),
-            ));
+            return Err(DynamicError::InvalidSpanData {
+                x: 0,
+                y: 0,
+                detail: "insufficient data for span counts".to_string(),
+            });
         }
 
         // Process spans in bulk for better cache performance
@@ -179,13 +184,15 @@ impl DynamicTile {
             for x in 0..voxel_tile.width {
                 // Bounds check only once per cell
                 if position + 2 > span_data.len() {
-                    return Err(recast_common::Error::Recast(format!(
-                        "Invalid span data at cell ({}, {}): position {} exceeds data length {}",
-                        x,
-                        z,
-                        position,
-                        span_data.len()
-                    )));
+                    return Err(DynamicError::InvalidSpanData {
+                        x: x as i32,
+                        y: z as i32,
+                        detail: format!(
+                            "position {} exceeds data length {}",
+                            position,
+                            span_data.len()
+                        ),
+                    });
                 }
 
                 // Read span count using unsafe for performance (data already validated)
@@ -205,13 +212,15 @@ impl DynamicTile {
                 // Validate we have enough data for all spans in this cell
                 let required_span_data = span_count * 12; // 12 bytes per span
                 if position + required_span_data > span_data.len() {
-                    return Err(recast_common::Error::Recast(format!(
-                        "Invalid span data at cell ({}, {}): need {} bytes but only {} available",
-                        x,
-                        z,
-                        required_span_data,
-                        span_data.len() - position
-                    )));
+                    return Err(DynamicError::InvalidSpanData {
+                        x: x as i32,
+                        y: z as i32,
+                        detail: format!(
+                            "need {} bytes but only {} available",
+                            required_span_data,
+                            span_data.len() - position
+                        ),
+                    });
                 }
 
                 // Process all spans for this cell
@@ -296,7 +305,11 @@ impl DynamicTile {
     }
 
     /// Add a collider to this tile
-    pub fn add_collider(&mut self, id: u64, collider: Arc<dyn Collider>) -> Result<()> {
+    pub fn add_collider(
+        &mut self,
+        id: u64,
+        collider: Arc<dyn Collider>,
+    ) -> Result<(), DynamicError> {
         let (collider_min, collider_max) = collider.bounds();
 
         // Only add if the collider overlaps with this tile
@@ -348,7 +361,7 @@ impl DynamicTile {
 
     /// Create a checkpoint of the current build state
     /// Note: Simplified checkpoint system - full serialization requires Serialize traits on Recast types
-    pub fn create_checkpoint(&mut self) -> Result<()> {
+    pub fn create_checkpoint(&mut self) -> Result<(), DynamicError> {
         let checkpoint = TileCheckpoint {
             heightfield: Vec::new(), // Placeholder - would need custom serialization
             compact_heightfield: None,
@@ -369,7 +382,7 @@ impl DynamicTile {
 
     /// Restore from the most recent checkpoint
     /// Note: Simplified restoration - would need custom deserialization for full functionality
-    pub fn restore_from_checkpoint(&mut self) -> Result<bool> {
+    pub fn restore_from_checkpoint(&mut self) -> Result<bool, DynamicError> {
         if self.checkpoints.last().is_some() {
             // For now, just clear the navigation mesh data to force a rebuild
             self.clear_navmesh_data();
@@ -380,7 +393,7 @@ impl DynamicTile {
     }
 
     /// Initialize the voxel query system for this tile
-    pub fn initialize_voxel_query(&mut self) -> Result<()> {
+    pub fn initialize_voxel_query(&mut self) -> Result<(), DynamicError> {
         let tile_size_x = self.bounds_max.x - self.bounds_min.x;
         let tile_size_z = self.bounds_max.z - self.bounds_min.z;
 
@@ -405,7 +418,7 @@ impl DynamicTile {
     }
 
     /// Rasterize all active colliders into the heightfield
-    pub fn rasterize_colliders(&mut self) -> Result<()> {
+    pub fn rasterize_colliders(&mut self) -> Result<(), DynamicError> {
         if let Some(ref mut heightfield) = self.heightfield {
             for collider in self.active_colliders.values() {
                 collider.rasterize(
@@ -436,12 +449,12 @@ impl DynamicTile {
     /// Build the navigation mesh for this tile through the complete Recast pipeline
     ///
     /// This method processes heightfield data through all stages:
-    /// 1. Heightfield → CompactHeightfield (filtering and compaction)
-    /// 2. CompactHeightfield → Regions (watershed partitioning)  
-    /// 3. Regions → Contours (edge extraction)
-    /// 4. Contours → PolyMesh (polygon generation)
-    /// 5. PolyMesh → DetailMesh (triangle mesh generation)
-    pub fn build(&mut self) -> Result<bool> {
+    /// 1. Heightfield -> CompactHeightfield (filtering and compaction)
+    /// 2. CompactHeightfield -> Regions (watershed partitioning)
+    /// 3. Regions -> Contours (edge extraction)
+    /// 4. Contours -> PolyMesh (polygon generation)
+    /// 5. PolyMesh -> DetailMesh (triangle mesh generation)
+    pub fn build(&mut self) -> Result<bool, DynamicError> {
         self.mark_building();
 
         // Step 1: Initialize heightfield if needed
@@ -483,7 +496,7 @@ impl DynamicTile {
     }
 
     /// Initialize the heightfield for this tile
-    fn initialize_heightfield(&mut self) -> Result<()> {
+    fn initialize_heightfield(&mut self) -> Result<(), DynamicError> {
         use recast::Heightfield;
 
         // Calculate heightfield dimensions based on tile bounds and cell size
@@ -505,7 +518,7 @@ impl DynamicTile {
     }
 
     /// Apply standard heightfield filters
-    fn apply_heightfield_filters(&mut self) -> Result<()> {
+    fn apply_heightfield_filters(&mut self) -> Result<(), DynamicError> {
         if let Some(ref mut heightfield) = self.heightfield {
             // Convert heights to span units (divide by cell_height)
             let walkable_height_spans =
@@ -530,7 +543,7 @@ impl DynamicTile {
     }
 
     /// Build compact heightfield from heightfield
-    fn build_compact_heightfield(&mut self) -> Result<()> {
+    fn build_compact_heightfield(&mut self) -> Result<(), DynamicError> {
         if let Some(ref heightfield) = self.heightfield {
             let compact_hf = recast::CompactHeightfield::build_from_heightfield(heightfield)?;
             self.compact_heightfield = Some(compact_hf);
@@ -539,7 +552,7 @@ impl DynamicTile {
     }
 
     /// Build regions from compact heightfield
-    fn build_regions(&mut self) -> Result<()> {
+    fn build_regions(&mut self) -> Result<(), DynamicError> {
         if let Some(ref mut compact_hf) = self.compact_heightfield {
             match self.config.partition {
                 0 => {
@@ -569,9 +582,7 @@ impl DynamicTile {
                     )?;
                 }
                 _ => {
-                    return Err(recast_common::Error::Recast(
-                        "Invalid partition type".to_string(),
-                    ));
+                    return Err(DynamicError::InvalidPartitionType);
                 }
             }
         }
@@ -579,7 +590,7 @@ impl DynamicTile {
     }
 
     /// Build contours from regions
-    fn build_contours(&mut self) -> Result<()> {
+    fn build_contours(&mut self) -> Result<(), DynamicError> {
         if let Some(ref compact_hf) = self.compact_heightfield {
             let contour_set = recast::ContourSet::build_from_compact_heightfield(
                 compact_hf,
@@ -594,7 +605,7 @@ impl DynamicTile {
     }
 
     /// Build polygon mesh from contours
-    fn build_poly_mesh(&mut self) -> Result<()> {
+    fn build_poly_mesh(&mut self) -> Result<(), DynamicError> {
         if let Some(ref contour_set) = self.contour_set {
             let poly_mesh = recast::PolyMesh::build_from_contour_set(
                 contour_set,
@@ -606,7 +617,7 @@ impl DynamicTile {
     }
 
     /// Build detail mesh from polygon mesh
-    fn build_detail_mesh(&mut self) -> Result<()> {
+    fn build_detail_mesh(&mut self) -> Result<(), DynamicError> {
         if let (Some(compact_hf), Some(poly_mesh)) = (&self.compact_heightfield, &self.poly_mesh) {
             let detail_mesh = recast::PolyMeshDetail::build_from_poly_mesh(
                 poly_mesh,
@@ -669,7 +680,7 @@ impl DynamicTile {
     pub fn create_nav_mesh_data(
         &self,
         nav_mesh_params: &detour::NavMeshParams,
-    ) -> Result<Option<Vec<u8>>> {
+    ) -> Result<Option<Vec<u8>>, DynamicError> {
         // If we don't have a poly mesh, we can't create nav mesh data
         let poly_mesh = match &self.poly_mesh {
             Some(pm) => pm,
@@ -782,7 +793,7 @@ impl DynamicTile {
         &self,
         nav_mesh: &mut detour::NavMesh,
         nav_mesh_params: &detour::NavMeshParams,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         if let Some(mesh_data) = self.create_nav_mesh_data(nav_mesh_params)? {
             // Add tile to navigation mesh
             // The tile reference will be stored internally by the NavMesh
@@ -817,7 +828,7 @@ impl DynamicTile {
     ///
     /// On platforms with tokio support, this runs the build in a thread pool.
     /// On WASM and other platforms, this runs synchronously but yields periodically.
-    pub async fn build_async(&mut self) -> Result<bool> {
+    pub async fn build_async(&mut self) -> Result<bool, DynamicError> {
         // Run the synchronous build
         // Note: For true async behavior on native platforms, enable the `tokio` feature
         // which would allow using spawn_blocking for CPU-intensive builds
@@ -826,7 +837,10 @@ impl DynamicTile {
     }
 
     /// Build from existing heightfield data (e.g., loaded from voxel file)
-    pub fn build_from_heightfield(&mut self, heightfield: Heightfield) -> Result<bool> {
+    pub fn build_from_heightfield(
+        &mut self,
+        heightfield: Heightfield,
+    ) -> Result<bool, DynamicError> {
         self.heightfield = Some(heightfield);
         self.build()
     }
@@ -911,7 +925,13 @@ impl DynamicTileManager {
 
     /// Add a new tile to the manager
     #[allow(clippy::arc_with_non_send_sync)]
-    pub async fn add_tile(&self, x: i32, y: i32, bounds_min: Vec3, bounds_max: Vec3) -> Result<()> {
+    pub async fn add_tile(
+        &self,
+        x: i32,
+        y: i32,
+        bounds_min: Vec3,
+        bounds_max: Vec3,
+    ) -> Result<(), DynamicError> {
         let tile = Arc::new(RwLock::new(DynamicTile::new(
             x,
             y,
@@ -927,7 +947,7 @@ impl DynamicTileManager {
     }
 
     /// Remove a tile from the manager
-    pub async fn remove_tile(&self, x: i32, y: i32) -> Result<bool> {
+    pub async fn remove_tile(&self, x: i32, y: i32) -> Result<bool, DynamicError> {
         let mut tiles = self.tiles.write().await;
         Ok(tiles.remove(&(x, y)).is_some())
     }
@@ -939,7 +959,7 @@ impl DynamicTileManager {
     }
 
     /// Add a collider that affects multiple tiles
-    pub async fn add_collider(&self, collider: Arc<dyn Collider>) -> Result<u64> {
+    pub async fn add_collider(&self, collider: Arc<dyn Collider>) -> Result<u64, DynamicError> {
         let id = self
             .next_collider_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -965,7 +985,7 @@ impl DynamicTileManager {
     }
 
     /// Remove a collider by ID
-    pub async fn remove_collider(&self, id: u64) -> Result<bool> {
+    pub async fn remove_collider(&self, id: u64) -> Result<bool, DynamicError> {
         // Remove from global registry
         let removed = {
             let mut colliders = self.colliders.write().await;

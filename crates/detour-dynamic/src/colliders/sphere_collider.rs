@@ -1,9 +1,9 @@
 //! Sphere collider implementation matching
 
 use super::{Collider, ColliderType, base::ColliderBase, utils};
+use crate::error::DynamicError;
 use glam::Vec3;
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 /// A spherical collider matching 's DtSphereCollider
@@ -68,7 +68,7 @@ impl Collider for SphereCollider {
         cell_size: f32,
         cell_height: f32,
         world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         let (aabb_min, aabb_max) = self.bounds();
 
         // Calculate grid bounds to check

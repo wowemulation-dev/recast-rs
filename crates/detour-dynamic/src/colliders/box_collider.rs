@@ -1,9 +1,9 @@
 //! Box collider implementation matching
 
 use super::{Collider, ColliderType, base::ColliderBase, utils};
+use crate::error::DynamicError;
 use glam::{Mat3, Vec3};
 use recast::Heightfield;
-use recast_common::Result;
 use serde::{Deserialize, Serialize};
 
 /// A box-shaped collider with arbitrary orientation matching 's DtBoxCollider
@@ -175,7 +175,7 @@ impl Collider for BoxCollider {
         cell_size: f32,
         cell_height: f32,
         world_min: &Vec3,
-    ) -> Result<()> {
+    ) -> Result<(), DynamicError> {
         let (aabb_min, aabb_max) = self.bounds();
 
         // Calculate grid bounds to check
@@ -324,7 +324,7 @@ mod tests {
 
         let (min, max) = box_collider.bounds();
 
-        // For axis-aligned box, bounds should match center ± half_extents
+        // For axis-aligned box, bounds should match center +/- half_extents
         assert!((min.x - 3.0).abs() < 1e-6);
         assert!((min.y - 4.0).abs() < 1e-6);
         assert!((min.z - 2.0).abs() < 1e-6);
