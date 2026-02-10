@@ -64,7 +64,7 @@ and expected output.
 - [x] Write shared helpers in `src/common.rs` (`build_navmesh_from_obj`, `print_stats`)
 - [x] `basic_navmesh.rs` -- Recast generation pipeline, print stats
 - [x] `pathfinding.rs` -- OBJ to navmesh to A* path to waypoints
-- [ ] `crowd_simulation.rs` -- Multi-agent crowd with RVO, 100-frame loop
+- [x] `crowd_simulation.rs` -- Multi-agent crowd with RVO, 100-frame loop
 - [ ] `tilecache_obstacles.rs` -- Add/remove obstacles, path before/after
 - [ ] `serialization.rs` -- JSON and postcard round-trip (requires `serialization` feature)
 
