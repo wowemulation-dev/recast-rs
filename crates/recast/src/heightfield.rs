@@ -208,14 +208,14 @@ impl Heightfield {
 
             // If there's no next span, add new span at the end
             let next_opt = curr.borrow().next.clone();
-            if next_opt.is_none() {
+            if let Some(next) = next_opt {
+                // Move to next span
+                prev = Some(curr);
+                curr = next;
+            } else {
                 curr.borrow_mut().next = Some(new_span);
                 break;
             }
-
-            // Move to next span
-            prev = Some(curr);
-            curr = next_opt.unwrap();
         }
 
         Ok(())

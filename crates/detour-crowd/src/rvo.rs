@@ -220,7 +220,7 @@ impl RVOSimulator {
         }
 
         // Sort neighbors by distance and limit to max_neighbors
-        neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         neighbors.truncate(max_neighbors);
 
         // Compute ORCA lines for each neighbor

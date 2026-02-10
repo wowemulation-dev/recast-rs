@@ -285,10 +285,6 @@ impl TileCache {
 
     /// Adds a tile to the cache with optional compression
     pub fn add_tile(&mut self, data: &[u8], flags: u8, result: &mut PolyRef) -> Result<()> {
-        if self.next_free.is_none() {
-            return Err(Error::Detour(Status::OutOfMemory.to_string()));
-        }
-
         // Compress the tile data if it's not already compressed
         let compressed_data = if (flags & 0x01) != 0 {
             // Data is already compressed
@@ -298,9 +294,13 @@ impl TileCache {
             self.compress_tile(data)?
         };
 
-        // Allocate a tile
-        let free_idx = self.next_free.unwrap();
-        let mut tile_entry = self.tiles[free_idx].take().unwrap();
+        // Allocate a tile from the free list
+        let free_idx = self
+            .next_free
+            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let mut tile_entry = self.tiles[free_idx]
+            .take()
+            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
         self.next_free = tile_entry.next;
 
         // Parse the tile header from compressed data
@@ -344,12 +344,10 @@ impl TileCache {
             return Err(Error::Detour(Status::InvalidParam.to_string()));
         }
 
-        if self.tiles[tile_idx].is_none() {
-            return Err(Error::Detour(Status::NotFound.to_string()));
-        }
-
         // Remove the tile
-        let mut tile_entry = self.tiles[tile_idx].take().unwrap();
+        let mut tile_entry = self.tiles[tile_idx]
+            .take()
+            .ok_or_else(|| Error::Detour(Status::NotFound.to_string()))?;
 
         // Remove from lookup
         self.pos_lookup.remove(&(
@@ -371,13 +369,13 @@ impl TileCache {
 
     /// Adds a cylinder obstacle to the cache
     pub fn add_obstacle(&mut self, pos: [f32; 3], radius: f32, height: f32) -> Result<u32> {
-        if self.next_free_obstacle.is_none() {
-            return Err(Error::Detour(Status::OutOfMemory.to_string()));
-        }
-
-        // Allocate an obstacle
-        let free_idx = self.next_free_obstacle.unwrap();
-        let mut obstacle = self.obstacles[free_idx].take().unwrap();
+        // Allocate an obstacle from the free list
+        let free_idx = self
+            .next_free_obstacle
+            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let mut obstacle = self.obstacles[free_idx]
+            .take()
+            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
         self.next_free_obstacle = obstacle.next;
 
         // Set obstacle properties
@@ -409,13 +407,13 @@ impl TileCache {
 
     /// Adds an axis-aligned box obstacle to the cache
     pub fn add_box_obstacle(&mut self, bmin: [f32; 3], bmax: [f32; 3]) -> Result<u32> {
-        if self.next_free_obstacle.is_none() {
-            return Err(Error::Detour(Status::OutOfMemory.to_string()));
-        }
-
-        // Allocate an obstacle
-        let free_idx = self.next_free_obstacle.unwrap();
-        let mut obstacle = self.obstacles[free_idx].take().unwrap();
+        // Allocate an obstacle from the free list
+        let free_idx = self
+            .next_free_obstacle
+            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let mut obstacle = self.obstacles[free_idx]
+            .take()
+            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
         self.next_free_obstacle = obstacle.next;
 
         // Set obstacle properties
@@ -456,13 +454,13 @@ impl TileCache {
         half_extents: [f32; 3],
         y_radians: f32,
     ) -> Result<u32> {
-        if self.next_free_obstacle.is_none() {
-            return Err(Error::Detour(Status::OutOfMemory.to_string()));
-        }
-
-        // Allocate an obstacle
-        let free_idx = self.next_free_obstacle.unwrap();
-        let mut obstacle = self.obstacles[free_idx].take().unwrap();
+        // Allocate an obstacle from the free list
+        let free_idx = self
+            .next_free_obstacle
+            .ok_or_else(|| Error::Detour(Status::OutOfMemory.to_string()))?;
+        let mut obstacle = self.obstacles[free_idx]
+            .take()
+            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?;
         self.next_free_obstacle = obstacle.next;
 
         // Calculate rotation auxiliary values
@@ -510,18 +508,19 @@ impl TileCache {
             return Err(Error::Detour(Status::InvalidParam.to_string()));
         }
 
-        if self.obstacles[obstacle_idx].is_none() {
-            return Err(Error::Detour(Status::NotFound.to_string()));
-        }
-
-        // Verify salt matches
-        let obstacle = self.obstacles[obstacle_idx].as_ref().unwrap();
-        if obstacle.salt != salt {
+        // Verify the obstacle exists and salt matches
+        let stored_salt = self.obstacles[obstacle_idx]
+            .as_ref()
+            .ok_or_else(|| Error::Detour(Status::NotFound.to_string()))?
+            .salt;
+        if stored_salt != salt {
             return Err(Error::Detour(Status::InvalidParam.to_string()));
         }
 
         // Remove the obstacle
-        let mut obstacle = self.obstacles[obstacle_idx].take().unwrap();
+        let mut obstacle = self.obstacles[obstacle_idx]
+            .take()
+            .ok_or_else(|| Error::Detour(Status::NotFound.to_string()))?;
 
         // Mark for removal
         obstacle.state = ObstacleState::Removing;
@@ -575,12 +574,13 @@ impl TileCache {
             }
         }
 
-        // Clean up removed obstacles
+        // Clean up removed obstacles - return empty obstacles to the free list
         for obstacle_idx in 0..self.obstacles.len() {
-            if let Some(obstacle) = &self.obstacles[obstacle_idx] {
-                if obstacle.state == ObstacleState::Empty {
-                    // Move obstacle to free list
-                    let mut obstacle = self.obstacles[obstacle_idx].take().unwrap();
+            let is_empty = self.obstacles[obstacle_idx]
+                .as_ref()
+                .is_some_and(|o| o.state == ObstacleState::Empty);
+            if is_empty {
+                if let Some(mut obstacle) = self.obstacles[obstacle_idx].take() {
                     obstacle.next = self.next_free_obstacle;
                     self.next_free_obstacle = Some(obstacle_idx);
                     self.obstacles[obstacle_idx] = Some(obstacle);
@@ -632,12 +632,13 @@ impl TileCache {
             }
         }
 
-        // Clean up removed obstacles
+        // Clean up removed obstacles - return empty obstacles to the free list
         for obstacle_idx in 0..self.obstacles.len() {
-            if let Some(obstacle) = &self.obstacles[obstacle_idx] {
-                if obstacle.state == ObstacleState::Empty {
-                    // Move obstacle to free list
-                    let mut obstacle = self.obstacles[obstacle_idx].take().unwrap();
+            let is_empty = self.obstacles[obstacle_idx]
+                .as_ref()
+                .is_some_and(|o| o.state == ObstacleState::Empty);
+            if is_empty {
+                if let Some(mut obstacle) = self.obstacles[obstacle_idx].take() {
                     obstacle.next = self.next_free_obstacle;
                     self.next_free_obstacle = Some(obstacle_idx);
                     self.obstacles[obstacle_idx] = Some(obstacle);

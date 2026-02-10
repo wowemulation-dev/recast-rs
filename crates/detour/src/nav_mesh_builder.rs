@@ -438,15 +438,15 @@ impl NavMeshBuilder {
                 tile.links.push(link);
 
                 // Update polygon's link list
-                if tile.polys[i].first_link.is_none() {
-                    tile.polys[i].first_link = Some(link_idx);
-                } else {
+                if let Some(first) = tile.polys[i].first_link {
                     // Find last link and append
-                    let mut last_idx = tile.polys[i].first_link.unwrap();
+                    let mut last_idx = first;
                     while let Some(next) = tile.links[last_idx].next {
                         last_idx = next as usize;
                     }
                     tile.links[last_idx].next = Some(link_idx as u32);
+                } else {
+                    tile.polys[i].first_link = Some(link_idx);
                 }
             }
         }
@@ -573,11 +573,9 @@ impl NavMeshBuilder {
         // Get source tile data first to avoid borrow checker issues
         let source_tile_data = {
             let source_tile = nav_mesh.get_tile_at(source_tx, source_ty, source_layer);
-            if source_tile.is_none() {
+            let Some(tile) = source_tile else {
                 return Ok(Vec::new());
-            }
-
-            let tile = source_tile.unwrap();
+            };
             let poly_count = tile.polys.len();
             let mut portal_edges = Vec::new();
 
@@ -659,11 +657,9 @@ impl NavMeshBuilder {
         side: i32,
     ) -> Result<Vec<super::PolyRef>> {
         let target_tile = nav_mesh.get_tile_at(target_tx, target_ty, target_layer);
-        if target_tile.is_none() {
+        let Some(tile) = target_tile else {
             return Ok(Vec::new());
-        }
-
-        let tile = target_tile.unwrap();
+        };
         let mut connections = Vec::new();
 
         // Calculate slab end points for the source edge

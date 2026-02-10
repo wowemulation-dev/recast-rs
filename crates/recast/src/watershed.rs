@@ -131,6 +131,25 @@ fn append_stacks(
     }
 }
 
+/// Resolves a cell index for a neighbor in the given direction.
+///
+/// When `span.con[dir]` indicates a connection exists, the neighbor cell's index
+/// should always be `Some`. A `None` value here would indicate a malformed compact
+/// heightfield. Returns `None` in that case so callers can skip the neighbor.
+fn resolve_neighbor_index(
+    chf: &CompactHeightfield,
+    x: i32,
+    y: i32,
+    dir: usize,
+    con_offset: usize,
+) -> Option<usize> {
+    let w = chf.width;
+    let ax = x + chf.get_dir_offset_x(dir);
+    let ay = y + chf.get_dir_offset_y(dir);
+    let cell = &chf.cells[(ay * w + ax) as usize];
+    Some(cell.index? + con_offset)
+}
+
 /// Flood fills a region starting from a seed
 #[allow(clippy::too_many_arguments)]
 fn flood_region(
@@ -144,7 +163,6 @@ fn flood_region(
     src_dist: &mut [u16],
     stack: &mut Vec<LevelStackEntry>,
 ) -> bool {
-    let w = chf.width;
     let area = chf.areas[i];
 
     // Flood fill mark region
@@ -169,9 +187,9 @@ fn flood_region(
         // Check all 4 directions
         for dir in 0..4 {
             if span.con[dir] != RC_NOT_CONNECTED {
-                let ax = cx + chf.get_dir_offset_x(dir);
-                let ay = cy + chf.get_dir_offset_y(dir);
-                let ai = chf.cells[(ay * w + ax) as usize].index.unwrap() + span.con[dir];
+                let Some(ai) = resolve_neighbor_index(chf, cx, cy, dir, span.con[dir]) else {
+                    continue;
+                };
 
                 if chf.areas[ai] != area {
                     continue;
@@ -193,10 +211,13 @@ fn flood_region(
                 let dir2 = (dir + 1) & 0x3;
 
                 if neighbor_span.con[dir2] != RC_NOT_CONNECTED {
-                    let ax2 = ax + chf.get_dir_offset_x(dir2);
-                    let ay2 = ay + chf.get_dir_offset_y(dir2);
-                    let ai2 = chf.cells[(ay2 * w + ax2) as usize].index.unwrap()
-                        + neighbor_span.con[dir2];
+                    let ax = cx + chf.get_dir_offset_x(dir);
+                    let ay = cy + chf.get_dir_offset_y(dir);
+                    let Some(ai2) =
+                        resolve_neighbor_index(chf, ax, ay, dir2, neighbor_span.con[dir2])
+                    else {
+                        continue;
+                    };
 
                     if chf.areas[ai2] != area {
                         continue;
@@ -221,9 +242,9 @@ fn flood_region(
         // Expand neighbours
         for dir in 0..4 {
             if span.con[dir] != RC_NOT_CONNECTED {
-                let ax = cx + chf.get_dir_offset_x(dir);
-                let ay = cy + chf.get_dir_offset_y(dir);
-                let ai = chf.cells[(ay * w + ax) as usize].index.unwrap() + span.con[dir];
+                let Some(ai) = resolve_neighbor_index(chf, cx, cy, dir, span.con[dir]) else {
+                    continue;
+                };
 
                 if chf.areas[ai] != area {
                     continue;
@@ -232,7 +253,11 @@ fn flood_region(
                 if chf.dist[ai] >= lev && src_reg[ai] == 0 {
                     src_reg[ai] = r;
                     src_dist[ai] = 0;
-                    stack.push(LevelStackEntry::new(ax, ay, ai));
+                    stack.push(LevelStackEntry::new(
+                        cx + chf.get_dir_offset_x(dir),
+                        cy + chf.get_dir_offset_y(dir),
+                        ai,
+                    ));
                 }
             }
         }
@@ -310,9 +335,9 @@ fn expand_regions(
                     continue;
                 }
 
-                let ax = x + chf.get_dir_offset_x(dir);
-                let ay = y + chf.get_dir_offset_y(dir);
-                let ai = chf.cells[(ay * w + ax) as usize].index.unwrap() + span.con[dir];
+                let Some(ai) = resolve_neighbor_index(chf, x, y, dir, span.con[dir]) else {
+                    continue;
+                };
 
                 if chf.areas[ai] != area {
                     continue;

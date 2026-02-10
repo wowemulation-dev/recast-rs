@@ -832,8 +832,17 @@ impl LayeredHeightfield {
         }
 
         // Calculate layer height range
-        let layer_min = spans.iter().map(|&(min, _, _)| min).min().unwrap();
-        let layer_max = spans.iter().map(|&(_, max, _)| max).max().unwrap();
+        // spans is guaranteed non-empty due to the early return above
+        let layer_min = spans
+            .iter()
+            .map(|&(min, _, _)| min)
+            .min()
+            .ok_or_else(|| Error::Recast("empty spans in add_spans_to_layer".to_string()))?;
+        let layer_max = spans
+            .iter()
+            .map(|&(_, max, _)| max)
+            .max()
+            .ok_or_else(|| Error::Recast("empty spans in add_spans_to_layer".to_string()))?;
 
         // Find or create appropriate layer
         let layer_idx = self.find_or_create_layer(layer_min, layer_max)?;

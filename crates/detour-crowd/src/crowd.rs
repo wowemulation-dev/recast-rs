@@ -615,30 +615,18 @@ impl<'a> Crowd<'a> {
 
         for &agent_idx in &active_agents {
             // Skip if agent doesn't exist or isn't active
-            let should_process = self.agents[agent_idx]
-                .as_ref()
-                .map(|a| a.state == AgentState::Active)
-                .unwrap_or(false);
-
-            if !should_process {
+            let Some(agent) = self.agents[agent_idx].as_ref() else {
+                continue;
+            };
+            if agent.state != AgentState::Active {
                 continue;
             }
 
             // Get agent data
-            let agent_data = self.agents[agent_idx]
-                .as_ref()
-                .map(|a| {
-                    (
-                        a.corridor.get_path().to_vec(),
-                        a.pos,
-                        a.params.radius,
-                        a.params.max_speed,
-                        a.corridor.get_target(),
-                    )
-                })
-                .unwrap();
-
-            let (path, agent_pos, _agent_radius, max_speed, target_pos) = agent_data;
+            let path = agent.corridor.get_path().to_vec();
+            let agent_pos = agent.pos;
+            let max_speed = agent.params.max_speed;
+            let target_pos = agent.corridor.get_target();
 
             // Calculate steering direction
             let mut steer_dir = [0.0; 3];

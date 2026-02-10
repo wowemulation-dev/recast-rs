@@ -210,14 +210,18 @@ impl<'a> SlicedPathfindingQuery<'a> {
             return Ok(self.state);
         }
 
-        // Get the next goal
-        let (goal_ref, goal_pos) = self.goal_queue.front().copied().unwrap();
+        // Get the next goal (safe: checked non-empty above)
+        let Some(&(goal_ref, goal_pos)) = self.goal_queue.front() else {
+            // Unreachable: we checked is_empty() above
+            self.state = SlicedPathState::Failed;
+            return Ok(self.state);
+        };
 
         // Determine start position for this segment
-        let segment_start_ref = if self.current_path.is_empty() {
-            self.start_ref
+        let segment_start_ref = if let Some(&last) = self.current_path.last() {
+            last
         } else {
-            *self.current_path.last().unwrap()
+            self.start_ref
         };
 
         let segment_start_pos = if self.current_path.is_empty() {
@@ -288,8 +292,10 @@ impl<'a> SlicedPathfindingQuery<'a> {
         } else {
             // Remove the first polygon of the segment path if it's the same as the last
             // polygon of the current path (to avoid duplication)
-            if !segment_path.is_empty() && segment_path[0] == *self.current_path.last().unwrap() {
-                segment_path.remove(0);
+            if let Some(&last) = self.current_path.last() {
+                if !segment_path.is_empty() && segment_path[0] == last {
+                    segment_path.remove(0);
+                }
             }
 
             // Append the segment path

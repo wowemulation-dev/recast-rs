@@ -379,7 +379,8 @@ impl HierarchicalPathfinder {
         let h_start = self.heuristic_cost(hierarchy_level, start_cluster, end_cluster);
         f_score.insert(start_cluster, h_start);
         open_set.push(Reverse((
-            ordered_float::NotNan::new(h_start).unwrap(),
+            ordered_float::NotNan::new(h_start)
+                .map_err(|_| Error::Detour(Status::Failure.to_string()))?,
             start_cluster,
         )));
 
@@ -417,7 +418,8 @@ impl HierarchicalPathfinder {
                     f_score.insert(neighbor, f_neighbor);
 
                     open_set.push(Reverse((
-                        ordered_float::NotNan::new(f_neighbor).unwrap(),
+                        ordered_float::NotNan::new(f_neighbor)
+                            .map_err(|_| Error::Detour(Status::Failure.to_string()))?,
                         neighbor,
                     )));
                 }

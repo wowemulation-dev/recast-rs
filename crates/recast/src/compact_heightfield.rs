@@ -8,7 +8,7 @@ use glam::Vec3;
 
 use super::heightfield::Heightfield;
 use super::watershed;
-use recast_common::Result;
+use recast_common::{Error, Result};
 
 /// A compact cell in the heightfield
 #[derive(Debug, Clone)]
@@ -203,7 +203,9 @@ impl CompactHeightfield {
         for z in 0..height {
             for x in 0..width {
                 let _cell_index = (z * width + x) as usize;
-                let column = heightfield.spans.get(&(x, z)).unwrap();
+                let column = heightfield.spans.get(&(x, z)).ok_or_else(|| {
+                    Error::Recast(format!("heightfield missing column at ({x}, {z})"))
+                })?;
 
                 // If the column has no spans, add an empty cell
                 if column.is_none() {

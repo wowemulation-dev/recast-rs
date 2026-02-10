@@ -1146,9 +1146,11 @@ impl PolyMeshDetail {
 
                 // Update polygon info in merged mesh
                 merged.poly_tri_count.push(mesh.poly_tri_count[poly_idx]);
-                merged
-                    .poly_start
-                    .push(merged.poly_start.last().unwrap() + num_tris);
+                // poly_start is guaranteed non-empty (initialized with 0 above)
+                let last_start = merged.poly_start.last().copied().ok_or_else(|| {
+                    Error::NavMeshGeneration("poly_start is unexpectedly empty".to_string())
+                })?;
+                merged.poly_start.push(last_start + num_tris);
                 merged.poly_count += 1;
 
                 // Copy triangles, adjusting vertex indices

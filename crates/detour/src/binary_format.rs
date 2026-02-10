@@ -825,11 +825,9 @@ pub fn load_nav_mesh_from_binary(data: &[u8]) -> Result<NavMesh> {
 
 /// Gets the size needed to store tile state
 pub fn get_tile_state_size(tile: &MeshTile) -> usize {
-    if tile.header.is_none() {
+    let Some(header) = tile.header.as_ref() else {
         return 0;
-    }
-
-    let header = tile.header.as_ref().unwrap();
+    };
 
     // Calculate aligned sizes
     let header_size = align4(std::mem::size_of::<TileState>());
@@ -840,11 +838,10 @@ pub fn get_tile_state_size(tile: &MeshTile) -> usize {
 
 /// Stores tile state to a byte buffer
 pub fn store_tile_state(tile: &MeshTile, tile_ref: PolyRef) -> Result<Vec<u8>> {
-    if tile.header.is_none() {
-        return Err(Error::Detour(Status::InvalidParam.to_string()));
-    }
-
-    let header = tile.header.as_ref().unwrap();
+    let header = tile
+        .header
+        .as_ref()
+        .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
     let size = get_tile_state_size(tile);
     let mut buffer = Vec::with_capacity(size);
 
@@ -883,11 +880,10 @@ pub fn store_tile_state(tile: &MeshTile, tile_ref: PolyRef) -> Result<Vec<u8>> {
 
 /// Restores tile state from a byte buffer
 pub fn restore_tile_state(tile: &mut MeshTile, data: &[u8], expected_ref: PolyRef) -> Result<()> {
-    if tile.header.is_none() {
-        return Err(Error::Detour(Status::InvalidParam.to_string()));
-    }
-
-    let header = tile.header.as_ref().unwrap();
+    let header = tile
+        .header
+        .as_ref()
+        .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
     let mut cursor = Cursor::new(data);
 
     // Read and validate header

@@ -1378,8 +1378,12 @@ impl NavMesh {
         // Get polygon data for both tiles
         {
             let tiles = &self.tiles;
-            let tile_a = tiles[tile_a_idx].as_ref().unwrap();
-            let tile_b = tiles[tile_b_idx].as_ref().unwrap();
+            let tile_a = tiles[tile_a_idx]
+                .as_ref()
+                .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
+            let tile_b = tiles[tile_b_idx]
+                .as_ref()
+                .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
 
             // Check each polygon in tile A
             for (poly_a_idx, poly_a) in tile_a.polys.iter().enumerate() {
@@ -1561,13 +1565,10 @@ impl NavMesh {
             .tiles
             .get_mut(tile_idx)
             .ok_or(Error::Detour(Status::InvalidParam.to_string()))?;
-
-        if tile.is_none() {
-            return Err(Error::Detour(Status::InvalidParam.to_string()));
-        }
-
         // Remove the tile
-        let old_tile = tile.take().unwrap();
+        let old_tile = tile
+            .take()
+            .ok_or_else(|| Error::Detour(Status::InvalidParam.to_string()))?;
 
         // Remove tile from the hash lookup
         if let Some(header) = &old_tile.header {
@@ -4030,6 +4031,12 @@ impl NavMesh {
             (connections, polys_to_check)
         };
 
+        let tile_salt = self.tiles[tile_idx]
+            .as_ref()
+            .ok_or_else(|| Error::Detour(Status::Failure.to_string()))?
+            .salt
+            & DT_SALT_MASK;
+
         // Now check which ground polygons should connect to off-mesh connections
         // And create bidirectional links
         for (con_idx, (con_poly_ref, start_pos, end_pos, radius)) in tile_data.0.iter().enumerate()
@@ -4077,21 +4084,15 @@ impl NavMesh {
 
             // Link from off-mesh connection to START polygon (for knowing where it starts)
             if let Some(start_idx) = start_poly_idx {
-                let start_poly_ref = encode_poly_ref_with_salt(
-                    self.tiles[tile_idx].as_ref().unwrap().salt & DT_SALT_MASK,
-                    actual_tile_id,
-                    start_idx as u32,
-                );
+                let start_poly_ref =
+                    encode_poly_ref_with_salt(tile_salt, actual_tile_id, start_idx as u32);
                 self.add_link_to_polygon(tile_idx, off_mesh_poly_idx, start_poly_ref, 0, 0xFF, 0)?;
             }
 
             // IMPORTANT: Link from off-mesh connection to END polygon (for pathfinding continuation)
             if let Some(end_idx) = end_poly_idx {
-                let end_poly_ref = encode_poly_ref_with_salt(
-                    self.tiles[tile_idx].as_ref().unwrap().salt & DT_SALT_MASK,
-                    actual_tile_id,
-                    end_idx as u32,
-                );
+                let end_poly_ref =
+                    encode_poly_ref_with_salt(tile_salt, actual_tile_id, end_idx as u32);
                 self.add_link_to_polygon(tile_idx, off_mesh_poly_idx, end_poly_ref, 1, 0xFF, 0)?;
             }
 
@@ -4157,15 +4158,15 @@ impl NavMesh {
 
             // Update the polygon's link chain using the established pattern
             let poly = &mut tile.polys[request.source_poly];
-            if poly.first_link.is_none() {
-                poly.first_link = Some(link_idx);
-            } else {
+            if let Some(first) = poly.first_link {
                 // Find the last link in the chain and append
-                let mut current_idx = poly.first_link.unwrap();
+                let mut current_idx = first;
                 while let Some(next_idx) = tile.links[current_idx].next {
                     current_idx = next_idx as usize;
                 }
                 tile.links[current_idx].next = Some(link_idx as u32);
+            } else {
+                poly.first_link = Some(link_idx);
             }
         } else {
             return Err(Error::Detour("Source tile not accessible".to_string()));

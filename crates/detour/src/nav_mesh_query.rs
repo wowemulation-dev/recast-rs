@@ -430,12 +430,11 @@ impl<'a> NavMeshQuery<'a> {
         let mut best_node_cost = self.node_pool[start_node_idx].h;
 
         let mut _iterations = 0;
-        while !self.open_list.is_empty() {
+        while let Some(HeapNode {
+            index: current_idx, ..
+        }) = self.open_list.pop()
+        {
             _iterations += 1;
-            // Pop the best node from the open list
-            let HeapNode {
-                index: current_idx, ..
-            } = self.open_list.pop().unwrap();
             let current_node = &mut self.node_pool[current_idx];
             current_node.state = NodeState::Closed;
 
@@ -1271,9 +1270,11 @@ impl<'a> NavMeshQuery<'a> {
         // 0.001 = minimum search radius to prevent degenerate cases
         let search_rad_sqr = (dx * dx + dy * dy + dz * dz) * 0.25 + 0.001;
 
-        while !stack.is_empty() && nodes.len() < MAX_VISITED {
+        while nodes.len() < MAX_VISITED {
             // Pop front (breadth-first) - now O(1) with VecDeque
-            let cur_node_idx = stack.pop_front().unwrap();
+            let Some(cur_node_idx) = stack.pop_front() else {
+                break;
+            };
             let cur_poly_ref = nodes[cur_node_idx].poly_ref;
 
             // Get poly and tile
@@ -3292,11 +3293,14 @@ impl<'a> NavMeshQuery<'a> {
 
         let mut iter_count = 0i32;
 
-        while !self.open_list.is_empty() && iter_count < max_iter {
+        while iter_count < max_iter {
             // Get the node with the lowest f cost
-            let HeapNode {
+            let Some(HeapNode {
                 index: current_idx, ..
-            } = self.open_list.pop().unwrap();
+            }) = self.open_list.pop()
+            else {
+                break;
+            };
 
             // Mark as closed
             self.node_pool[current_idx].state = NodeState::Closed;
