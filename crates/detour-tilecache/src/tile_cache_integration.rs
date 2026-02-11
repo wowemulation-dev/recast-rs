@@ -54,9 +54,9 @@ impl TileCacheNavMeshIntegration {
         // Remove the old tile from the navigation mesh if it exists
         let tile_ref = self.get_tile_ref_for_position(
             nav_mesh,
-            tile_entry.header.x,
-            tile_entry.header.y,
-            tile_entry.header.layer,
+            tile_entry.header.x(),
+            tile_entry.header.y(),
+            tile_entry.header.layer(),
         );
 
         if let Some(existing_ref) = tile_ref {
@@ -105,9 +105,9 @@ impl TileCacheNavMeshIntegration {
         // Remove the old tile from the navigation mesh if it exists
         let tile_ref = self.get_tile_ref_for_position(
             nav_mesh,
-            tile_entry.header.x,
-            tile_entry.header.y,
-            tile_entry.header.layer,
+            tile_entry.header.x(),
+            tile_entry.header.y(),
+            tile_entry.header.layer(),
         );
 
         if let Some(existing_ref) = tile_ref {
@@ -305,12 +305,13 @@ mod tests {
 
     #[test]
     fn test_find_free_tile_slot() {
-        let params = NavMeshParams {
-            origin: [0.0, 0.0, 0.0],
-            tile_width: 64.0,
-            tile_height: 64.0,
-            max_tiles: 1023, // Must be less than 1024 (1 << DT_TILE_BITS)
-            max_polys_per_tile: 8192,
+        let params = {
+            let mut p = NavMeshParams::default();
+            p.tile_width = 64.0;
+            p.tile_height = 64.0;
+            p.max_tiles = 1023; // Must be less than 1024 (1 << DT_TILE_BITS)
+            p.max_polys_per_tile = 8192;
+            p
         };
 
         let nav_mesh = NavMesh::new(params).unwrap();

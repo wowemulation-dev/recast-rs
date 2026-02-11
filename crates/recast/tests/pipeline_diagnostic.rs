@@ -12,22 +12,21 @@ use recast_common::TriMesh;
 const TEST_DATA: &str = "../../test-data";
 
 fn test_config() -> RecastConfig {
-    RecastConfig {
-        cs: 0.3,
-        ch: 0.2,
-        walkable_slope_angle: 45.0,
-        walkable_height: 2,
-        walkable_climb: 1,
-        walkable_radius: 1,
-        max_edge_len: 12,
-        max_simplification_error: 1.3,
-        min_region_area: 8,
-        merge_region_area: 20,
-        max_vertices_per_polygon: 6,
-        detail_sample_dist: 6.0,
-        detail_sample_max_error: 1.0,
-        ..Default::default()
-    }
+    let mut config = RecastConfig::default();
+    config.cs = 0.3;
+    config.ch = 0.2;
+    config.walkable_slope_angle = 45.0;
+    config.walkable_height = 2;
+    config.walkable_climb = 1;
+    config.walkable_radius = 1;
+    config.max_edge_len = 12;
+    config.max_simplification_error = 1.3;
+    config.min_region_area = 8;
+    config.merge_region_area = 20;
+    config.max_vertices_per_polygon = 6;
+    config.detail_sample_dist = 6.0;
+    config.detail_sample_max_error = 1.0;
+    config
 }
 
 fn run_pipeline_diagnostic(obj_name: &str) {
@@ -76,7 +75,7 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     let mut total_spans = 0u64;
     let mut walkable_spans = 0u64;
     let mut cells_with_spans = 0u64;
-    for (_coord, span_opt) in &heightfield.spans {
+    for (_coord, span_opt) in heightfield.spans() {
         if let Some(first_span_rc) = span_opt {
             cells_with_spans += 1;
             let mut current = Some(first_span_rc.clone());
@@ -109,14 +108,14 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     )
     .expect("failed to build compact heightfield");
 
-    println!("  span_count: {}", chf.span_count);
-    println!("  walkable_span_count: {}", chf.walkable_span_count);
-    println!("  max_height: {}", chf.max_height);
+    println!("  span_count: {}", chf.span_count());
+    println!("  walkable_span_count: {}", chf.walkable_span_count());
+    println!("  max_height: {}", chf.max_height());
 
     // Count connections (63 = RC_NOT_CONNECTED)
     let mut connected_spans = 0usize;
     let mut total_connections = 0usize;
-    for span in &chf.spans {
+    for span in chf.spans() {
         let mut has_con = false;
         for dir in 0..4 {
             if span.con[dir] != 63 {
@@ -130,10 +129,11 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     }
     println!(
         "  connected_spans: {} / {}",
-        connected_spans, chf.span_count
+        connected_spans,
+        chf.span_count()
     );
     println!("  total_con4_links: {}", total_connections);
-    println!("  linked_list_connections: {}", chf.connections.len());
+    println!("  linked_list_connections: {}", chf.connections().len());
     println!();
 
     // Stage 2b: Erosion (matching C++ rcErodeWalkableArea)
@@ -141,13 +141,13 @@ fn run_pipeline_diagnostic(obj_name: &str) {
         "--- Stage 2b: Erosion (walkable_radius={}) ---",
         config.walkable_radius
     );
-    let pre_erosion_walkable = chf.areas.iter().filter(|&&a| a != 0).count();
+    let pre_erosion_walkable = chf.areas().iter().filter(|&&a| a != 0).count();
     println!("  walkable_before_erosion: {}", pre_erosion_walkable);
     if config.walkable_radius > 0 {
         erode_walkable_area(&mut chf, config.walkable_radius as i32)
             .expect("failed to erode walkable area");
     }
-    let post_erosion_walkable = chf.areas.iter().filter(|&&a| a != 0).count();
+    let post_erosion_walkable = chf.areas().iter().filter(|&&a| a != 0).count();
     println!("  walkable_after_erosion: {}", post_erosion_walkable);
     println!(
         "  eroded_spans: {}",
@@ -159,10 +159,14 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     println!("--- Stage 3: Distance Field ---");
     chf.build_distance_field()
         .expect("failed to build distance field");
-    println!("  max_distance: {}", chf.max_distance);
+    println!("  max_distance: {}", chf.max_distance());
 
-    let zero_dist = chf.dist.iter().filter(|&&d| d == 0).count();
-    let nonzero_dist = chf.dist.iter().filter(|&&d| d > 0 && d < u16::MAX).count();
+    let zero_dist = chf.dist().iter().filter(|&&d| d == 0).count();
+    let nonzero_dist = chf
+        .dist()
+        .iter()
+        .filter(|&&d| d > 0 && d < u16::MAX)
+        .count();
     println!("  boundary_spans (dist=0): {}", zero_dist);
     println!("  interior_spans (dist>0): {}", nonzero_dist);
     println!();
@@ -176,17 +180,17 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     )
     .expect("failed to build regions");
 
-    println!("  max_regions: {}", chf.max_regions);
+    println!("  max_regions: {}", chf.max_regions());
 
     // Count spans per region
     let mut region_span_counts = std::collections::HashMap::new();
-    for span in &chf.spans {
+    for span in chf.spans() {
         if span.reg > 0 {
             *region_span_counts.entry(span.reg).or_insert(0u32) += 1;
         }
     }
-    let unassigned = chf.spans.iter().filter(|s| s.reg == 0).count();
-    let assigned = chf.spans.iter().filter(|s| s.reg > 0).count();
+    let unassigned = chf.spans().iter().filter(|s| s.reg == 0).count();
+    let assigned = chf.spans().iter().filter(|s| s.reg > 0).count();
     let border_regs = region_span_counts.keys().filter(|&&r| r >= 0x8000).count();
     let normal_regs = region_span_counts
         .keys()
@@ -260,9 +264,9 @@ fn run_pipeline_diagnostic(obj_name: &str) {
         PolyMesh::build_from_contour_set(&contour_set, config.max_vertices_per_polygon as usize)
             .expect("failed to build poly mesh");
 
-    println!("  nverts: {}", poly_mesh.nverts);
-    println!("  npolys: {}", poly_mesh.npolys);
-    println!("  maxpolys: {}", poly_mesh.maxpolys);
+    println!("  nverts: {}", poly_mesh.vert_count());
+    println!("  npolys: {}", poly_mesh.poly_count());
+    println!("  maxpolys: {}", poly_mesh.max_polys());
     println!();
 
     // Stage 7: PolyMeshDetail
@@ -275,19 +279,19 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     )
     .expect("failed to build detail mesh");
 
-    println!("  vert_count: {}", detail_mesh.vert_count);
-    println!("  tri_count: {}", detail_mesh.tri_count);
+    println!("  vert_count: {}", detail_mesh.vert_count());
+    println!("  tri_count: {}", detail_mesh.tri_count());
     println!();
 
     println!("--- Summary ---");
     println!(
         "  {} -> {} spans -> {} regions -> {} contours -> {} polys ({} verts)",
         obj_name,
-        chf.span_count,
+        chf.span_count(),
         normal_regs,
         contour_set.contours.len(),
-        poly_mesh.npolys,
-        poly_mesh.nverts
+        poly_mesh.poly_count(),
+        poly_mesh.vert_count()
     );
     println!();
 }

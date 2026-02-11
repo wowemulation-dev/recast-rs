@@ -15,22 +15,21 @@ use recast_common::TriMesh;
 const TEST_DATA: &str = "../../test-data";
 
 fn test_config() -> RecastConfig {
-    RecastConfig {
-        cs: 0.3,
-        ch: 0.2,
-        walkable_slope_angle: 45.0,
-        walkable_height: 2,
-        walkable_climb: 1,
-        walkable_radius: 1,
-        max_edge_len: 12,
-        max_simplification_error: 1.3,
-        min_region_area: 8,
-        merge_region_area: 20,
-        max_vertices_per_polygon: 6,
-        detail_sample_dist: 6.0,
-        detail_sample_max_error: 1.0,
-        ..Default::default()
-    }
+    let mut config = RecastConfig::default();
+    config.cs = 0.3;
+    config.ch = 0.2;
+    config.walkable_slope_angle = 45.0;
+    config.walkable_height = 2;
+    config.walkable_climb = 1;
+    config.walkable_radius = 1;
+    config.max_edge_len = 12;
+    config.max_simplification_error = 1.3;
+    config.min_region_area = 8;
+    config.merge_region_area = 20;
+    config.max_vertices_per_polygon = 6;
+    config.detail_sample_dist = 6.0;
+    config.detail_sample_max_error = 1.0;
+    config
 }
 
 fn build_mesh(
@@ -76,10 +75,10 @@ fn nav_test_generation_rust_output() {
 
     // Current Rust output (regression test)
     // After fixing contour simplification squared distance
-    assert_eq!(poly_mesh.npolys, 530);
-    assert_eq!(poly_mesh.nverts, 1190);
-    assert_eq!(detail_mesh.vert_count, 1190);
-    assert_eq!(detail_mesh.tri_count, 1063);
+    assert_eq!(poly_mesh.poly_count(), 530);
+    assert_eq!(poly_mesh.vert_count(), 1190);
+    assert_eq!(detail_mesh.vert_count(), 1190);
+    assert_eq!(detail_mesh.tri_count(), 1063);
 }
 
 #[test]
@@ -88,8 +87,8 @@ fn nav_test_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
     // C++ RecastCLI ground truth
-    assert_eq!(poly_mesh.npolys, 537);
-    assert_eq!(poly_mesh.nverts, 1197);
+    assert_eq!(poly_mesh.poly_count(), 537);
+    assert_eq!(poly_mesh.vert_count(), 1197);
 }
 
 // ── dungeon.obj ──
@@ -115,10 +114,10 @@ fn dungeon_generation_rust_output() {
 
     // Current Rust output (regression test)
     // After fixing contour simplification squared distance
-    assert_eq!(poly_mesh.npolys, 213);
-    assert_eq!(poly_mesh.nverts, 450);
-    assert_eq!(detail_mesh.vert_count, 450);
-    assert_eq!(detail_mesh.tri_count, 419);
+    assert_eq!(poly_mesh.poly_count(), 213);
+    assert_eq!(poly_mesh.vert_count(), 450);
+    assert_eq!(detail_mesh.vert_count(), 450);
+    assert_eq!(detail_mesh.tri_count(), 419);
 }
 
 #[test]
@@ -127,8 +126,8 @@ fn dungeon_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("dungeon.obj");
 
     // C++ RecastCLI ground truth
-    assert_eq!(poly_mesh.npolys, 217);
-    assert_eq!(poly_mesh.nverts, 452);
+    assert_eq!(poly_mesh.poly_count(), 217);
+    assert_eq!(poly_mesh.vert_count(), 452);
 }
 
 // ── bridge.obj ──
@@ -156,10 +155,10 @@ fn bridge_generation_rust_output() {
     // Current Rust output (regression test)
     // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
     // Bridge now matches C++ exactly
-    assert_eq!(poly_mesh.npolys, 8);
-    assert_eq!(poly_mesh.nverts, 18);
-    assert_eq!(detail_mesh.vert_count, 18);
-    assert_eq!(detail_mesh.tri_count, 16);
+    assert_eq!(poly_mesh.poly_count(), 8);
+    assert_eq!(poly_mesh.vert_count(), 18);
+    assert_eq!(detail_mesh.vert_count(), 18);
+    assert_eq!(detail_mesh.tri_count(), 16);
 }
 
 #[test]
@@ -168,8 +167,8 @@ fn bridge_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("bridge.obj");
 
     // C++ RecastCLI ground truth
-    assert_eq!(poly_mesh.npolys, 8);
-    assert_eq!(poly_mesh.nverts, 18);
+    assert_eq!(poly_mesh.poly_count(), 8);
+    assert_eq!(poly_mesh.vert_count(), 18);
 }
 
 // ── Bounds validation ──
@@ -178,13 +177,15 @@ fn bridge_generation_matches_cpp() {
 fn nav_test_bounds() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
-    assert!((poly_mesh.bmin.x - (-28.889317)).abs() < 0.01);
-    assert!((poly_mesh.bmin.y - (-4.869517)).abs() < 0.01);
-    assert!((poly_mesh.bmin.z - (-46.300152)).abs() < 0.01);
-    assert!((poly_mesh.bmax.x - 62.494808).abs() < 0.01);
+    let bmin = poly_mesh.bmin();
+    let bmax = poly_mesh.bmax();
+    assert!((bmin.x - (-28.889317)).abs() < 0.01);
+    assert!((bmin.y - (-4.869517)).abs() < 0.01);
+    assert!((bmin.z - (-46.300152)).abs() < 0.01);
+    assert!((bmax.x - 62.494808).abs() < 0.01);
     // bmax.y includes walkable_height * ch adjustment (matching C++)
-    assert!((poly_mesh.bmax.y - 17.410753).abs() < 0.01);
-    assert!((poly_mesh.bmax.z - 31.053141).abs() < 0.01);
+    assert!((bmax.y - 17.410753).abs() < 0.01);
+    assert!((bmax.z - 31.053141).abs() < 0.01);
 }
 
 // ── Build does not panic ──

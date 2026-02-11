@@ -119,6 +119,7 @@ impl Default for UpdateFlags {
 // Legacy AgentParams for backwards compatibility
 /// Agent parameters for crowd
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct AgentParams {
     /// Radius of the agent
     pub radius: f32,
@@ -1260,12 +1261,13 @@ mod tests {
     #[test]
     fn test_create_crowd() {
         // Create a simple navigation mesh
-        let params = NavMeshParams {
-            origin: [0.0, 0.0, 0.0],
-            tile_width: 100.0,
-            tile_height: 100.0,
-            max_tiles: 128,
-            max_polys_per_tile: 1024,
+        let params = {
+            let mut p = NavMeshParams::default();
+            p.tile_width = 100.0;
+            p.tile_height = 100.0;
+            p.max_tiles = 128;
+            p.max_polys_per_tile = 1024;
+            p
         };
 
         let nav_mesh = NavMesh::new(params).unwrap();

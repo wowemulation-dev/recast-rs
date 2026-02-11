@@ -25,43 +25,33 @@ pub const MESH_NULL_IDX: u16 = 0xffff;
 #[derive(Debug, Clone)]
 pub struct PolyMesh {
     /// Mesh vertices `[x,y,z]` * nverts (matches C++ verts)
-    pub verts: Vec<u16>,
+    pub(crate) verts: Vec<u16>,
     /// Polygon and neighbor data `[poly data]` * npolys * nvp * 2 (matches C++ polys)
-    pub polys: Vec<u16>,
+    pub(crate) polys: Vec<u16>,
     /// Region IDs for each polygon (matches C++ regs)
-    pub regs: Vec<u16>,
+    pub(crate) regs: Vec<u16>,
     /// Area IDs for each polygon (matches C++ areas)
-    pub areas: Vec<u8>,
+    pub(crate) areas: Vec<u8>,
     /// User defined flags for each polygon (matches C++ flags)
-    pub flags: Vec<u16>,
+    pub(crate) flags: Vec<u16>,
     /// Number of vertices (matches C++ nverts)
-    pub nverts: usize,
+    pub(crate) nverts: usize,
     /// Number of polygons (matches C++ npolys)
-    pub npolys: usize,
+    pub(crate) npolys: usize,
     /// Maximum number of polygons (matches C++ maxpolys)
-    pub maxpolys: usize,
+    pub(crate) maxpolys: usize,
     /// Max vertices per polygon (matches C++ nvp)
-    pub nvp: usize,
+    pub(crate) nvp: usize,
     /// Bounds of the mesh (matches C++ bmin/bmax)
-    pub bmin: Vec3,
-    pub bmax: Vec3,
+    pub(crate) bmin: Vec3,
+    pub(crate) bmax: Vec3,
     /// Cell size and height (matches C++ cs/ch)
-    pub cs: f32,
-    pub ch: f32,
+    pub(crate) cs: f32,
+    pub(crate) ch: f32,
     /// Border size (matches C++ borderSize)
-    pub border_size: i32,
+    pub(crate) border_size: i32,
     /// Max edge error (matches C++ maxEdgeError)
-    pub max_edge_error: f32,
-
-    // Compatibility fields for legacy code
-    /// Legacy vertex count field (same as nverts)
-    pub vert_count: usize,
-    /// Legacy polygon count field (same as npolys)
-    pub poly_count: usize,
-    /// Legacy vertices field (same as verts)
-    pub vertices: Vec<u16>,
-    /// Legacy max vertices per polygon field (same as nvp)
-    pub max_verts_per_poly: usize,
+    pub(crate) max_edge_error: f32,
 }
 
 impl PolyMesh {
@@ -83,12 +73,102 @@ impl PolyMesh {
             ch: 0.0,
             border_size,
             max_edge_error: 0.0,
-            // Compatibility fields
-            vert_count: 0,
-            poly_count: 0,
-            vertices: Vec::new(),
-            max_verts_per_poly: nvp,
         }
+    }
+
+    /// Returns the mesh vertices as `[x, y, z]` triples in voxel coordinates.
+    pub fn verts(&self) -> &[u16] {
+        &self.verts
+    }
+
+    /// Returns the polygon and neighbor data.
+    pub fn polys(&self) -> &[u16] {
+        &self.polys
+    }
+
+    /// Returns the region IDs for each polygon.
+    pub fn regs(&self) -> &[u16] {
+        &self.regs
+    }
+
+    /// Returns the area IDs for each polygon.
+    pub fn areas(&self) -> &[u8] {
+        &self.areas
+    }
+
+    /// Returns the user-defined flags for each polygon.
+    pub fn flags(&self) -> &[u16] {
+        &self.flags
+    }
+
+    /// Returns a mutable reference to the polygon flags.
+    pub fn flags_mut(&mut self) -> &mut [u16] {
+        &mut self.flags
+    }
+
+    /// Returns the number of vertices.
+    pub fn vert_count(&self) -> usize {
+        self.nverts
+    }
+
+    /// Returns the number of polygons.
+    pub fn poly_count(&self) -> usize {
+        self.npolys
+    }
+
+    /// Returns the maximum polygon capacity.
+    pub fn max_polys(&self) -> usize {
+        self.maxpolys
+    }
+
+    /// Returns the maximum number of vertices per polygon.
+    pub fn max_verts_per_poly(&self) -> usize {
+        self.nvp
+    }
+
+    /// Returns the minimum bounds of the mesh.
+    pub fn bmin(&self) -> Vec3 {
+        self.bmin
+    }
+
+    /// Returns the maximum bounds of the mesh.
+    pub fn bmax(&self) -> Vec3 {
+        self.bmax
+    }
+
+    /// Returns the mesh bounds as `(min, max)`.
+    pub fn bounds(&self) -> (Vec3, Vec3) {
+        (self.bmin, self.bmax)
+    }
+
+    /// Returns the cell size (xz-plane voxel size).
+    pub fn cs(&self) -> f32 {
+        self.cs
+    }
+
+    /// Returns the cell height (y-axis voxel size).
+    pub fn ch(&self) -> f32 {
+        self.ch
+    }
+
+    /// Returns the cell size (xz-plane voxel size).
+    pub fn cell_size(&self) -> f32 {
+        self.cs
+    }
+
+    /// Returns the cell height (y-axis voxel size).
+    pub fn cell_height(&self) -> f32 {
+        self.ch
+    }
+
+    /// Returns the border size in voxels.
+    pub fn border_size(&self) -> i32 {
+        self.border_size
+    }
+
+    /// Returns the maximum edge error.
+    pub fn max_edge_error(&self) -> f32 {
+        self.max_edge_error
     }
 
     /// Builds a polygon mesh from a contour set following the exact C++ rcBuildPolyMesh algorithm
@@ -261,12 +341,6 @@ impl PolyMesh {
             }
             .into());
         }
-
-        // Update compatibility fields to match main fields
-        mesh.vert_count = mesh.nverts;
-        mesh.poly_count = mesh.npolys;
-        mesh.vertices = mesh.verts.clone();
-        mesh.max_verts_per_poly = mesh.nvp;
 
         log::debug!(
             "PolyMesh generation complete: {} polygons, {} vertices",
@@ -1397,12 +1471,6 @@ impl PolyMesh {
         // Copy flags
         dst.flags = src.flags.clone();
 
-        // Update compatibility fields
-        dst.vert_count = dst.nverts;
-        dst.poly_count = dst.npolys;
-        dst.vertices = dst.verts.clone();
-        dst.max_verts_per_poly = dst.nvp;
-
         Ok(dst)
     }
 
@@ -1425,11 +1493,6 @@ impl PolyMesh {
             ch: self.ch,
             border_size: self.border_size,
             max_edge_error: self.max_edge_error,
-            // Compatibility fields
-            vert_count: self.vert_count,
-            poly_count: self.poly_count,
-            vertices: self.vertices.clone(),
-            max_verts_per_poly: self.max_verts_per_poly,
         }
     }
 }
@@ -1644,11 +1707,5 @@ mod tests {
         assert_eq!(dst.regs, src.regs);
         assert_eq!(dst.areas, src.areas);
         assert_eq!(dst.flags, src.flags);
-
-        // Verify compatibility fields
-        assert_eq!(dst.vert_count, dst.nverts);
-        assert_eq!(dst.poly_count, dst.npolys);
-        assert_eq!(dst.vertices, dst.verts);
-        assert_eq!(dst.max_verts_per_poly, dst.nvp);
     }
 }

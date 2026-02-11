@@ -181,49 +181,149 @@ pub const RC_AREA_BORDER: u32 = 0x20000;
 #[derive(Debug, Clone)]
 pub struct CompactHeightfield {
     /// Width of the heightfield along the x-axis
-    pub width: i32,
+    pub(crate) width: i32,
     /// Height (depth) of the heightfield along the z-axis
-    pub height: i32,
+    pub(crate) height: i32,
 
     /// The minimum bounds of the heightfield's AABB
-    pub bmin: Vec3,
+    pub(crate) bmin: Vec3,
     /// The maximum bounds of the heightfield's AABB
-    pub bmax: Vec3,
+    pub(crate) bmax: Vec3,
 
     /// Cell size (horizontal resolution)
-    pub cs: f32,
+    pub(crate) cs: f32,
     /// Cell height (vertical resolution)
-    pub ch: f32,
+    pub(crate) ch: f32,
 
     /// Grid of compact cells
-    pub cells: Vec<CompactCell>,
+    pub(crate) cells: Vec<CompactCell>,
     /// Array of compact spans
-    pub spans: Vec<CompactSpan>,
+    pub(crate) spans: Vec<CompactSpan>,
     /// Array of connections between spans
-    pub connections: Vec<CompactConnection>,
+    pub(crate) connections: Vec<CompactConnection>,
     /// Array of area IDs for each span
-    pub areas: Vec<u8>,
+    pub(crate) areas: Vec<u8>,
     /// Array of distance values per span (for watershed)
-    pub dist: Vec<u16>,
+    pub(crate) dist: Vec<u16>,
 
     /// Number of spans that are walkable
-    pub walkable_span_count: usize,
+    pub(crate) walkable_span_count: usize,
     /// Number of spans that have been assigned to an area
-    pub walkable_area_count: usize,
+    pub(crate) walkable_area_count: usize,
     /// Cell count (width * height)
-    pub cell_count: usize,
+    pub(crate) cell_count: usize,
     /// Span count (total number of spans)
-    pub span_count: usize,
+    pub(crate) span_count: usize,
     /// Maximum height in the heightfield
-    pub max_height: u16,
+    pub(crate) max_height: u16,
     /// Maximum distance value in distance field
-    pub max_distance: u16,
+    pub(crate) max_distance: u16,
     /// Maximum region id
-    pub max_regions: u16,
+    pub(crate) max_regions: u16,
 }
 
 #[allow(dead_code)]
 impl CompactHeightfield {
+    /// Returns the width along the x-axis.
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
+    /// Returns the height (depth) along the z-axis.
+    pub fn height(&self) -> i32 {
+        self.height
+    }
+
+    /// Returns the minimum bounds of the AABB.
+    pub fn bmin(&self) -> Vec3 {
+        self.bmin
+    }
+
+    /// Returns the maximum bounds of the AABB.
+    pub fn bmax(&self) -> Vec3 {
+        self.bmax
+    }
+
+    /// Returns the cell size (horizontal resolution).
+    pub fn cs(&self) -> f32 {
+        self.cs
+    }
+
+    /// Returns the cell height (vertical resolution).
+    pub fn ch(&self) -> f32 {
+        self.ch
+    }
+
+    /// Returns the compact cells.
+    pub fn cells(&self) -> &[CompactCell] {
+        &self.cells
+    }
+
+    /// Returns a mutable reference to the compact cells.
+    pub fn cells_mut(&mut self) -> &mut [CompactCell] {
+        &mut self.cells
+    }
+
+    /// Returns the compact spans.
+    pub fn spans(&self) -> &[CompactSpan] {
+        &self.spans
+    }
+
+    /// Returns a mutable reference to the compact spans.
+    pub fn spans_mut(&mut self) -> &mut [CompactSpan] {
+        &mut self.spans
+    }
+
+    /// Returns the connections between spans.
+    pub fn connections(&self) -> &[CompactConnection] {
+        &self.connections
+    }
+
+    /// Returns the area IDs for each span.
+    pub fn areas(&self) -> &[u8] {
+        &self.areas
+    }
+
+    /// Returns the distance values per span.
+    pub fn dist(&self) -> &[u16] {
+        &self.dist
+    }
+
+    /// Returns the count of walkable spans.
+    pub fn walkable_span_count(&self) -> usize {
+        self.walkable_span_count
+    }
+
+    /// Returns the count of spans assigned to an area.
+    pub fn walkable_area_count(&self) -> usize {
+        self.walkable_area_count
+    }
+
+    /// Returns the cell count (width * height).
+    pub fn cell_count(&self) -> usize {
+        self.cell_count
+    }
+
+    /// Returns the total span count.
+    pub fn span_count(&self) -> usize {
+        self.span_count
+    }
+
+    /// Returns the maximum height in the heightfield.
+    pub fn max_height(&self) -> u16 {
+        self.max_height
+    }
+
+    /// Returns the maximum distance value.
+    pub fn max_distance(&self) -> u16 {
+        self.max_distance
+    }
+
+    /// Returns the maximum region ID.
+    pub fn max_regions(&self) -> u16 {
+        self.max_regions
+    }
+
     /// Builds a compact heightfield from a regular heightfield.
     ///
     /// Only walkable spans (area != 0) are included, matching C++ `rcBuildCompactHeightfield`.

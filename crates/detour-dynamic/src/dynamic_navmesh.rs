@@ -58,20 +58,22 @@ impl DynamicNavMesh {
         let (job_sender, job_receiver) = mpsc::channel();
 
         // Initialize navigation mesh parameters following  pattern
-        let nav_mesh_params = NavMeshParams {
-            origin: [config.world_min.x, config.world_min.y, config.world_min.z],
-            tile_width: if config.use_tiles {
+        let nav_mesh_params = {
+            let mut p = NavMeshParams::default();
+            p.origin = [config.world_min.x, config.world_min.y, config.world_min.z];
+            p.tile_width = if config.use_tiles {
                 config.cell_size * config.tile_size_x as f32
             } else {
                 config.world_max.x - config.world_min.x
-            },
-            tile_height: if config.use_tiles {
+            };
+            p.tile_height = if config.use_tiles {
                 config.cell_size * config.tile_size_z as f32
             } else {
                 config.world_max.z - config.world_min.z
-            },
-            max_tiles: 1024,            // Default max tiles
-            max_polys_per_tile: 0x8000, // 32768 polys per tile
+            };
+            p.max_tiles = 1024; // Default max tiles
+            p.max_polys_per_tile = 0x8000; // 32768 polys per tile
+            p
         };
 
         Ok(Self {
@@ -126,24 +128,26 @@ impl DynamicNavMesh {
             );
 
         // Set navigation mesh parameters from voxel file
-        let nav_mesh_params = NavMeshParams {
-            origin: [
+        let nav_mesh_params = {
+            let mut p = NavMeshParams::default();
+            p.origin = [
                 voxel_file.bounds[0],
                 voxel_file.bounds[1],
                 voxel_file.bounds[2],
-            ],
-            tile_width: if voxel_file.use_tiles {
+            ];
+            p.tile_width = if voxel_file.use_tiles {
                 voxel_file.cell_size * voxel_file.tile_size_x as f32
             } else {
                 voxel_file.bounds[3] - voxel_file.bounds[0]
-            },
-            tile_height: if voxel_file.use_tiles {
+            };
+            p.tile_height = if voxel_file.use_tiles {
                 voxel_file.cell_size * voxel_file.tile_size_z as f32
             } else {
                 voxel_file.bounds[5] - voxel_file.bounds[2]
-            },
-            max_tiles: voxel_file.tiles.len() as i32,
-            max_polys_per_tile: 0x8000,
+            };
+            p.max_tiles = voxel_file.tiles.len() as i32;
+            p.max_polys_per_tile = 0x8000;
+            p
         };
 
         let tile_manager = DynamicTileManager::new(config.clone());

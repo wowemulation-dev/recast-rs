@@ -47,12 +47,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     crowd.enable_rvo(None);
 
     // Agent parameters
-    let params = AgentParams {
-        radius: 0.6,
-        height: 2.0,
-        max_speed: 3.5,
-        max_acceleration: 8.0,
-        ..Default::default()
+    let params = {
+        let mut p = AgentParams::default();
+        p.radius = 0.6;
+        p.height = 2.0;
+        p.max_speed = 3.5;
+        p.max_acceleration = 8.0;
+        p
     };
 
     // Add 5 agents at snapped positions

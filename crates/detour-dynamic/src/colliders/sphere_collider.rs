@@ -77,9 +77,9 @@ impl Collider for SphereCollider {
 
         // Ensure we're within heightfield bounds
         let grid_min_x = min_x.max(0);
-        let grid_max_x = max_x.min(heightfield.width - 1);
+        let grid_max_x = max_x.min(heightfield.width() - 1);
         let grid_min_z = min_z.max(0);
-        let grid_max_z = max_z.min(heightfield.height - 1);
+        let grid_max_z = max_z.min(heightfield.height() - 1);
 
         // For each cell in the bounding box, check if the sphere intersects it
         for z in grid_min_z..=grid_max_z {
@@ -91,7 +91,7 @@ impl Collider for SphereCollider {
                 // Can have multiple heights within the sphere's Y range
                 let y_start = (min_y as f32 * cell_height + world_min.y).max(world_min.y);
                 let y_end = (max_y as f32 * cell_height + world_min.y)
-                    .min(world_min.y + heightfield.height as f32 * cell_height);
+                    .min(world_min.y + heightfield.height() as f32 * cell_height);
 
                 let mut y = y_start;
                 while y <= y_end {

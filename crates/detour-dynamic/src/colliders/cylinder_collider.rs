@@ -109,9 +109,9 @@ impl Collider for CylinderCollider {
 
         // Clamp to heightfield bounds
         let grid_min_x = min_x.max(0);
-        let grid_max_x = max_x.min(heightfield.width - 1);
+        let grid_max_x = max_x.min(heightfield.width() - 1);
         let grid_min_z = min_z.max(0);
-        let grid_max_z = max_z.min(heightfield.height - 1);
+        let grid_max_z = max_z.min(heightfield.height() - 1);
 
         // Rasterize each cell
         for z in grid_min_z..=grid_max_z {

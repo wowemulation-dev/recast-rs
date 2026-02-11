@@ -27,25 +27,19 @@ impl TileCacheBuilder {
     /// Creates a new tile cache builder
     pub fn new(config: TileCacheBuilderConfig) -> Self {
         // Convert TileCacheBuilderConfig to RecastConfig
-        let recast_config = RecastConfig {
-            width: 0,  // Will be set per tile
-            height: 0, // Will be set per tile
-            cs: config.cs,
-            ch: config.ch,
-            bmin: Vec3::ZERO,           // Will be set per tile
-            bmax: Vec3::ZERO,           // Will be set per tile
-            walkable_slope_angle: 45.0, // Default, could be added to config
-            walkable_height: config.walkable_height,
-            walkable_climb: config.walkable_climb,
-            walkable_radius: config.walkable_radius,
-            max_edge_len: config.max_edge_len as i32,
-            max_simplification_error: config.max_simplification_error,
-            min_region_area: config.min_region_area,
-            merge_region_area: config.merge_region_area,
-            max_vertices_per_polygon: config.max_verts_per_poly,
-            detail_sample_dist: 6.0,      // Default detail sampling
-            detail_sample_max_error: 1.0, // Default detail error
-            border_size: 0,               // Default, no border
+        let recast_config = {
+            let mut rc = RecastConfig::default();
+            rc.cs = config.cs;
+            rc.ch = config.ch;
+            rc.walkable_height = config.walkable_height;
+            rc.walkable_climb = config.walkable_climb;
+            rc.walkable_radius = config.walkable_radius;
+            rc.max_edge_len = config.max_edge_len as i32;
+            rc.max_simplification_error = config.max_simplification_error;
+            rc.min_region_area = config.min_region_area;
+            rc.merge_region_area = config.merge_region_area;
+            rc.max_vertices_per_polygon = config.max_verts_per_poly;
+            rc
         };
 
         Self {
@@ -272,24 +266,29 @@ impl TileCacheBuilder {
             _ => return Ok(()), // Skip non-cylinder obstacles
         };
 
+        // Cache read-only values to avoid borrow conflicts with mutable span access
+        let chf_bmin = chf.bmin();
+        let chf_width = chf.width();
+        let chf_height = chf.height();
+
         // Convert world coordinates to cell coordinates
-        let min_x = ((center.x - radius - chf.bmin.x) / self.config.cs).floor() as i32;
-        let max_x = ((center.x + radius - chf.bmin.x) / self.config.cs).ceil() as i32;
-        let min_z = ((center.z - radius - chf.bmin.z) / self.config.cs).floor() as i32;
-        let max_z = ((center.z + radius - chf.bmin.z) / self.config.cs).ceil() as i32;
+        let min_x = ((center.x - radius - chf_bmin.x) / self.config.cs).floor() as i32;
+        let max_x = ((center.x + radius - chf_bmin.x) / self.config.cs).ceil() as i32;
+        let min_z = ((center.z - radius - chf_bmin.z) / self.config.cs).floor() as i32;
+        let max_z = ((center.z + radius - chf_bmin.z) / self.config.cs).ceil() as i32;
 
         // Clamp to heightfield bounds
         let min_x = min_x.max(0);
-        let max_x = max_x.min(chf.width - 1);
+        let max_x = max_x.min(chf_width - 1);
         let min_z = min_z.max(0);
-        let max_z = max_z.min(chf.height - 1);
+        let max_z = max_z.min(chf_height - 1);
 
         // Mark cells within the cylinder as unwalkable
         for z in min_z..=max_z {
             for x in min_x..=max_x {
                 // Calculate cell center
-                let cell_x = chf.bmin.x + (x as f32 + 0.5) * self.config.cs;
-                let cell_z = chf.bmin.z + (z as f32 + 0.5) * self.config.cs;
+                let cell_x = chf_bmin.x + (x as f32 + 0.5) * self.config.cs;
+                let cell_z = chf_bmin.z + (z as f32 + 0.5) * self.config.cs;
 
                 // Check if cell center is within cylinder radius
                 let dx = cell_x - center.x;
@@ -298,24 +297,28 @@ impl TileCacheBuilder {
 
                 if dist_sq <= radius * radius {
                     // Mark all spans in this column as unwalkable if they overlap the obstacle height
-                    let cell_idx = (z * chf.width + x) as usize;
-                    if let Some(cell) = chf.cells.get_mut(cell_idx) {
-                        if let Some(first_span_idx) = cell.index {
-                            let span_idx = first_span_idx;
-                            let span_count = cell.count;
+                    let cell_idx = (z * chf_width + x) as usize;
+                    // Read cell info before borrowing spans mutably
+                    let (first_span_idx, span_count) = {
+                        match chf.cells().get(cell_idx) {
+                            Some(cell) => match cell.index {
+                                Some(idx) => (idx, cell.count),
+                                None => continue,
+                            },
+                            None => continue,
+                        }
+                    };
 
-                            for s in 0..span_count {
-                                let current_span_idx = span_idx + s;
-                                if let Some(span) = chf.spans.get_mut(current_span_idx) {
-                                    // Check if span overlaps obstacle height
-                                    let span_min_y = chf.bmin.y + span.y as f32 * self.config.ch;
-                                    let span_max_y = span_min_y + self.config.ch;
+                    for s in 0..span_count {
+                        let current_span_idx = first_span_idx + s;
+                        if let Some(span) = chf.spans_mut().get_mut(current_span_idx) {
+                            // Check if span overlaps obstacle height
+                            let span_min_y = chf_bmin.y + span.y as f32 * self.config.ch;
+                            let span_max_y = span_min_y + self.config.ch;
 
-                                    if span_min_y < center.y + height && span_max_y > center.y {
-                                        // Mark span as non-walkable
-                                        span.area = 0; // RC_NULL_AREA
-                                    }
-                                }
+                            if span_min_y < center.y + height && span_max_y > center.y {
+                                // Mark span as non-walkable
+                                span.area = 0; // RC_NULL_AREA
                             }
                         }
                     }
@@ -335,33 +338,33 @@ impl TileCacheBuilder {
     ) -> Result<MeshTile, TileCacheError> {
         // Create tile header
         let mut tile_header = TileHeader::new(header.tx, header.ty, header.tlayer);
-        tile_header.vert_count = pmesh.vert_count as i32;
-        tile_header.poly_count = pmesh.poly_count as i32;
-        tile_header.detail_mesh_count = dmesh.poly_count as i32;
-        tile_header.detail_vert_count = dmesh.vert_count as i32;
-        tile_header.detail_tri_count = dmesh.tri_count as i32;
+        tile_header.set_vert_count(pmesh.vert_count() as i32);
+        tile_header.set_poly_count(pmesh.poly_count() as i32);
+        tile_header.set_detail_mesh_count(dmesh.poly_count() as i32);
+        tile_header.set_detail_vert_count(dmesh.vert_count() as i32);
+        tile_header.set_detail_tri_count(dmesh.tri_count() as i32);
 
         // Copy vertices (convert from i32 to f32)
-        let mut verts = Vec::with_capacity(pmesh.vert_count * 3);
-        for i in 0..pmesh.vert_count {
-            verts.push(pmesh.vertices[i * 3] as f32);
-            verts.push(pmesh.vertices[i * 3 + 1] as f32);
-            verts.push(pmesh.vertices[i * 3 + 2] as f32);
+        let mut verts = Vec::with_capacity(pmesh.vert_count() * 3);
+        for i in 0..pmesh.vert_count() {
+            verts.push(pmesh.verts()[i * 3] as f32);
+            verts.push(pmesh.verts()[i * 3 + 1] as f32);
+            verts.push(pmesh.verts()[i * 3 + 2] as f32);
         }
 
         // Convert polygons
-        let mut polys = Vec::with_capacity(pmesh.poly_count);
-        for i in 0..pmesh.poly_count {
+        let mut polys = Vec::with_capacity(pmesh.poly_count());
+        for i in 0..pmesh.poly_count() {
             // Extract vertices from the polygon mesh data
             let mut vert_count = 0;
             let mut verts = [0u16; MAX_VERTS_PER_POLY];
             let mut neighbors = [0u16; MAX_VERTS_PER_POLY];
 
             // Find actual vertex count by looking at polygon data
-            for j in 0..pmesh.max_verts_per_poly {
-                let poly_idx = i * pmesh.max_verts_per_poly + j;
-                if poly_idx < pmesh.polys.len() {
-                    let v = pmesh.polys[poly_idx];
+            for j in 0..pmesh.max_verts_per_poly() {
+                let poly_idx = i * pmesh.max_verts_per_poly() + j;
+                if poly_idx < pmesh.polys().len() {
+                    let v = pmesh.polys()[poly_idx];
                     if v != MESH_NULL_IDX {
                         verts[vert_count] = v;
                         neighbors[vert_count] = 0; // No neighbor data in PolyMesh
@@ -370,57 +373,49 @@ impl TileCacheBuilder {
                 }
             }
 
-            let poly = Poly {
-                first_link: None,
+            let poly = Poly::from_mesh_data(
                 verts,
                 neighbors,
-                flags: PolyFlags::WALK,
-                vert_count: vert_count as u8,
-                area: pmesh.areas[i],
-                poly_type: PolyType::Ground,
-            };
+                vert_count as u8,
+                pmesh.areas()[i],
+                PolyType::Ground,
+                PolyFlags::WALK,
+            );
 
             polys.push(poly);
         }
 
         // Convert detail meshes
-        let mut detail_meshes = Vec::with_capacity(dmesh.poly_count);
-        for i in 0..dmesh.poly_count {
+        let mut detail_meshes = Vec::with_capacity(dmesh.poly_count());
+        for i in 0..dmesh.poly_count() {
             detail_meshes.push(PolyDetail {
-                vert_base: dmesh.poly_start[i] as u32,
-                tri_base: dmesh.poly_start[i] as u32,
+                vert_base: dmesh.poly_start()[i] as u32,
+                tri_base: dmesh.poly_start()[i] as u32,
                 vert_count: 0, // Will be calculated from triangles
-                tri_count: dmesh.poly_tri_count[i] as u8,
+                tri_count: dmesh.poly_tri_count()[i] as u8,
             });
         }
 
         // Copy detail vertices
-        let detail_verts = dmesh.vertices.clone();
+        let detail_verts = dmesh.vertices().to_vec();
 
         // Copy detail triangles (convert from u32 to u8)
-        let mut detail_tris = Vec::with_capacity(dmesh.tri_count * 3);
-        for i in 0..dmesh.tri_count {
-            detail_tris.push(dmesh.triangles[i * 3] as u8);
-            detail_tris.push(dmesh.triangles[i * 3 + 1] as u8);
-            detail_tris.push(dmesh.triangles[i * 3 + 2] as u8);
+        let mut detail_tris = Vec::with_capacity(dmesh.tri_count() * 3);
+        for i in 0..dmesh.tri_count() {
+            detail_tris.push(dmesh.triangles()[i * 3] as u8);
+            detail_tris.push(dmesh.triangles()[i * 3 + 1] as u8);
+            detail_tris.push(dmesh.triangles()[i * 3 + 2] as u8);
         }
 
         // Create the mesh tile
-        let tile = MeshTile {
-            salt: 1, // Will be set by NavMesh when added
-            header: Some(tile_header),
+        let tile = MeshTile::from_tile_data(
+            tile_header,
             polys,
             verts,
-            links: Vec::new(),
             detail_meshes,
             detail_verts,
             detail_tris,
-            bvh_root: None, // Will be built when added to NavMesh
-            bvh_nodes: Vec::new(),
-            off_mesh_connections: Vec::new(),
-            flags: 0,
-            next: None,
-        };
+        );
 
         Ok(tile)
     }
@@ -436,35 +431,45 @@ impl TileCacheBuilder {
             _ => return Ok(()), // Skip non-box obstacles
         };
 
+        // Cache read-only values to avoid borrow conflicts with mutable span access
+        let chf_bmin = chf.bmin();
+        let chf_width = chf.width();
+        let chf_height = chf.height();
+
         // Convert world coordinates to cell coordinates
-        let min_x = ((bmin[0] - chf.bmin.x) / self.config.cs).floor() as i32;
-        let max_x = ((bmax[0] - chf.bmin.x) / self.config.cs).ceil() as i32;
-        let min_z = ((bmin[2] - chf.bmin.z) / self.config.cs).floor() as i32;
-        let max_z = ((bmax[2] - chf.bmin.z) / self.config.cs).ceil() as i32;
+        let min_x = ((bmin[0] - chf_bmin.x) / self.config.cs).floor() as i32;
+        let max_x = ((bmax[0] - chf_bmin.x) / self.config.cs).ceil() as i32;
+        let min_z = ((bmin[2] - chf_bmin.z) / self.config.cs).floor() as i32;
+        let max_z = ((bmax[2] - chf_bmin.z) / self.config.cs).ceil() as i32;
 
         // Clamp to heightfield bounds
         let min_x = min_x.max(0);
-        let max_x = max_x.min(chf.width - 1);
+        let max_x = max_x.min(chf_width - 1);
         let min_z = min_z.max(0);
-        let max_z = max_z.min(chf.height - 1);
+        let max_z = max_z.min(chf_height - 1);
 
         // Rasterize the box
         for z in min_z..=max_z {
             for x in min_x..=max_x {
-                let cell_idx = (x + z * chf.width) as usize;
-                let cell = &mut chf.cells[cell_idx];
+                let cell_idx = (x + z * chf_width) as usize;
+                // Read cell info before borrowing spans mutably
+                let (cell_index, cell_count) = {
+                    let cell = &chf.cells()[cell_idx];
+                    match cell.index {
+                        Some(idx) => (idx, cell.count),
+                        None => continue,
+                    }
+                };
 
                 // Mark all spans within the box height range
-                if let Some(cell_index) = cell.index {
-                    for i in cell_index..(cell_index + cell.count) {
-                        let span = &mut chf.spans[i];
-                        let span_y_min = span.min as f32 * self.config.ch + chf.bmin.y;
-                        let span_y_max = span.max as f32 * self.config.ch + chf.bmin.y;
+                for i in cell_index..(cell_index + cell_count) {
+                    let span = &mut chf.spans_mut()[i];
+                    let span_y_min = span.min as f32 * self.config.ch + chf_bmin.y;
+                    let span_y_max = span.max as f32 * self.config.ch + chf_bmin.y;
 
-                        // Check if span overlaps with box height
-                        if span_y_max > bmin[1] && span_y_min < bmax[1] {
-                            span.area = 0; // Mark as unwalkable
-                        }
+                    // Check if span overlaps with box height
+                    if span_y_max > bmin[1] && span_y_min < bmax[1] {
+                        span.area = 0; // Mark as unwalkable
                     }
                 }
             }
@@ -497,24 +502,29 @@ impl TileCacheBuilder {
         // Conservative bounding box for the oriented box
         let radius = (half_extents[0].powi(2) + half_extents[2].powi(2)).sqrt();
 
+        // Cache read-only values to avoid borrow conflicts with mutable span access
+        let chf_bmin = chf.bmin();
+        let chf_width = chf.width();
+        let chf_height = chf.height();
+
         // Convert world coordinates to cell coordinates
-        let min_x = ((center[0] - radius - chf.bmin.x) / self.config.cs).floor() as i32;
-        let max_x = ((center[0] + radius - chf.bmin.x) / self.config.cs).ceil() as i32;
-        let min_z = ((center[2] - radius - chf.bmin.z) / self.config.cs).floor() as i32;
-        let max_z = ((center[2] + radius - chf.bmin.z) / self.config.cs).ceil() as i32;
+        let min_x = ((center[0] - radius - chf_bmin.x) / self.config.cs).floor() as i32;
+        let max_x = ((center[0] + radius - chf_bmin.x) / self.config.cs).ceil() as i32;
+        let min_z = ((center[2] - radius - chf_bmin.z) / self.config.cs).floor() as i32;
+        let max_z = ((center[2] + radius - chf_bmin.z) / self.config.cs).ceil() as i32;
 
         // Clamp to heightfield bounds
         let min_x = min_x.max(0);
-        let max_x = max_x.min(chf.width - 1);
+        let max_x = max_x.min(chf_width - 1);
         let min_z = min_z.max(0);
-        let max_z = max_z.min(chf.height - 1);
+        let max_z = max_z.min(chf_height - 1);
 
         // Rasterize cells that are inside the oriented box
         for z in min_z..=max_z {
             for x in min_x..=max_x {
                 // Get cell center in world space
-                let cell_x = x as f32 * self.config.cs + chf.bmin.x + self.config.cs * 0.5;
-                let cell_z = z as f32 * self.config.cs + chf.bmin.z + self.config.cs * 0.5;
+                let cell_x = x as f32 * self.config.cs + chf_bmin.x + self.config.cs * 0.5;
+                let cell_z = z as f32 * self.config.cs + chf_bmin.z + self.config.cs * 0.5;
 
                 // Transform to box-local coordinates
                 let dx = cell_x - center[0];
@@ -530,22 +540,27 @@ impl TileCacheBuilder {
 
                 // Check if point is inside the box
                 if local_x.abs() <= half_extents[0] && local_z.abs() <= half_extents[2] {
-                    let cell_idx = (x + z * chf.width) as usize;
-                    let cell = &mut chf.cells[cell_idx];
+                    let cell_idx = (x + z * chf_width) as usize;
+                    // Read cell info before borrowing spans mutably
+                    let (cell_index, cell_count) = {
+                        let cell = &chf.cells()[cell_idx];
+                        match cell.index {
+                            Some(idx) => (idx, cell.count),
+                            None => continue,
+                        }
+                    };
 
                     // Mark all spans within the box height range
-                    if let Some(cell_index) = cell.index {
-                        for i in cell_index..(cell_index + cell.count) {
-                            let span = &mut chf.spans[i];
-                            let span_y_min = span.min as f32 * self.config.ch + chf.bmin.y;
-                            let span_y_max = span.max as f32 * self.config.ch + chf.bmin.y;
+                    for i in cell_index..(cell_index + cell_count) {
+                        let span = &mut chf.spans_mut()[i];
+                        let span_y_min = span.min as f32 * self.config.ch + chf_bmin.y;
+                        let span_y_max = span.max as f32 * self.config.ch + chf_bmin.y;
 
-                            // Check if span overlaps with box height
-                            if span_y_max > center[1] - half_extents[1]
-                                && span_y_min < center[1] + half_extents[1]
-                            {
-                                span.area = 0; // Mark as unwalkable
-                            }
+                        // Check if span overlaps with box height
+                        if span_y_max > center[1] - half_extents[1]
+                            && span_y_min < center[1] + half_extents[1]
+                        {
+                            span.area = 0; // Mark as unwalkable
                         }
                     }
                 }

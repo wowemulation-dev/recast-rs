@@ -10,6 +10,7 @@ use crate::error::CrowdError;
 
 /// Configuration parameters for RVO
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct RVOConfig {
     /// Time horizon for collision avoidance
     pub time_horizon: f32,
@@ -42,15 +43,15 @@ impl Default for RVOConfig {
 #[derive(Debug, Clone)]
 pub struct RVOAgent {
     /// Agent ID
-    pub id: usize,
+    pub(crate) id: usize,
     /// Current position
-    pub position: [f32; 2],
+    pub(crate) position: [f32; 2],
     /// Current velocity
-    pub velocity: [f32; 2],
+    pub(crate) velocity: [f32; 2],
     /// Preferred velocity (desired direction and speed)
-    pub pref_velocity: [f32; 2],
+    pub(crate) pref_velocity: [f32; 2],
     /// Agent configuration
-    pub config: RVOConfig,
+    pub(crate) config: RVOConfig,
     /// ORCA lines (optimal reciprocal collision avoidance)
     orca_lines: Vec<ORCALine>,
     /// New velocity (computed by RVO)

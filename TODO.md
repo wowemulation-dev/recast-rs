@@ -121,10 +121,10 @@ migration strategy.
 22 structs expose 5+ public fields. See roadmap section 3.2 for full
 inventory and priority tiers.
 
-- [ ] Priority 1 -- Pipeline outputs: Remove 4 legacy PolyMesh duplicates, add accessors to `PolyMesh` and `PolyMeshDetail`, make fields private
-- [ ] Priority 2 -- Tile structures: Make `MeshTile`, `TileHeader`, `TileCacheLayerHeader` fields private, add accessors
-- [ ] Priority 3 -- Algorithm internals: Convert `Link`, `Poly`, `DtObstacleCircle`, `RVOAgent`, `FormationAgent` fields to `pub(crate)`
-- [ ] Priority 4 -- Intermediate pipeline: Convert `Heightfield`, `CompactHeightfield` fields; add `#[non_exhaustive]` to all 9 config structs
+- [x] Priority 1 -- Pipeline outputs: Remove 4 legacy PolyMesh duplicates, add accessors to `PolyMesh` and `PolyMeshDetail`, make fields private
+- [x] Priority 2 -- Tile structures: Make `MeshTile`, `TileHeader`, `TileCacheLayerHeader` fields private, add accessors
+- [x] Priority 3 -- Algorithm internals: Convert `Link`, `Poly`, `DtObstacleCircle`, `RVOAgent`, `FormationAgent` fields to `pub(crate)`
+- [x] Priority 4 -- Intermediate pipeline: Convert `Heightfield`, `CompactHeightfield` fields; add `#[non_exhaustive]` to all 9 config structs
 
 ### 3.3 Add Builder Patterns for Configuration
 

@@ -648,7 +648,7 @@ impl DynamicTile {
     pub fn has_mesh_data(&self) -> bool {
         if let Some(ref poly_mesh) = self.poly_mesh {
             // Check if we actually have polygons
-            !poly_mesh.polys.is_empty() && !poly_mesh.verts.is_empty()
+            !poly_mesh.polys().is_empty() && !poly_mesh.verts().is_empty()
         } else {
             false
         }
@@ -697,17 +697,17 @@ impl DynamicTile {
         use detour::{NavMeshBuilder, NavMeshCreateParams, PolyFlags};
 
         // Convert polygon data
-        let poly_count = poly_mesh.polys.len() / poly_mesh.max_verts_per_poly;
+        let poly_count = poly_mesh.polys().len() / poly_mesh.max_verts_per_poly();
 
         // Polys are already u16 in PolyMesh
-        let polys = poly_mesh.polys.clone();
+        let polys = poly_mesh.polys().to_vec();
 
         // Create polygon flags - all walkable by default
         let poly_flags = vec![PolyFlags::WALK; poly_count];
 
         // Use areas from poly mesh or default to walkable
-        let poly_areas = if !poly_mesh.areas.is_empty() {
-            poly_mesh.areas.clone()
+        let poly_areas = if !poly_mesh.areas().is_empty() {
+            poly_mesh.areas().to_vec()
         } else {
             vec![1u8; poly_count]
         };
@@ -715,10 +715,11 @@ impl DynamicTile {
         // Convert vertices from u16 to f32 (they're stored as quantized values)
         // We need to convert them back to world coordinates
         let mut verts = Vec::new();
-        for i in 0..(poly_mesh.verts.len() / 3) {
-            let x = poly_mesh.verts[i * 3] as f32 * self.config.cell_size + self.bounds_min.x;
-            let y = poly_mesh.verts[i * 3 + 1] as f32 * self.config.cell_height + self.bounds_min.y;
-            let z = poly_mesh.verts[i * 3 + 2] as f32 * self.config.cell_size + self.bounds_min.z;
+        for i in 0..(poly_mesh.verts().len() / 3) {
+            let x = poly_mesh.verts()[i * 3] as f32 * self.config.cell_size + self.bounds_min.x;
+            let y =
+                poly_mesh.verts()[i * 3 + 1] as f32 * self.config.cell_height + self.bounds_min.y;
+            let z = poly_mesh.verts()[i * 3 + 2] as f32 * self.config.cell_size + self.bounds_min.z;
             verts.push(x);
             verts.push(y);
             verts.push(z);
@@ -730,9 +731,9 @@ impl DynamicTile {
                 // Build detail_meshes array for each polygon
                 // This encodes the start and count of triangles for each polygon
                 let mut detail_meshes = Vec::new();
-                for i in 0..dm.poly_count {
-                    let base_idx = dm.poly_start[i] as u32;
-                    let tri_count = dm.poly_tri_count[i] as u32;
+                for i in 0..dm.poly_count() {
+                    let base_idx = dm.poly_start()[i] as u32;
+                    let tri_count = dm.poly_tri_count()[i] as u32;
                     detail_meshes.push(base_idx); // Starting triangle index
                     detail_meshes.push(tri_count); // Number of triangles
                     detail_meshes.push(0); // Vertex base (not used)
@@ -740,14 +741,14 @@ impl DynamicTile {
                 }
 
                 // Convert triangles from u32 to u8
-                let detail_tris: Vec<u8> = dm.triangles.iter().map(|&v| v as u8).collect();
+                let detail_tris: Vec<u8> = dm.triangles().iter().map(|&v| v as u8).collect();
 
                 (
                     detail_meshes,
-                    dm.vertices.clone(),
+                    dm.vertices().to_vec(),
                     detail_tris,
-                    dm.vert_count as i32,
-                    dm.tri_count as i32,
+                    dm.vert_count() as i32,
+                    dm.tri_count() as i32,
                 )
             } else {
                 (Vec::new(), Vec::new(), Vec::new(), 0, 0)
@@ -757,36 +758,29 @@ impl DynamicTile {
         let bmin = [self.bounds_min.x, self.bounds_min.y, self.bounds_min.z];
         let bmax = [self.bounds_max.x, self.bounds_max.y, self.bounds_max.z];
 
-        let params = NavMeshCreateParams {
-            nav_mesh_params: nav_mesh_params.clone(),
-            verts: verts.clone(),
-            vert_count: (verts.len() / 3) as i32,
-            polys,
-            poly_flags,
-            poly_areas,
-            poly_count: poly_count as i32,
-            nvp: poly_mesh.max_verts_per_poly as i32,
-            detail_meshes,
-            detail_verts,
-            detail_vert_count,
-            detail_tris,
-            detail_tri_count,
-            // No off-mesh connections for now
-            off_mesh_con_verts: Vec::new(),
-            off_mesh_con_rad: Vec::new(),
-            off_mesh_con_flags: Vec::new(),
-            off_mesh_con_areas: Vec::new(),
-            off_mesh_con_dir: Vec::new(),
-            off_mesh_con_user_id: Vec::new(),
-            off_mesh_con_count: 0,
-            bmin,
-            bmax,
-            walkable_height: self.config.walkable_height,
-            walkable_radius: self.config.walkable_radius,
-            walkable_climb: self.config.walkable_climb,
-            cs: self.config.cell_size,
-            ch: self.config.cell_height,
-            build_bv_tree: true,
+        let params = {
+            let mut cp = NavMeshCreateParams::default();
+            cp.nav_mesh_params = nav_mesh_params.clone();
+            cp.verts = verts.clone();
+            cp.vert_count = (verts.len() / 3) as i32;
+            cp.polys = polys;
+            cp.poly_flags = poly_flags;
+            cp.poly_areas = poly_areas;
+            cp.poly_count = poly_count as i32;
+            cp.nvp = poly_mesh.max_verts_per_poly() as i32;
+            cp.detail_meshes = detail_meshes;
+            cp.detail_verts = detail_verts;
+            cp.detail_vert_count = detail_vert_count;
+            cp.detail_tris = detail_tris;
+            cp.detail_tri_count = detail_tri_count;
+            cp.bmin = bmin;
+            cp.bmax = bmax;
+            cp.walkable_height = self.config.walkable_height;
+            cp.walkable_radius = self.config.walkable_radius;
+            cp.walkable_climb = self.config.walkable_climb;
+            cp.cs = self.config.cell_size;
+            cp.ch = self.config.cell_height;
+            cp
         };
 
         // Build the mesh data
@@ -862,12 +856,12 @@ impl DynamicTile {
             poly_count: self
                 .poly_mesh
                 .as_ref()
-                .map(|pm| pm.polys.len() / pm.max_verts_per_poly)
+                .map(|pm| pm.polys().len() / pm.max_verts_per_poly())
                 .unwrap_or(0),
             vertex_count: self
                 .poly_mesh
                 .as_ref()
-                .map(|pm| pm.verts.len() / 3)
+                .map(|pm| pm.verts().len() / 3)
                 .unwrap_or(0),
             status: self.status,
             build_progress: self.build_progress(),

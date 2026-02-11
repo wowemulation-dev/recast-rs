@@ -6,6 +6,7 @@ use crate::error::ConfigError;
 
 /// Configuration parameters for Recast navigation mesh generation
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct RecastConfig {
     /// The width of the field along the x-axis
     pub width: i32,

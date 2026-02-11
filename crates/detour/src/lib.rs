@@ -84,6 +84,7 @@ pub const DT_EXT_LINK: u16 = 0x8000;
 
 /// Navigation mesh parameters
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 #[cfg_attr(
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
@@ -102,6 +103,7 @@ pub struct NavMeshParams {
 
 /// Parameters for building navigation mesh tiles with off-mesh connections
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 #[cfg_attr(
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
@@ -165,6 +167,53 @@ pub struct NavMeshCreateParams {
     pub ch: f32,
     /// Build BVH tree
     pub build_bv_tree: bool,
+}
+
+impl Default for NavMeshParams {
+    fn default() -> Self {
+        Self {
+            origin: [0.0, 0.0, 0.0],
+            tile_width: 0.0,
+            tile_height: 0.0,
+            max_tiles: 0,
+            max_polys_per_tile: 0,
+        }
+    }
+}
+
+impl Default for NavMeshCreateParams {
+    fn default() -> Self {
+        Self {
+            nav_mesh_params: NavMeshParams::default(),
+            verts: Vec::new(),
+            vert_count: 0,
+            polys: Vec::new(),
+            poly_flags: Vec::new(),
+            poly_areas: Vec::new(),
+            poly_count: 0,
+            nvp: 6,
+            detail_meshes: Vec::new(),
+            detail_verts: Vec::new(),
+            detail_vert_count: 0,
+            detail_tris: Vec::new(),
+            detail_tri_count: 0,
+            off_mesh_con_verts: Vec::new(),
+            off_mesh_con_rad: Vec::new(),
+            off_mesh_con_flags: Vec::new(),
+            off_mesh_con_areas: Vec::new(),
+            off_mesh_con_dir: Vec::new(),
+            off_mesh_con_user_id: Vec::new(),
+            off_mesh_con_count: 0,
+            bmin: [0.0, 0.0, 0.0],
+            bmax: [0.0, 0.0, 0.0],
+            walkable_height: 0.0,
+            walkable_radius: 0.0,
+            walkable_climb: 0.0,
+            cs: 0.3,
+            ch: 0.2,
+            build_bv_tree: true,
+        }
+    }
 }
 
 bitflags::bitflags! {

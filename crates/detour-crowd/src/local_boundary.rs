@@ -85,13 +85,13 @@ impl DtLocalBoundary {
 
             // Get polygon vertices
             let mut verts = Vec::new();
-            for &v_idx in &poly.verts[..poly.vert_count as usize] {
+            for &v_idx in &poly.verts()[..poly.vert_count() as usize] {
                 let vertex_idx = v_idx as usize;
-                if vertex_idx * 3 + 2 < tile.verts.len() {
+                if vertex_idx * 3 + 2 < tile.verts().len() {
                     verts.push([
-                        tile.verts[vertex_idx * 3],
-                        tile.verts[vertex_idx * 3 + 1],
-                        tile.verts[vertex_idx * 3 + 2],
+                        tile.verts()[vertex_idx * 3],
+                        tile.verts()[vertex_idx * 3 + 1],
+                        tile.verts()[vertex_idx * 3 + 2],
                     ]);
                 }
             }
@@ -202,13 +202,13 @@ impl DtLocalBoundary {
         _navquery: &NavMeshQuery,
     ) -> Result<bool, CrowdError> {
         // Get the neighbor link for this edge
-        if edge_idx >= poly.vert_count as usize {
+        if edge_idx >= poly.vert_count() as usize {
             return Ok(true); // Invalid edge index, treat as boundary
         }
 
         // Check if this edge has a neighbor polygon
         // In the navigation mesh, edges store neighbor information
-        let neighbor = poly.neighbors[edge_idx];
+        let neighbor = poly.neighbors()[edge_idx];
 
         // If neighbor is 0 (MESH_NULL_IDX), this is a boundary edge
         if neighbor == 0 || neighbor == 0xFFFF {
@@ -226,7 +226,7 @@ impl DtLocalBoundary {
 
         // Internal link - check if the linked polygon is valid
         let linked_poly_idx = (neighbor & 0x7FFF) as usize;
-        if linked_poly_idx >= tile.polys.len() {
+        if linked_poly_idx >= tile.polys().len() {
             return Ok(true); // Invalid link, treat as boundary
         }
 
