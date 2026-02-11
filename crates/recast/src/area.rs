@@ -69,7 +69,7 @@ fn vsub(dest: &mut [f32; 3], a: &[f32], b: &[f32]) {
 }
 
 /// Erodes walkable area by specified radius
-/// Matches C++ rcErodeWalkableArea - uses con[4] connections directly
+/// Matches C++ `rcErodeWalkableArea` - uses `con[4]` connections directly
 pub fn erode_walkable_area(
     chf: &mut CompactHeightfield,
     erosion_radius: i32,
