@@ -5,6 +5,8 @@
 
 use std::f32;
 
+use glam::Vec3;
+
 use crate::error::CrowdError;
 use detour::{NavMeshQuery, PolyRef, QueryFilter};
 
@@ -46,7 +48,8 @@ impl PathCorridor {
     }
 
     /// Resets the path corridor
-    pub fn reset(&mut self, ref_value: PolyRef, pos: [f32; 3]) {
+    pub fn reset(&mut self, ref_value: PolyRef, pos: Vec3) {
+        let pos = pos.to_array();
         self.pos = pos;
         self.target = pos;
 
@@ -62,9 +65,10 @@ impl PathCorridor {
         &mut self,
         query: &mut NavMeshQuery,
         target_ref: PolyRef,
-        target: [f32; 3],
+        target: Vec3,
         filter: &QueryFilter,
     ) -> Result<(), CrowdError> {
+        let target = target.to_array();
         // Validate input
         if self.path.is_empty() {
             return Err(CrowdError::CorridorFailed);
@@ -150,10 +154,11 @@ impl PathCorridor {
     /// Moves the corridor position
     pub fn move_position(
         &mut self,
-        new_pos: [f32; 3],
+        new_pos: Vec3,
         query: &mut NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<(), CrowdError> {
+        let new_pos = new_pos.to_array();
         if self.path.is_empty() {
             return Err(CrowdError::CorridorFailed);
         }
@@ -212,16 +217,17 @@ impl PathCorridor {
     /// Advances the corridor towards the target position
     pub fn advance(
         &mut self,
-        new_pos: [f32; 3],
+        new_pos: Vec3,
         query: &mut NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<bool, CrowdError> {
+        let new_pos = new_pos.to_array();
         if self.path.is_empty() {
             return Ok(false);
         }
 
         // Update the corridor position
-        self.move_position(new_pos, query, filter)?;
+        self.move_position(Vec3::from(new_pos), query, filter)?;
 
         // Check if we reached the target
         if self.path.len() == 1 {
@@ -274,10 +280,11 @@ impl PathCorridor {
     /// Shortens the path by removing polygons from the front
     pub fn shorten(
         &mut self,
-        new_pos: [f32; 3],
+        new_pos: Vec3,
         query: &mut NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<(), CrowdError> {
+        let new_pos = new_pos.to_array();
         if self.path.is_empty() {
             return Err(CrowdError::CorridorFailed);
         }
@@ -308,13 +315,13 @@ impl PathCorridor {
     }
 
     /// Gets the current position in the corridor
-    pub fn get_pos(&self) -> [f32; 3] {
-        self.pos
+    pub fn get_pos(&self) -> Vec3 {
+        Vec3::from(self.pos)
     }
 
     /// Gets the target position in the corridor
-    pub fn get_target(&self) -> [f32; 3] {
-        self.target
+    pub fn get_target(&self) -> Vec3 {
+        Vec3::from(self.target)
     }
 
     /// Gets the path of polygon references
@@ -368,11 +375,12 @@ impl PathCorridor {
     /// Attempts to optimize the path if the specified point is visible from the current position
     pub fn optimize_path_visibility(
         &mut self,
-        next: &[f32; 3],
+        next: Vec3,
         path_optimization_range: f32,
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<(), CrowdError> {
+        let next = &next.to_array();
         if self.path.len() < 3 {
             return Ok(());
         }
@@ -502,8 +510,9 @@ impl PathCorridor {
     pub fn fix_path_start(
         &mut self,
         safe_ref: PolyRef,
-        safe_pos: &[f32; 3],
+        safe_pos: Vec3,
     ) -> Result<bool, CrowdError> {
+        let safe_pos = &safe_pos.to_array();
         if !safe_ref.is_valid() {
             return Ok(false);
         }
@@ -522,10 +531,11 @@ impl PathCorridor {
     pub fn trim_invalid_path(
         &mut self,
         safe_ref: PolyRef,
-        safe_pos: &[f32; 3],
+        safe_pos: Vec3,
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<bool, CrowdError> {
+        let safe_pos = &safe_pos.to_array();
         // Find the first invalid polygon
         let mut first_invalid = None;
         for (i, &poly_ref) in self.path.iter().enumerate() {
@@ -593,10 +603,11 @@ impl PathCorridor {
     /// Moves the target position
     pub fn move_target_position(
         &mut self,
-        npos: &[f32; 3],
+        npos: Vec3,
         navquery: &mut NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<bool, CrowdError> {
+        let npos = &npos.to_array();
         if self.path.is_empty() {
             return Ok(false);
         }
@@ -632,8 +643,8 @@ impl PathCorridor {
     }
 
     /// Loads a new path and target into the corridor
-    pub fn set_corridor(&mut self, target: &[f32; 3], polys: &[PolyRef], npath: usize) {
-        self.target = *target;
+    pub fn set_corridor(&mut self, target: Vec3, polys: &[PolyRef], npath: usize) {
+        self.target = target.to_array();
         self.path.clear();
         self.path
             .extend_from_slice(&polys[..npath.min(polys.len())]);
@@ -859,8 +870,8 @@ mod tests {
     fn test_create_corridor() {
         let corridor = PathCorridor::new();
 
-        assert_eq!(corridor.get_pos(), [0.0, 0.0, 0.0]);
-        assert_eq!(corridor.get_target(), [0.0, 0.0, 0.0]);
+        assert_eq!(corridor.get_pos(), Vec3::ZERO);
+        assert_eq!(corridor.get_target(), Vec3::ZERO);
         assert_eq!(corridor.get_path_count(), 0);
     }
 
@@ -868,7 +879,7 @@ mod tests {
     fn test_reset_corridor() {
         let mut corridor = PathCorridor::new();
 
-        let start_pos = [10.0, 5.0, 10.0];
+        let start_pos = Vec3::new(10.0, 5.0, 10.0);
         let start_ref = PolyRef::new(42);
 
         corridor.reset(start_ref, start_pos);

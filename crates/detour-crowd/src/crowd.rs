@@ -5,6 +5,8 @@
 
 use std::f32;
 
+use glam::Vec3;
+
 use super::PathCorridor;
 use super::formation::{FormationConfig, FormationManager, FormationRole};
 use super::proximity_grid::{GridAgent, ProximityGrid};
@@ -233,18 +235,18 @@ impl CrowdAgent {
     }
 
     /// Gets the agent's position
-    pub fn get_pos(&self) -> [f32; 3] {
-        self.pos
+    pub fn get_pos(&self) -> Vec3 {
+        Vec3::from(self.pos)
     }
 
     /// Gets the agent's velocity
-    pub fn get_vel(&self) -> [f32; 3] {
-        self.vel
+    pub fn get_vel(&self) -> Vec3 {
+        Vec3::from(self.vel)
     }
 
     /// Gets the agent's target
-    pub fn get_target(&self) -> [f32; 3] {
-        self.target
+    pub fn get_target(&self) -> Vec3 {
+        Vec3::from(self.target)
     }
 
     /// Gets the agent's state
@@ -331,7 +333,8 @@ impl<'a> Crowd<'a> {
     }
 
     /// Adds an agent to the crowd
-    pub fn add_agent(&mut self, pos: [f32; 3], params: AgentParams) -> Result<usize, CrowdError> {
+    pub fn add_agent(&mut self, pos: Vec3, params: AgentParams) -> Result<usize, CrowdError> {
+        let pos = pos.to_array();
         // Find a free slot
         let mut slot = usize::MAX;
         for i in 0..self.max_agents {
@@ -379,7 +382,7 @@ impl<'a> Crowd<'a> {
         agent.active = true;
 
         // Init path corridor
-        agent.corridor.reset(nearest_ref, nearest_pos);
+        agent.corridor.reset(nearest_ref, Vec3::from(nearest_pos));
 
         // Handle RVO integration
         if params.use_rvo {
@@ -389,7 +392,7 @@ impl<'a> Crowd<'a> {
             }
 
             if let Some(rvo_sim) = &mut self.rvo_simulator {
-                let rvo_pos_2d = position_3d_to_2d(&nearest_pos);
+                let rvo_pos_2d = position_3d_to_2d(Vec3::from(nearest_pos));
                 let rvo_agent_id = rvo_sim.add_agent_with_config(rvo_pos_2d, params.rvo_config);
                 agent.rvo_agent_id = Some(rvo_agent_id);
             }
@@ -458,8 +461,9 @@ impl<'a> Crowd<'a> {
         &mut self,
         agent_idx: usize,
         target_ref: PolyRef,
-        target_pos: [f32; 3],
+        target_pos: Vec3,
     ) -> Result<(), CrowdError> {
+        let target_pos = target_pos.to_array();
         if agent_idx >= self.max_agents {
             return Err(CrowdError::AgentNotFound { index: agent_idx });
         }
@@ -515,7 +519,7 @@ impl<'a> Crowd<'a> {
                         match agent.corridor.find_path(
                             &mut self.query,
                             target_ref,
-                            target_pos,
+                            Vec3::from(target_pos),
                             &filter,
                         ) {
                             Ok(()) => {
@@ -548,7 +552,11 @@ impl<'a> Crowd<'a> {
                         }
 
                         // Advance the corridor towards the target
-                        match agent.corridor.advance(agent_pos, &mut self.query, &filter) {
+                        match agent.corridor.advance(
+                            Vec3::from(agent_pos),
+                            &mut self.query,
+                            &filter,
+                        ) {
                             Ok(reached_target) => {
                                 if reached_target {
                                     // Agent has reached their target
@@ -565,7 +573,7 @@ impl<'a> Crowd<'a> {
 
                                 // Fallback: just update corridor position without advancing
                                 if let Err(e2) = agent.corridor.move_position(
-                                    agent_pos,
+                                    Vec3::from(agent_pos),
                                     &mut self.query,
                                     &filter,
                                 ) {
@@ -801,10 +809,12 @@ impl<'a> Crowd<'a> {
                     let new_pos = agent.pos;
 
                     if let Some(agent) = self.agents[agent_idx].as_mut() {
-                        agent
-                            .corridor
-                            .move_position(new_pos, &mut self.query, &filter)?;
-                        agent.pos = agent.corridor.get_pos();
+                        agent.corridor.move_position(
+                            Vec3::from(new_pos),
+                            &mut self.query,
+                            &filter,
+                        )?;
+                        agent.pos = agent.corridor.get_pos().to_array();
                     }
                 }
             }
@@ -854,9 +864,10 @@ impl<'a> Crowd<'a> {
                     if let Some(rvo_sim) = &mut self.rvo_simulator {
                         if let Some(rvo_agent) = rvo_sim.get_agent_mut(rvo_agent_id) {
                             // Update RVO agent position and preferred velocity
-                            rvo_agent.position = position_3d_to_2d(&agent.pos);
-                            rvo_agent.velocity = velocity_3d_to_2d(&agent.vel);
-                            rvo_agent.pref_velocity = velocity_3d_to_2d(&agent.desired_vel);
+                            rvo_agent.position = position_3d_to_2d(Vec3::from(agent.pos));
+                            rvo_agent.velocity = velocity_3d_to_2d(Vec3::from(agent.vel));
+                            rvo_agent.pref_velocity =
+                                velocity_3d_to_2d(Vec3::from(agent.desired_vel));
                         }
                     }
                 }
@@ -880,7 +891,7 @@ impl<'a> Crowd<'a> {
                         if let Some(rvo_agent) = rvo_sim.get_agent(rvo_agent_id) {
                             // Apply RVO velocity to desired velocity
                             let new_vel_3d = velocity_2d_to_3d(&rvo_agent.get_new_velocity());
-                            agent.desired_vel = new_vel_3d;
+                            agent.desired_vel = new_vel_3d.to_array();
                         }
                     }
                 }
@@ -922,7 +933,9 @@ impl<'a> Crowd<'a> {
 
             // Use proximity grid to find nearby agents efficiently
             let query_radius = agent_i.params.collision_query_range;
-            let nearby_agents = self.proximity_grid.query_agents(agent_i.pos, query_radius);
+            let nearby_agents = self
+                .proximity_grid
+                .query_agents(Vec3::from(agent_i.pos), query_radius);
 
             // Calculate a separation vector from nearby agents
             let mut sep = [0.0, 0.0, 0.0];
@@ -1143,7 +1156,7 @@ impl<'a> Crowd<'a> {
     pub fn set_formation_target(
         &mut self,
         formation_id: usize,
-        target: [f32; 3],
+        target: Vec3,
     ) -> Result<(), CrowdError> {
         self.formation_manager
             .set_formation_target(formation_id, target)
@@ -1215,7 +1228,7 @@ impl<'a> Crowd<'a> {
     }
 
     /// Queries for agents near a position using the proximity grid
-    pub fn query_nearby_agents(&self, pos: [f32; 3], radius: f32) -> Vec<usize> {
+    pub fn query_nearby_agents(&self, pos: Vec3, radius: f32) -> Vec<usize> {
         self.proximity_grid
             .query_agents(pos, radius)
             .into_iter()

@@ -1,3 +1,5 @@
+use glam::Vec3;
+
 use crate::error::CrowdError;
 use std::f32;
 
@@ -265,7 +267,10 @@ impl DtObstacleAvoidanceQuery {
         self.n_segments = 0;
     }
 
-    pub fn add_circle(&mut self, pos: &[f32; 3], rad: f32, vel: &[f32; 3], dvel: &[f32; 3]) {
+    pub fn add_circle(&mut self, pos: Vec3, rad: f32, vel: Vec3, dvel: Vec3) {
+        let pos = &pos.to_array();
+        let vel = &vel.to_array();
+        let dvel = &dvel.to_array();
         if self.n_circles >= self.max_circles {
             return;
         }
@@ -278,7 +283,9 @@ impl DtObstacleAvoidanceQuery {
         self.n_circles += 1;
     }
 
-    pub fn add_segment(&mut self, p: &[f32; 3], q: &[f32; 3]) {
+    pub fn add_segment(&mut self, p: Vec3, q: Vec3) {
+        let p = &p.to_array();
+        let q = &q.to_array();
         if self.n_segments >= self.max_segments {
             return;
         }

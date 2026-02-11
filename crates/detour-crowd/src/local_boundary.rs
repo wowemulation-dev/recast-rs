@@ -1,3 +1,5 @@
+use glam::Vec3;
+
 use crate::error::CrowdError;
 use detour::{NavMeshQuery, PolyRef, QueryFilter};
 
@@ -48,11 +50,12 @@ impl DtLocalBoundary {
     pub fn update(
         &mut self,
         poly_ref: PolyRef,
-        pos: &[f32; 3],
+        pos: Vec3,
         collision_query_range: f32,
         navquery: &NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<(), CrowdError> {
+        let pos = &pos.to_array();
         if !poly_ref.is_valid() {
             return Ok(());
         }
@@ -144,8 +147,8 @@ impl DtLocalBoundary {
         Ok(true)
     }
 
-    pub fn get_center(&self) -> &[f32; 3] {
-        &self.center
+    pub fn get_center(&self) -> Vec3 {
+        Vec3::from(self.center)
     }
 
     pub fn get_segment_count(&self) -> usize {

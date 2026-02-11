@@ -11,6 +11,7 @@ mod tests {
     use detour::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
+    use glam::Vec3;
     use std::mem;
 
     type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -101,7 +102,7 @@ mod tests {
                 let z = (i / grid_size) as f32 * spacing + 5.0;
                 let pos = [x, 0.0, z];
 
-                if crowd.add_agent(pos, params.clone()).is_ok() {
+                if crowd.add_agent(Vec3::from(pos), params.clone()).is_ok() {
                     added_count += 1;
                 }
             }
@@ -164,7 +165,7 @@ mod tests {
 
                 for _ in 0..100 {
                     let query_pos = [50.0, 0.0, 50.0];
-                    let neighbors = grid.query_agents(query_pos, 10.0);
+                    let neighbors = grid.query_agents(Vec3::from(query_pos), 10.0);
                     total_neighbors += neighbors.len();
                 }
 
@@ -217,7 +218,7 @@ mod tests {
                     (cycle * 3 + i * 7) as f32 % 45.0 + 2.5,
                 ];
 
-                if let Ok(id) = crowd.add_agent(pos, params.clone()) {
+                if let Ok(id) = crowd.add_agent(Vec3::from(pos), params.clone()) {
                     agent_ids.push(id);
                 }
             }
@@ -312,7 +313,7 @@ mod tests {
 
             let params = &param_variants[i % param_variants.len()];
 
-            if crowd.add_agent(pos, params.clone()).is_ok() {
+            if crowd.add_agent(Vec3::from(pos), params.clone()).is_ok() {
                 added_count += 1;
             } else {
                 break;
@@ -337,7 +338,9 @@ mod tests {
             ];
 
             if let Ok((poly_ref, closest)) = query.find_nearest_poly(&target, &ext, &filter) {
-                crowd.request_move_target(i, poly_ref, closest).ok();
+                crowd
+                    .request_move_target(i, poly_ref, Vec3::from(closest))
+                    .ok();
             }
         }
 
@@ -392,7 +395,7 @@ mod tests {
         let mut agent_ids = Vec::new();
         for i in 0..20 {
             let pos = [(i * 2) as f32 + 5.0, 0.0, (i * 3) as f32 % 45.0 + 2.5];
-            if let Ok(id) = crowd.add_agent(pos, params.clone()) {
+            if let Ok(id) = crowd.add_agent(Vec3::from(pos), params.clone()) {
                 agent_ids.push(id);
             }
         }
@@ -405,7 +408,7 @@ mod tests {
         for (i, &id) in agent_ids.iter().enumerate() {
             let target = [45.0 - (i as f32 * 2.0), 0.0, 45.0 - (i as f32 * 1.5)];
             if let Ok((poly_ref, closest)) = query.find_nearest_poly(&target, &ext, &filter) {
-                crowd.request_move_target(id, poly_ref, closest)?;
+                crowd.request_move_target(id, poly_ref, Vec3::from(closest))?;
             }
         }
 
@@ -477,7 +480,7 @@ mod tests {
         ];
 
         for pos in query_positions {
-            let neighbors = grid.query_agents(pos, 10.0);
+            let neighbors = grid.query_agents(Vec3::from(pos), 10.0);
             println!("Query at {:?}: found {} neighbors", pos, neighbors.len());
         }
 
@@ -515,7 +518,7 @@ mod tests {
                 0.0,
                 (i / 10) as f32 * 6.0 + 5.0,
             ];
-            if let Ok(id) = crowd.add_agent(pos, params.clone()) {
+            if let Ok(id) = crowd.add_agent(Vec3::from(pos), params.clone()) {
                 agent_ids.push(id);
             }
         }
@@ -543,7 +546,9 @@ mod tests {
 
                     if let Ok((poly_ref, closest)) = query.find_nearest_poly(&target, &ext, &filter)
                     {
-                        crowd.request_move_target(id, poly_ref, closest).ok();
+                        crowd
+                            .request_move_target(id, poly_ref, Vec3::from(closest))
+                            .ok();
                     }
                 }
             }
@@ -558,7 +563,9 @@ mod tests {
                     if let Ok((poly_ref, closest)) =
                         query.find_nearest_poly(&stop_pos, &ext, &filter)
                     {
-                        crowd.request_move_target(id, poly_ref, closest).ok();
+                        crowd
+                            .request_move_target(id, poly_ref, Vec3::from(closest))
+                            .ok();
                     }
                 }
             }

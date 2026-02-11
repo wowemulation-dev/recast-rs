@@ -11,6 +11,7 @@
 
 use detour::{NavMeshQuery, QueryFilter};
 use detour_crowd::{AgentParams, Crowd};
+use glam::Vec3;
 
 use recast_rs_examples::common;
 
@@ -57,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Add 5 agents at snapped positions
     let mut agent_ids = Vec::new();
     for pos in &snapped_positions {
-        let id = crowd.add_agent(*pos, params.clone())?;
+        let id = crowd.add_agent(Vec3::from(*pos), params.clone())?;
         agent_ids.push(id);
         println!(
             "Added agent {} at ({:.2}, {:.2}, {:.2})",
@@ -83,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     for &agent_id in &agent_ids {
-        crowd.request_move_target(agent_id, target_ref, snapped_target)?;
+        crowd.request_move_target(agent_id, target_ref, Vec3::from(snapped_target))?;
     }
 
     // Run simulation: 100 frames at 60 FPS

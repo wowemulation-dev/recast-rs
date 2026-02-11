@@ -6,6 +6,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
 use detour_crowd::{AgentParams, Crowd};
+use glam::Vec3;
 use recast::{RecastBuilder, RecastConfig};
 use recast_common::TriMesh;
 
@@ -79,13 +80,14 @@ fn setup_crowd(nav_mesh: &NavMesh, num_agents: usize, enable_rvo: bool) -> Crowd
         let pos = [x, 0.0, z];
 
         if let Ok((_, snapped_pos)) = query.find_nearest_poly(&pos, &extent, &filter) {
-            if let Ok(agent_id) = crowd.add_agent(snapped_pos, params.clone()) {
+            if let Ok(agent_id) = crowd.add_agent(Vec3::from(snapped_pos), params.clone()) {
                 // Target: opposite side of the mesh
                 let target = [50.0 - x, 0.0, -z];
                 if let Ok((target_ref, snapped_target)) =
                     query.find_nearest_poly(&target, &extent, &filter)
                 {
-                    let _ = crowd.request_move_target(agent_id, target_ref, snapped_target);
+                    let _ =
+                        crowd.request_move_target(agent_id, target_ref, Vec3::from(snapped_target));
                 }
             }
         }

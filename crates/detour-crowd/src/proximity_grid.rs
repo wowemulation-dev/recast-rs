@@ -4,6 +4,7 @@
 //! for agents in a crowd simulation. Instead of O(n²) distance checks,
 //! the grid provides O(1) cell lookup and only checks agents in nearby cells.
 
+use glam::Vec3;
 use std::collections::HashMap;
 
 /// Default cell size for the proximity grid (in world units)
@@ -198,7 +199,8 @@ impl ProximityGrid {
     }
 
     /// Queries for agents near a given position
-    pub fn query_agents(&self, pos: [f32; 3], radius: f32) -> Vec<GridAgent> {
+    pub fn query_agents(&self, pos: Vec3, radius: f32) -> Vec<GridAgent> {
+        let pos = pos.to_array();
         let mut result = Vec::new();
         let center_coord = GridCoord::from_world_pos(pos, self.cell_size);
 
@@ -228,7 +230,8 @@ impl ProximityGrid {
     }
 
     /// Queries for agents in a specific cell
-    pub fn query_cell(&self, pos: [f32; 3]) -> Vec<GridAgent> {
+    pub fn query_cell(&self, pos: Vec3) -> Vec<GridAgent> {
+        let pos = pos.to_array();
         let coord = GridCoord::from_world_pos(pos, self.cell_size);
 
         if let Some(cell) = self.cells.get(&coord) {
@@ -239,7 +242,8 @@ impl ProximityGrid {
     }
 
     /// Gets all agents within the immediate neighboring cells (3x3 grid)
-    pub fn query_neighbors(&self, pos: [f32; 3]) -> Vec<GridAgent> {
+    pub fn query_neighbors(&self, pos: Vec3) -> Vec<GridAgent> {
+        let pos = pos.to_array();
         let mut result = Vec::new();
         let center_coord = GridCoord::from_world_pos(pos, self.cell_size);
 
@@ -418,11 +422,11 @@ mod tests {
         assert_eq!(grid.get_agent_count(), 3);
 
         // Query near agent1
-        let nearby = grid.query_agents([1.0, 0.0, 1.0], 3.0);
+        let nearby = grid.query_agents(Vec3::from([1.0, 0.0, 1.0]), 3.0);
         assert_eq!(nearby.len(), 2); // Should find agent1 and agent2
 
         // Query near agent3
-        let nearby = grid.query_agents([10.0, 0.0, 10.0], 3.0);
+        let nearby = grid.query_agents(Vec3::from([10.0, 0.0, 10.0]), 3.0);
         assert_eq!(nearby.len(), 1); // Should only find agent3
     }
 
@@ -477,11 +481,11 @@ mod tests {
         assert_eq!(grid.get_agent_count(), 1); // Still only one agent
 
         // Query at old position
-        let nearby = grid.query_agents([1.0, 0.0, 1.0], 1.0);
+        let nearby = grid.query_agents(Vec3::from([1.0, 0.0, 1.0]), 1.0);
         assert_eq!(nearby.len(), 0); // Should not find the agent
 
         // Query at new position
-        let nearby = grid.query_agents([5.0, 0.0, 5.0], 1.0);
+        let nearby = grid.query_agents(Vec3::from([5.0, 0.0, 5.0]), 1.0);
         assert_eq!(nearby.len(), 1); // Should find the agent
     }
 
@@ -529,7 +533,7 @@ mod tests {
         }
 
         // Query neighbors of position in cell (0, 0)
-        let neighbors = grid.query_neighbors([1.0, 0.0, 1.0]);
+        let neighbors = grid.query_neighbors(Vec3::from([1.0, 0.0, 1.0]));
         assert!(neighbors.len() >= 4); // Should find the 4 nearby agents
         assert!(neighbors.len() <= 4); // Should not find the far agent
     }

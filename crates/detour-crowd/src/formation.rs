@@ -7,6 +7,8 @@
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
+use glam::Vec3;
+
 use crate::error::CrowdError;
 
 /// Maximum number of agents in a single formation
@@ -111,7 +113,8 @@ pub struct FormationAgent {
 
 impl FormationAgent {
     /// Creates a new formation agent
-    pub fn new(agent_id: usize, role: FormationRole, relative_position: [f32; 3]) -> Self {
+    pub fn new(agent_id: usize, role: FormationRole, relative_position: Vec3) -> Self {
+        let relative_position = relative_position.to_array();
         Self {
             agent_id,
             role,
@@ -176,7 +179,7 @@ impl Formation {
         // Calculate relative position based on formation type and agent count
         let relative_position = self.calculate_formation_position(self.agents.len(), role)?;
 
-        let formation_agent = FormationAgent::new(agent_id, role, relative_position);
+        let formation_agent = FormationAgent::new(agent_id, role, Vec3::from(relative_position));
         self.agents.push(formation_agent);
 
         // If this is the first agent and it's a leader, use its position as center
@@ -339,7 +342,8 @@ impl Formation {
     }
 
     /// Sets the target destination for the formation
-    pub fn set_target(&mut self, target: [f32; 3]) {
+    pub fn set_target(&mut self, target: Vec3) {
+        let target = target.to_array();
         self.target = Some(target);
         self.state = FormationState::Moving;
     }
@@ -549,7 +553,7 @@ impl FormationManager {
     pub fn set_formation_target(
         &mut self,
         formation_id: usize,
-        target: [f32; 3],
+        target: Vec3,
     ) -> Result<(), CrowdError> {
         let formation = self
             .formations

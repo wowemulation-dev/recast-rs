@@ -5,6 +5,8 @@
 
 use std::collections::HashMap;
 
+use glam::Vec3;
+
 use super::CrowdAgent;
 use crate::error::CrowdError;
 use detour::NavMesh;
@@ -411,7 +413,7 @@ impl BehaviorTree {
 
         match &action.action_type {
             ActionType::MoveTo { target, speed: _ } => {
-                let distance = calculate_distance(&agent.get_pos(), target);
+                let distance = calculate_distance(&agent.get_pos().to_array(), target);
                 if distance < 1.0 {
                     action.start_time = 0.0;
                     self.nodes[node_index] = BehaviorNode::Action(action);
@@ -423,8 +425,9 @@ impl BehaviorTree {
             }
             ActionType::Follow { agent_id, distance } => {
                 if let Some(target_agent) = context.agents.get(agent_id) {
-                    let target_pos = target_agent.get_pos();
-                    let current_distance = calculate_distance(&agent.get_pos(), &target_pos);
+                    let target_pos = target_agent.get_pos().to_array();
+                    let current_distance =
+                        calculate_distance(&agent.get_pos().to_array(), &target_pos);
                     if current_distance > *distance {
                         // Move towards target agent
                         BehaviorResult::Running
@@ -436,7 +439,7 @@ impl BehaviorTree {
                 }
             }
             ActionType::Flee { source, distance } => {
-                let current_distance = calculate_distance(&agent.get_pos(), source);
+                let current_distance = calculate_distance(&agent.get_pos().to_array(), source);
                 if current_distance >= *distance {
                     action.start_time = 0.0;
                     self.nodes[node_index] = BehaviorNode::Action(action);
@@ -481,7 +484,7 @@ impl BehaviorTree {
     ) -> BehaviorResult {
         match &condition.condition_type {
             ConditionType::NearPosition { position, distance } => {
-                let current_distance = calculate_distance(&agent.get_pos(), position);
+                let current_distance = calculate_distance(&agent.get_pos().to_array(), position);
                 if current_distance <= *distance {
                     BehaviorResult::Success
                 } else {
@@ -490,8 +493,9 @@ impl BehaviorTree {
             }
             ConditionType::NearAgent { agent_id, distance } => {
                 if let Some(target_agent) = context.agents.get(agent_id) {
-                    let target_pos = target_agent.get_pos();
-                    let current_distance = calculate_distance(&agent.get_pos(), &target_pos);
+                    let target_pos = target_agent.get_pos().to_array();
+                    let current_distance =
+                        calculate_distance(&agent.get_pos().to_array(), &target_pos);
                     if current_distance <= *distance {
                         BehaviorResult::Success
                     } else {
@@ -910,8 +914,8 @@ impl CrowdBehaviorManager {
         let mut total_force = [0.0, 0.0, 0.0];
 
         if let Some(agent) = context.agents.get(&agent_id) {
-            let agent_pos = agent.get_pos();
-            let agent_vel = agent.get_vel();
+            let agent_pos = agent.get_pos().to_array();
+            let agent_vel = agent.get_vel().to_array();
 
             for behavior in behaviors {
                 let force = match behavior {
@@ -1074,7 +1078,7 @@ impl CrowdBehaviorManager {
 
         for (&other_id, other_agent) in context.agents {
             if other_id != agent_id {
-                let other_pos = other_agent.get_pos();
+                let other_pos = other_agent.get_pos().to_array();
                 let distance = calculate_distance(agent_pos, &other_pos);
 
                 if distance < radius && distance > 0.0 {
@@ -1122,7 +1126,7 @@ impl CrowdBehaviorManager {
         };
 
         // Apply force to velocity (would integrate with actual agent physics)
-        let current_vel = agent.get_vel();
+        let current_vel = agent.get_vel().to_array();
         let new_vel = [
             current_vel[0] + limited_force[0] * dt,
             current_vel[1] + limited_force[1] * dt,
@@ -1160,13 +1164,13 @@ impl CrowdBehaviorManager {
             neighbor_radius,
         } = behavior
         {
-            let agent_pos = agent.get_pos();
+            let agent_pos = agent.get_pos().to_array();
             let mut neighbors = Vec::new();
 
             // Find neighbors
             for (&other_id, other_agent) in context.agents {
                 if other_id != agent_id {
-                    let other_pos = other_agent.get_pos();
+                    let other_pos = other_agent.get_pos().to_array();
                     let distance = calculate_distance(&agent_pos, &other_pos);
                     if distance < *neighbor_radius {
                         neighbors.push((other_id, other_agent));
@@ -1212,7 +1216,7 @@ impl CrowdBehaviorManager {
 
         let mut average_velocity = [0.0, 0.0, 0.0];
         for (_, neighbor) in neighbors {
-            let vel = neighbor.get_vel();
+            let vel = neighbor.get_vel().to_array();
             average_velocity[0] += vel[0];
             average_velocity[1] += vel[1];
             average_velocity[2] += vel[2];
@@ -1242,7 +1246,7 @@ impl CrowdBehaviorManager {
 
         let mut center_of_mass = [0.0, 0.0, 0.0];
         for (_, neighbor) in neighbors {
-            let pos = neighbor.get_pos();
+            let pos = neighbor.get_pos().to_array();
             center_of_mass[0] += pos[0];
             center_of_mass[1] += pos[1];
             center_of_mass[2] += pos[2];
@@ -1264,7 +1268,7 @@ impl CrowdBehaviorManager {
         for (trigger, behavior_tree) in &mut self.triggers {
             if let BehaviorTrigger::ProximityTrigger { position, radius } = trigger {
                 for (_agent_id, agent) in agents.iter_mut() {
-                    let distance = calculate_distance(&agent.get_pos(), position);
+                    let distance = calculate_distance(&agent.get_pos().to_array(), position);
                     if distance <= *radius {
                         // Trigger behavior execution
                         let result = behavior_tree.execute(agent, context);
@@ -1305,7 +1309,8 @@ fn calculate_distance(a: &[f32; 3], b: &[f32; 3]) -> f32 {
 }
 
 /// Creates a simple seek behavior tree
-pub fn create_seek_behavior_tree(target: [f32; 3]) -> Result<BehaviorTree, CrowdError> {
+pub fn create_seek_behavior_tree(target: Vec3) -> Result<BehaviorTree, CrowdError> {
+    let target = target.to_array();
     let mut tree = BehaviorTree::new();
 
     let action = ActionNode {
@@ -1321,12 +1326,13 @@ pub fn create_seek_behavior_tree(target: [f32; 3]) -> Result<BehaviorTree, Crowd
 }
 
 /// Creates a simple patrol behavior tree
-pub fn create_patrol_behavior_tree(waypoints: Vec<[f32; 3]>) -> Result<BehaviorTree, CrowdError> {
+pub fn create_patrol_behavior_tree(waypoints: Vec<Vec3>) -> Result<BehaviorTree, CrowdError> {
     let mut tree = BehaviorTree::new();
 
     let mut sequence_children = Vec::new();
 
     for waypoint in waypoints {
+        let waypoint = waypoint.to_array();
         let action = ActionNode {
             action_type: ActionType::MoveTo {
                 target: waypoint,
@@ -1412,7 +1418,7 @@ mod tests {
 
     #[test]
     fn test_create_seek_behavior_tree() {
-        let target = [10.0, 0.0, 5.0];
+        let target = Vec3::new(10.0, 0.0, 5.0);
         let tree = create_seek_behavior_tree(target).unwrap();
 
         assert_eq!(tree.nodes.len(), 1);
@@ -1422,7 +1428,7 @@ mod tests {
                 speed: _,
             } = &action.action_type
             {
-                assert_eq!(*action_target, target);
+                assert_eq!(*action_target, target.to_array());
             } else {
                 panic!("Expected MoveTo action");
             }
@@ -1433,7 +1439,11 @@ mod tests {
 
     #[test]
     fn test_create_patrol_behavior_tree() {
-        let waypoints = vec![[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 0.0, 10.0]];
+        let waypoints = vec![
+            Vec3::ZERO,
+            Vec3::new(10.0, 0.0, 0.0),
+            Vec3::new(10.0, 0.0, 10.0),
+        ];
         let tree = create_patrol_behavior_tree(waypoints).unwrap();
 
         assert_eq!(tree.nodes.len(), 5); // 3 actions + 1 sequence + 1 repeater

@@ -4,6 +4,8 @@
 //! between agents in a crowd. RVO ensures that agents can smoothly avoid
 //! collisions with each other while maintaining their desired motion.
 
+use glam::Vec3;
+
 use crate::error::CrowdError;
 
 /// Configuration parameters for RVO
@@ -443,23 +445,23 @@ fn normalize(v: &mut [f32; 2]) -> f32 {
 }
 
 /// Converts a 3D velocity to 2D (ignoring Y component)
-pub fn velocity_3d_to_2d(vel_3d: &[f32; 3]) -> [f32; 2] {
+pub fn velocity_3d_to_2d(vel_3d: Vec3) -> [f32; 2] {
     [vel_3d[0], vel_3d[2]]
 }
 
 /// Converts a 2D velocity to 3D (setting Y component to 0)
-pub fn velocity_2d_to_3d(vel_2d: &[f32; 2]) -> [f32; 3] {
-    [vel_2d[0], 0.0, vel_2d[1]]
+pub fn velocity_2d_to_3d(vel_2d: &[f32; 2]) -> Vec3 {
+    Vec3::new(vel_2d[0], 0.0, vel_2d[1])
 }
 
 /// Converts a 3D position to 2D (ignoring Y component)
-pub fn position_3d_to_2d(pos_3d: &[f32; 3]) -> [f32; 2] {
+pub fn position_3d_to_2d(pos_3d: Vec3) -> [f32; 2] {
     [pos_3d[0], pos_3d[2]]
 }
 
 /// Converts a 2D position to 3D (setting Y component to input value)
-pub fn position_2d_to_3d(pos_2d: &[f32; 2], y: f32) -> [f32; 3] {
-    [pos_2d[0], y, pos_2d[1]]
+pub fn position_2d_to_3d(pos_2d: &[f32; 2], y: f32) -> Vec3 {
+    Vec3::new(pos_2d[0], y, pos_2d[1])
 }
 
 #[cfg(test)]
@@ -539,19 +541,19 @@ mod tests {
 
     #[test]
     fn test_coordinate_conversion() {
-        let pos_3d = [1.0, 2.0, 3.0];
-        let pos_2d = position_3d_to_2d(&pos_3d);
+        let pos_3d = Vec3::new(1.0, 2.0, 3.0);
+        let pos_2d = position_3d_to_2d(pos_3d);
         assert_eq!(pos_2d, [1.0, 3.0]);
 
         let pos_3d_back = position_2d_to_3d(&pos_2d, 2.0);
-        assert_eq!(pos_3d_back, [1.0, 2.0, 3.0]);
+        assert_eq!(pos_3d_back, Vec3::new(1.0, 2.0, 3.0));
 
-        let vel_3d = [0.5, 1.0, 1.5];
-        let vel_2d = velocity_3d_to_2d(&vel_3d);
+        let vel_3d = Vec3::new(0.5, 1.0, 1.5);
+        let vel_2d = velocity_3d_to_2d(vel_3d);
         assert_eq!(vel_2d, [0.5, 1.5]);
 
         let vel_3d_back = velocity_2d_to_3d(&vel_2d);
-        assert_eq!(vel_3d_back, [0.5, 0.0, 1.5]);
+        assert_eq!(vel_3d_back, Vec3::new(0.5, 0.0, 1.5));
     }
 
     #[test]

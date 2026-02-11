@@ -114,7 +114,7 @@ migration strategy.
 - [x] Convert 4 public C-style output params: `bvh_tree::query`, `convex_volume::clip_polygon`, `nav_mesh::store_tile_state`, `nav_mesh_query::move_along_surface`
 - [x] Replace 12 `detour_common.rs` vector functions with `glam::Vec3` operations
 - [ ] Migrate `NavMeshQuery` public methods from `&[f32; 3]` to `Vec3` (170 params in detour)
-- [ ] Migrate `Crowd` public methods from `&[f32; 3]` to `Vec3` (40 params in detour-crowd)
+- [x] Migrate `Crowd` public methods from `&[f32; 3]` to `Vec3` (40 params in detour-crowd)
 
 ### 3.2 Reduce Public Field Exposure
 
