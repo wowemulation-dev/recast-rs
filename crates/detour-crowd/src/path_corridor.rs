@@ -87,7 +87,13 @@ impl PathCorridor {
         // Connect with straight line path
         let mut new_path = Vec::new();
         query
-            .find_path(self.path[0], target_ref, &self.pos, &target, filter)
+            .find_path(
+                self.path[0],
+                target_ref,
+                Vec3::from(self.pos),
+                Vec3::from(target),
+                filter,
+            )
             .map(|path| new_path = path)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
@@ -442,7 +448,13 @@ impl PathCorridor {
 
         // Try to find a direct path
         let new_path = navquery
-            .find_path(start_ref, end_ref, &start_pos, &end_pos, filter)
+            .find_path(
+                start_ref,
+                end_ref,
+                Vec3::from(start_pos),
+                Vec3::from(end_pos),
+                filter,
+            )
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         if new_path.len() < (end_idx - start_idx + 1) {
@@ -629,7 +641,13 @@ impl PathCorridor {
         if last_poly != nearest_ref {
             // Try to extend the path to the new target
             let path_to_target = navquery
-                .find_path(last_poly, nearest_ref, &self.target, &npos_arr, filter)
+                .find_path(
+                    last_poly,
+                    nearest_ref,
+                    Vec3::from(self.target),
+                    Vec3::from(npos_arr),
+                    filter,
+                )
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             if !path_to_target.is_empty() {

@@ -188,15 +188,7 @@ mod tests {
         );
 
         // Find path across tiles
-        let actual_start_arr = actual_start.to_array();
-        let actual_end_arr = actual_end.to_array();
-        let path = query.find_path(
-            start_ref,
-            end_ref,
-            &actual_start_arr,
-            &actual_end_arr,
-            &filter,
-        )?;
+        let path = query.find_path(start_ref, end_ref, actual_start, actual_end, &filter)?;
         assert!(path.len() >= 2, "Path should cross multiple tiles");
 
         Ok(())
@@ -495,16 +487,8 @@ mod tests {
         );
 
         // Time the pathfinding
-        let actual_start_arr = actual_start.to_array();
-        let actual_end_arr = actual_end.to_array();
         let start_time = std::time::Instant::now();
-        let path = query.find_path(
-            start_ref,
-            end_ref,
-            &actual_start_arr,
-            &actual_end_arr,
-            &filter,
-        )?;
+        let path = query.find_path(start_ref, end_ref, actual_start, actual_end, &filter)?;
         let elapsed = start_time.elapsed();
 
         println!("Large grid pathfinding took: {:?}", elapsed);

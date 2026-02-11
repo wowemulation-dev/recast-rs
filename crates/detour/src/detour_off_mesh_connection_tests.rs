@@ -148,15 +148,7 @@ mod tests {
         assert_ne!(start_ref, end_ref, "Islands should be different polygons");
 
         // Find path - should succeed if off-mesh connection works
-        let actual_start_arr = actual_start.to_array();
-        let actual_end_arr = actual_end.to_array();
-        let path = query.find_path(
-            start_ref,
-            end_ref,
-            &actual_start_arr,
-            &actual_end_arr,
-            &filter,
-        )?;
+        let path = query.find_path(start_ref, end_ref, actual_start, actual_end, &filter)?;
 
         // Path should include both polygons and the off-mesh connection
         assert!(
@@ -199,13 +191,11 @@ mod tests {
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Path should fail or be empty since we exclude jump connections
-            let start_actual_arr = start_actual.to_array();
-            let end_actual_arr = end_actual.to_array();
             let result = query.find_path(
                 start_ref,
                 end_ref,
-                &start_actual_arr,
-                &end_actual_arr,
+                start_actual,
+                end_actual,
                 &no_jump_filter,
             );
 
@@ -295,18 +285,12 @@ mod tests {
             query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let actual_start_arr = actual_start.to_array();
-            let actual_end_arr = actual_end.to_array();
-            let path = query.find_path(
-                start_ref,
-                end_ref,
-                &actual_start_arr,
-                &actual_end_arr,
-                &filter,
-            )?;
+            let path = query.find_path(start_ref, end_ref, actual_start, actual_end, &filter)?;
 
             if !path.is_empty() && path.len() >= 2 {
                 // Get straight path
+                let actual_start_arr = actual_start.to_array();
+                let actual_end_arr = actual_end.to_array();
                 let straight_path =
                     query.find_straight_path(&actual_start_arr, &actual_end_arr, &path)?;
 

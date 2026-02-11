@@ -168,15 +168,12 @@ mod tests {
             query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &expensive_filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let actual_start_arr = actual_start.to_array();
-            let actual_end_arr = actual_end.to_array();
-
             // Find path with expensive area
             let expensive_path = query.find_path(
                 start_ref,
                 end_ref,
-                &actual_start_arr,
-                &actual_end_arr,
+                actual_start,
+                actual_end,
                 &expensive_filter,
             )?;
 
@@ -184,8 +181,8 @@ mod tests {
             let default_path = query.find_path(
                 start_ref,
                 end_ref,
-                &actual_start_arr,
-                &actual_end_arr,
+                actual_start,
+                actual_end,
                 &QueryFilter::default(),
             )?;
 
@@ -263,15 +260,7 @@ mod tests {
             query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &free_filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let start_pos_arr = start_pos.to_array();
-            let end_pos_arr = end_pos.to_array();
-            let result = query.find_path(
-                start_ref,
-                end_ref,
-                &start_pos_arr,
-                &end_pos_arr,
-                &free_filter,
-            );
+            let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &free_filter);
             assert!(
                 result.is_ok(),
                 "Zero cost areas should still be traversable"
@@ -325,15 +314,7 @@ mod tests {
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Pathfinding might fail or succeed with very high cost
-            let start_pos_arr = start_pos.to_array();
-            let end_pos_arr = end_pos.to_array();
-            let result = query.find_path(
-                start_ref,
-                end_ref,
-                &start_pos_arr,
-                &end_pos_arr,
-                &max_filter,
-            );
+            let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &max_filter);
             // Both success and failure are valid with maximum costs
         }
 
@@ -441,10 +422,7 @@ mod tests {
                 query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &filter)?;
 
             if start_ref.is_valid() && end_ref.is_valid() {
-                let start_pos_arr = start_pos.to_array();
-                let end_pos_arr = end_pos.to_array();
-                let result =
-                    query.find_path(start_ref, end_ref, &start_pos_arr, &end_pos_arr, &filter);
+                let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter);
                 // Different filters may produce different results
             }
         }

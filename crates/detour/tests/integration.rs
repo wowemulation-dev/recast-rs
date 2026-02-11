@@ -186,9 +186,7 @@ fn nav_test_find_path_returns_result() {
         .find_nearest_poly(Vec3::new(20.0, 0.0, 0.0), extent, &filter)
         .unwrap();
 
-    let start_arr = start_pos.to_array();
-    let end_arr = end_pos.to_array();
-    let path = query.find_path(start_ref, end_ref, &start_arr, &end_arr, &filter);
+    let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter);
 
     // Currently returns 1-polygon paths due to link setup issue
     assert!(path.is_ok());
@@ -214,7 +212,7 @@ fn nav_test_pathfinding_matches_cpp() {
     let start_arr = start_pos.to_array();
     let end_arr = end_pos.to_array();
     let path = query
-        .find_path(start_ref, end_ref, &start_arr, &end_arr, &filter)
+        .find_path(start_ref, end_ref, start_pos, end_pos, &filter)
         .unwrap();
 
     // C++ produces a multi-polygon path

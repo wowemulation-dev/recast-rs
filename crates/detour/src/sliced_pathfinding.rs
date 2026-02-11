@@ -281,9 +281,13 @@ impl<'a> SlicedPathfindingQuery<'a> {
         let _max_iterations_backup = self.config.max_iterations;
 
         // Execute pathfinding for this segment
-        let segment_path =
-            self.query
-                .find_path(start_ref, end_ref, start_pos, end_pos, &self.filter)?;
+        let segment_path = self.query.find_path(
+            start_ref,
+            end_ref,
+            Vec3::from(*start_pos),
+            Vec3::from(*end_pos),
+            &self.filter,
+        )?;
 
         self.iterations += segment_path.len(); // Approximate iteration count
 

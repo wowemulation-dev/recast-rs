@@ -367,10 +367,7 @@ mod tests {
             query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let start_pos_arr = start_pos.to_array();
-            let end_pos_arr = end_pos.to_array();
-            let path =
-                query.find_path(start_ref, end_ref, &start_pos_arr, &end_pos_arr, &filter)?;
+            let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 
             if !path.is_empty() {
                 // TODO: Call find_polys_in_path when implemented

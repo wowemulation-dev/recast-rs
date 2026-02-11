@@ -43,15 +43,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("End polygon:   {:?} at {:?}", end_ref, closest_end);
 
     // A* search: find a corridor of polygons from start to end
+    let poly_path = query.find_path(start_ref, end_ref, closest_start, closest_end, &filter)?;
     let closest_start_arr = closest_start.to_array();
     let closest_end_arr = closest_end.to_array();
-    let poly_path = query.find_path(
-        start_ref,
-        end_ref,
-        &closest_start_arr,
-        &closest_end_arr,
-        &filter,
-    )?;
 
     println!("Polygon path: {} polygons", poly_path.len());
 

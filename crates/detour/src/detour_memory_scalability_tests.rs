@@ -203,7 +203,13 @@ mod tests {
 
             if start_ref.is_valid() && end_ref.is_valid() {
                 // Test pathfinding
-                let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+                let path = query.find_path(
+                    start_ref,
+                    end_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &filter,
+                )?;
 
                 println!(
                     "Path from {:?} to {:?}: {} polygons",
@@ -598,7 +604,13 @@ mod tests {
                 {
                     if start_ref.is_valid() && end_ref.is_valid() {
                         // Try pathfinding
-                        match query.find_path(start_ref, end_ref, &pos1, &pos2, &filter) {
+                        match query.find_path(
+                            start_ref,
+                            end_ref,
+                            Vec3::from(pos1),
+                            Vec3::from(pos2),
+                            &filter,
+                        ) {
                             Ok(path) => {
                                 // Generate straight path if path exists
                                 if !path.is_empty() && path.len() < 1000 {

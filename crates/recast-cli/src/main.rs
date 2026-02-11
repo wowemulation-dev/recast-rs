@@ -355,21 +355,15 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
     println!("Found end polygon: {:?} at {:?}", end_ref, closest_end);
 
     // Find the path
-    let closest_start_arr = closest_start.to_array();
-    let closest_end_arr = closest_end.to_array();
     let path = query
-        .find_path(
-            start_ref,
-            end_ref,
-            &closest_start_arr,
-            &closest_end_arr,
-            &filter,
-        )
+        .find_path(start_ref, end_ref, closest_start, closest_end, &filter)
         .map_err(|e| anyhow!("Failed to find path: {:?}", e))?;
 
     println!("Found path with {} polygons", path.len());
 
     // Convert polygon path to straight path
+    let closest_start_arr = closest_start.to_array();
+    let closest_end_arr = closest_end.to_array();
     let straight_path = query
         .find_straight_path(&closest_start_arr, &closest_end_arr, &path)
         .map_err(|e| anyhow!("Failed to find straight path: {:?}", e))?;

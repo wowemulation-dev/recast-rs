@@ -393,10 +393,12 @@ impl<'a> NavMeshQuery<'a> {
         &mut self,
         start_ref: PolyRef,
         end_ref: PolyRef,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         filter: &QueryFilter,
     ) -> Result<Vec<PolyRef>, DetourError> {
+        let start_pos = start_pos.to_array();
+        let end_pos = end_pos.to_array();
         // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || !self.nav_mesh.is_valid_poly_ref(end_ref)
         {
@@ -421,7 +423,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // Get the start and end nodes
         let start_node_idx = 0;
-        let start_h = self.heuristic(start_pos, end_pos);
+        let start_h = self.heuristic(&start_pos, &end_pos);
         {
             let start_node = &mut self.node_pool[start_node_idx];
             start_node.poly = start_ref;
@@ -468,7 +470,7 @@ impl<'a> NavMeshQuery<'a> {
             }
 
             // Expand neighbors
-            self.expand_neighbors(current_idx, goal_node_idx, end_pos, filter)?;
+            self.expand_neighbors(current_idx, goal_node_idx, &end_pos, filter)?;
         }
 
         // Reconstruct the path

@@ -80,7 +80,13 @@ fn bench_find_path(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             query
-                .find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)
+                .find_path(
+                    start_ref,
+                    end_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &filter,
+                )
                 .unwrap()
         });
     });
@@ -100,7 +106,13 @@ fn bench_find_straight_path(c: &mut Criterion) {
     let mut query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
     let poly_path = query
-        .find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)
+        .find_path(
+            start_ref,
+            end_ref,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
+            &filter,
+        )
         .expect("failed to find path");
 
     group.bench_function("nav_test", |b| {

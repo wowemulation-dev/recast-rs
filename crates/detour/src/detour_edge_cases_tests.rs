@@ -45,7 +45,13 @@ mod tests {
 
         // Test pathfinding on empty mesh
         let invalid_ref = PolyRef::from(0);
-        let path_result = query.find_path(invalid_ref, invalid_ref, &pos, &pos, &filter);
+        let path_result = query.find_path(
+            invalid_ref,
+            invalid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(
             path_result.is_err(),
             "Pathfinding on empty mesh should fail"
@@ -70,7 +76,13 @@ mod tests {
         assert!(poly_ref.is_valid(), "Should find the single polygon");
 
         // Path from polygon to itself should succeed with single node
-        let path = query.find_path(poly_ref, poly_ref, &center, &center, &filter)?;
+        let path = query.find_path(
+            poly_ref,
+            poly_ref,
+            Vec3::from(center),
+            Vec3::from(center),
+            &filter,
+        )?;
         assert_eq!(path.len(), 1, "Path within same polygon should have 1 node");
         assert_eq!(path[0], poly_ref, "Path should contain the polygon");
 
@@ -167,13 +179,7 @@ mod tests {
             query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let result = query.find_path(
-                start_ref,
-                end_ref,
-                &start_pos.to_array(),
-                &end_pos.to_array(),
-                &filter,
-            );
+            let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter);
             assert!(
                 result.is_ok(),
                 "Path finding should handle any valid points"
@@ -259,12 +265,24 @@ mod tests {
         let null_ref = PolyRef::from(0);
         let pos = [0.0, 0.0, 0.0];
 
-        let result = query.find_path(null_ref, null_ref, &pos, &pos, &filter);
+        let result = query.find_path(
+            null_ref,
+            null_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(result.is_err(), "Null references should fail");
 
         // Test with non-existent polygon ID
         let invalid_ref = encode_poly_ref_with_salt(1, 0, 999);
-        let result = query.find_path(invalid_ref, invalid_ref, &pos, &pos, &filter);
+        let result = query.find_path(
+            invalid_ref,
+            invalid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(result.is_err(), "Invalid polygon ID should fail");
 
         // Test closest_point_on_poly with invalid ref

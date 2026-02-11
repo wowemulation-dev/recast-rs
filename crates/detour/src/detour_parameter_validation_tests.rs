@@ -260,15 +260,33 @@ mod tests {
         let pos = [5.0, 0.0, 5.0];
 
         // Test pathfinding with invalid start ref
-        let result = query.find_path(invalid_ref, valid_ref, &pos, &pos, &filter);
+        let result = query.find_path(
+            invalid_ref,
+            valid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(result.is_err());
 
         // Test pathfinding with invalid end ref
-        let result2 = query.find_path(valid_ref, invalid_ref, &pos, &pos, &filter);
+        let result2 = query.find_path(
+            valid_ref,
+            invalid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(result2.is_err());
 
         // Test pathfinding with same start and end (edge case)
-        let result3 = query.find_path(valid_ref, valid_ref, &pos, &pos, &filter);
+        let result3 = query.find_path(
+            valid_ref,
+            valid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         // Should either succeed immediately or fail gracefully
         assert!(result3.is_ok() || result3.is_err());
 
