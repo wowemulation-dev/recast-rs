@@ -91,8 +91,8 @@ impl MeshMerger {
 
         // Collect input statistics
         for mesh in meshes {
-            stats.input_vertex_count += mesh.vert_count;
-            stats.input_polygon_count += mesh.poly_count;
+            stats.input_vertex_count += mesh.nverts;
+            stats.input_polygon_count += mesh.npolys;
         }
 
         // Validate mesh compatibility
@@ -119,8 +119,8 @@ impl MeshMerger {
         }
 
         // Update final statistics
-        stats.output_vertex_count = merged_mesh.vert_count;
-        stats.output_polygon_count = merged_mesh.poly_count;
+        stats.output_vertex_count = merged_mesh.nverts;
+        stats.output_polygon_count = merged_mesh.npolys;
 
         Ok(MergeResult {
             mesh: merged_mesh,
@@ -154,7 +154,7 @@ impl MeshMerger {
             }
 
             // Check max vertices per polygon compatibility
-            if mesh.max_verts_per_poly != reference.max_verts_per_poly {
+            if mesh.nvp != reference.nvp {
                 return Err(BuildError::IncompatibleMesh {
                     index: i,
                     detail: "max vertices per polygon mismatch",
@@ -167,7 +167,7 @@ impl MeshMerger {
 
     /// Creates the base mesh structure for merging
     fn create_base_mesh(&self, reference: &PolyMesh) -> Result<PolyMesh, BuildError> {
-        let mut merged = PolyMesh::new(reference.max_verts_per_poly, reference.border_size);
+        let mut merged = PolyMesh::new(reference.nvp, reference.border_size);
 
         // Copy basic properties from reference mesh
         merged.cs = reference.cs;
@@ -192,12 +192,12 @@ impl MeshMerger {
         for mesh in meshes.iter() {
             let mut mesh_mapping = Vec::new();
 
-            for vert_idx in 0..mesh.vert_count {
+            for vert_idx in 0..mesh.nverts {
                 let base_idx = vert_idx * 3;
                 let vertex = Vec3::new(
-                    mesh.vertices[base_idx] as f32,
-                    mesh.vertices[base_idx + 1] as f32,
-                    mesh.vertices[base_idx + 2] as f32,
+                    mesh.verts[base_idx] as f32,
+                    mesh.verts[base_idx + 1] as f32,
+                    mesh.verts[base_idx + 2] as f32,
                 );
 
                 // Try to find an existing vertex to weld with
@@ -228,13 +228,13 @@ impl MeshMerger {
         }
 
         // Store the welded vertices in the merged mesh
-        merged_mesh.vert_count = all_vertices.len();
-        merged_mesh.vertices = Vec::with_capacity(merged_mesh.vert_count * 3);
+        merged_mesh.nverts = all_vertices.len();
+        merged_mesh.verts = Vec::with_capacity(merged_mesh.nverts * 3);
 
         for vertex in &all_vertices {
-            merged_mesh.vertices.push(vertex.x as u16);
-            merged_mesh.vertices.push(vertex.y as u16);
-            merged_mesh.vertices.push(vertex.z as u16);
+            merged_mesh.verts.push(vertex.x as u16);
+            merged_mesh.verts.push(vertex.y as u16);
+            merged_mesh.verts.push(vertex.z as u16);
         }
 
         // Update bounding box to encompass all vertices
@@ -269,8 +269,8 @@ impl MeshMerger {
         _stats: &mut MergeStats,
     ) -> Result<(), BuildError> {
         // Pre-allocate capacity for polygons
-        let total_polys: usize = meshes.iter().map(|m| m.poly_count).sum();
-        let nvp = merged_mesh.max_verts_per_poly;
+        let total_polys: usize = meshes.iter().map(|m| m.npolys).sum();
+        let nvp = merged_mesh.nvp;
 
         merged_mesh.polys.reserve(total_polys * nvp);
         merged_mesh.regs.reserve(total_polys);
@@ -280,7 +280,7 @@ impl MeshMerger {
         for (mesh_idx, mesh) in meshes.iter().enumerate() {
             let vertex_mapping = &vertex_mappings[mesh_idx];
 
-            for poly_idx in 0..mesh.poly_count {
+            for poly_idx in 0..mesh.npolys {
                 // Extract polygon vertices
                 let poly_base = poly_idx * nvp;
                 let mut remapped_vertices = Vec::new();
@@ -311,7 +311,7 @@ impl MeshMerger {
                     }
                     merged_mesh.regs.push(region);
                     merged_mesh.areas.push(area);
-                    merged_mesh.poly_count += 1;
+                    merged_mesh.npolys += 1;
                 }
             }
         }
@@ -325,12 +325,12 @@ impl MeshMerger {
         merged_mesh: &mut PolyMesh,
         stats: &mut MergeStats,
     ) -> Result<(), BuildError> {
-        let nvp = merged_mesh.max_verts_per_poly;
+        let nvp = merged_mesh.nvp;
         let mut unique_polygons = HashMap::new();
         let mut keep_indices = Vec::new();
 
         // Identify unique polygons
-        for poly_idx in 0..merged_mesh.poly_count {
+        for poly_idx in 0..merged_mesh.npolys {
             let poly_base = poly_idx * nvp;
 
             // Extract and normalize polygon (sort vertices to handle different winding)
@@ -384,7 +384,7 @@ impl MeshMerger {
             merged_mesh.polys = new_polys;
             merged_mesh.regs = new_regions;
             merged_mesh.areas = new_areas;
-            merged_mesh.poly_count = keep_indices.len();
+            merged_mesh.npolys = keep_indices.len();
         }
 
         Ok(())
@@ -412,11 +412,11 @@ impl MeshMerger {
 impl MeshMerger {
     /// Translates a mesh by the given offset
     pub fn translate_mesh(mesh: &mut PolyMesh, offset: Vec3) -> Result<(), BuildError> {
-        for i in 0..mesh.vert_count {
+        for i in 0..mesh.nverts {
             let base_idx = i * 3;
-            mesh.vertices[base_idx] = (mesh.vertices[base_idx] as f32 + offset[0]) as u16;
-            mesh.vertices[base_idx + 1] = (mesh.vertices[base_idx + 1] as f32 + offset[1]) as u16;
-            mesh.vertices[base_idx + 2] = (mesh.vertices[base_idx + 2] as f32 + offset[2]) as u16;
+            mesh.verts[base_idx] = (mesh.verts[base_idx] as f32 + offset[0]) as u16;
+            mesh.verts[base_idx + 1] = (mesh.verts[base_idx + 1] as f32 + offset[1]) as u16;
+            mesh.verts[base_idx + 2] = (mesh.verts[base_idx + 2] as f32 + offset[2]) as u16;
         }
 
         // Update bounding box
@@ -432,11 +432,11 @@ impl MeshMerger {
             return Err(BuildError::InvalidScaleFactors);
         }
 
-        for i in 0..mesh.vert_count {
+        for i in 0..mesh.nverts {
             let base_idx = i * 3;
-            mesh.vertices[base_idx] = (mesh.vertices[base_idx] as f32 * scale[0]) as u16;
-            mesh.vertices[base_idx + 1] = (mesh.vertices[base_idx + 1] as f32 * scale[1]) as u16;
-            mesh.vertices[base_idx + 2] = (mesh.vertices[base_idx + 2] as f32 * scale[2]) as u16;
+            mesh.verts[base_idx] = (mesh.verts[base_idx] as f32 * scale[0]) as u16;
+            mesh.verts[base_idx + 1] = (mesh.verts[base_idx + 1] as f32 * scale[1]) as u16;
+            mesh.verts[base_idx + 2] = (mesh.verts[base_idx + 2] as f32 * scale[2]) as u16;
         }
 
         // Update bounding box and cell sizes
@@ -488,21 +488,15 @@ mod tests {
 
         // Add vertices
         mesh.nverts = vertices.len();
-        mesh.vert_count = vertices.len();
         mesh.verts = Vec::with_capacity(vertices.len() * 3);
-        mesh.vertices = Vec::with_capacity(vertices.len() * 3);
         for (x, y, z) in vertices {
             mesh.verts.push(x as u16);
             mesh.verts.push(y as u16);
             mesh.verts.push(z as u16);
-            mesh.vertices.push(x as u16);
-            mesh.vertices.push(y as u16);
-            mesh.vertices.push(z as u16);
         }
 
         // Add polygons
         mesh.npolys = polygons.len();
-        mesh.poly_count = polygons.len();
         mesh.maxpolys = polygons.len();
         mesh.polys = vec![MESH_NULL_IDX; polygons.len() * mesh.nvp * 2];
         mesh.regs = regions;
@@ -551,8 +545,8 @@ mod tests {
         let result = merger.merge_meshes(&[&mesh1, &mesh2]).unwrap();
 
         // Should have combined vertices and polygons
-        assert_eq!(result.mesh.vert_count, 6);
-        assert_eq!(result.mesh.poly_count, 2);
+        assert_eq!(result.mesh.nverts, 6);
+        assert_eq!(result.mesh.npolys, 2);
         assert_eq!(result.stats.input_mesh_count, 2);
         assert_eq!(result.stats.input_vertex_count, 6);
         assert_eq!(result.stats.input_polygon_count, 2);
@@ -584,7 +578,7 @@ mod tests {
         let result = merger.merge_meshes(&[&mesh1, &mesh2]).unwrap();
 
         // Should have fewer vertices due to welding
-        assert!(result.mesh.vert_count < 6);
+        assert!(result.mesh.nverts < 6);
         assert!(result.stats.vertices_welded > 0);
     }
 
@@ -610,7 +604,7 @@ mod tests {
         let result = merger.merge_meshes(&[&mesh1, &mesh2]).unwrap();
 
         // Should have removed one duplicate polygon
-        assert_eq!(result.mesh.poly_count, 1);
+        assert_eq!(result.mesh.npolys, 1);
         assert!(result.stats.duplicates_removed > 0);
     }
 
@@ -654,14 +648,14 @@ mod tests {
         let transformed = MeshMerger::transform_mesh(&mesh, translation, scale).unwrap();
 
         // Check first vertex transformation
-        assert_eq!(transformed.vertices[0], 5); // 0 * 2.0 + 5.0
-        assert_eq!(transformed.vertices[1], 3); // 0 * 1.5 + 3.0
-        assert_eq!(transformed.vertices[2], 1); // 0 * 2.0 + 1.0
+        assert_eq!(transformed.verts[0], 5); // 0 * 2.0 + 5.0
+        assert_eq!(transformed.verts[1], 3); // 0 * 1.5 + 3.0
+        assert_eq!(transformed.verts[2], 1); // 0 * 2.0 + 1.0
 
         // Check second vertex transformation
-        assert_eq!(transformed.vertices[3], 9); // 2 * 2.0 + 5.0
-        assert_eq!(transformed.vertices[4], 3); // 0 * 1.5 + 3.0
-        assert_eq!(transformed.vertices[5], 1); // 0 * 2.0 + 1.0
+        assert_eq!(transformed.verts[3], 9); // 2 * 2.0 + 5.0
+        assert_eq!(transformed.verts[4], 3); // 0 * 1.5 + 3.0
+        assert_eq!(transformed.verts[5], 1); // 0 * 2.0 + 1.0
     }
 
     #[test]

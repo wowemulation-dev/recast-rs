@@ -832,20 +832,27 @@ impl NavMeshBuilder {
         walkable_climb: f32,
     ) -> NavMeshCreateParams {
         // Convert vertices from integer to world coordinates
-        let mut verts = Vec::with_capacity(poly_mesh.vert_count * 3);
-        for i in 0..poly_mesh.vert_count {
-            let x = poly_mesh.bmin.x + (poly_mesh.vertices[i * 3] as f32) * poly_mesh.cs;
-            let y = poly_mesh.bmin.y + (poly_mesh.vertices[i * 3 + 1] as f32) * poly_mesh.ch;
-            let z = poly_mesh.bmin.z + (poly_mesh.vertices[i * 3 + 2] as f32) * poly_mesh.cs;
+        let vert_count = poly_mesh.vert_count();
+        let poly_count = poly_mesh.poly_count();
+        let bmin = poly_mesh.bmin();
+        let bmax = poly_mesh.bmax();
+        let cs = poly_mesh.cs();
+        let ch = poly_mesh.ch();
+
+        let mut verts = Vec::with_capacity(vert_count * 3);
+        for i in 0..vert_count {
+            let x = bmin.x + (poly_mesh.verts()[i * 3] as f32) * cs;
+            let y = bmin.y + (poly_mesh.verts()[i * 3 + 1] as f32) * ch;
+            let z = bmin.z + (poly_mesh.verts()[i * 3 + 2] as f32) * cs;
             verts.push(x);
             verts.push(y);
             verts.push(z);
         }
 
         // Convert polygon data
-        let polys = poly_mesh.polys.clone();
-        let poly_flags = vec![PolyFlags::WALK; poly_mesh.poly_count];
-        let poly_areas = poly_mesh.areas.clone();
+        let polys = poly_mesh.polys().to_vec();
+        let poly_flags = vec![PolyFlags::WALK; poly_count];
+        let poly_areas = poly_mesh.areas().to_vec();
 
         // Convert detail mesh data from PolyMeshDetail structure
         let mut detail_meshes = Vec::new();
@@ -853,33 +860,33 @@ impl NavMeshBuilder {
         let mut detail_tris = Vec::new();
 
         // For each polygon, create detail mesh entry
-        for i in 0..poly_mesh.poly_count {
+        for i in 0..poly_count {
             let vert_base = 0u32; // No extra detail vertices in simple case
             let tri_base = (i * 2) as u32; // Assuming 2 triangles per quad polygon
-            let vert_count = 0u32; // No extra detail vertices
-            let tri_count = if i < detail_mesh.poly_tri_count.len() {
-                detail_mesh.poly_tri_count[i] as u32
+            let vert_count_detail = 0u32; // No extra detail vertices
+            let tri_count = if i < detail_mesh.poly_tri_count().len() {
+                detail_mesh.poly_tri_count()[i] as u32
             } else {
                 2u32 // Default to 2 triangles for a quad
             };
 
             detail_meshes.push(vert_base);
             detail_meshes.push(tri_base);
-            detail_meshes.push(vert_count);
+            detail_meshes.push(vert_count_detail);
             detail_meshes.push(tri_count);
         }
 
         // Copy detail vertices (typically empty for simple meshes)
-        if detail_mesh.vert_count > poly_mesh.vert_count {
+        if detail_mesh.vert_count() > vert_count {
             // Only copy extra detail vertices beyond the base mesh vertices
-            let extra_vert_start = poly_mesh.vert_count * 3;
-            if extra_vert_start < detail_mesh.vertices.len() {
-                detail_verts = detail_mesh.vertices[extra_vert_start..].to_vec();
+            let extra_vert_start = vert_count * 3;
+            if extra_vert_start < detail_mesh.vertices().len() {
+                detail_verts = detail_mesh.vertices()[extra_vert_start..].to_vec();
             }
         }
 
         // Convert detail triangles from u32 to u8
-        for &tri_idx in &detail_mesh.triangles {
+        for &tri_idx in detail_mesh.triangles() {
             if tri_idx <= 255 {
                 detail_tris.push(tri_idx as u8);
             } else {
@@ -891,18 +898,17 @@ impl NavMeshBuilder {
         NavMeshCreateParams {
             nav_mesh_params: nav_params.clone(),
             verts,
-            vert_count: poly_mesh.vert_count as i32,
+            vert_count: vert_count as i32,
             polys,
             poly_flags,
             poly_areas,
-            poly_count: poly_mesh.poly_count as i32,
-            nvp: poly_mesh.max_verts_per_poly as i32,
+            poly_count: poly_count as i32,
+            nvp: poly_mesh.max_verts_per_poly() as i32,
             detail_meshes,
             detail_verts,
-            detail_vert_count: ((detail_mesh.vert_count as i32) - (poly_mesh.vert_count as i32))
-                .max(0),
+            detail_vert_count: ((detail_mesh.vert_count() as i32) - (vert_count as i32)).max(0),
             detail_tris,
-            detail_tri_count: detail_mesh.tri_count as i32,
+            detail_tri_count: detail_mesh.tri_count() as i32,
             off_mesh_con_verts: Vec::new(),
             off_mesh_con_rad: Vec::new(),
             off_mesh_con_flags: Vec::new(),
@@ -910,13 +916,13 @@ impl NavMeshBuilder {
             off_mesh_con_dir: Vec::new(),
             off_mesh_con_user_id: Vec::new(),
             off_mesh_con_count: 0,
-            bmin: [poly_mesh.bmin.x, poly_mesh.bmin.y, poly_mesh.bmin.z],
-            bmax: [poly_mesh.bmax.x, poly_mesh.bmax.y, poly_mesh.bmax.z],
+            bmin: [bmin.x, bmin.y, bmin.z],
+            bmax: [bmax.x, bmax.y, bmax.z],
             walkable_height,
             walkable_radius,
             walkable_climb,
-            cs: poly_mesh.cs,
-            ch: poly_mesh.ch,
+            cs,
+            ch,
             build_bv_tree: true,
         }
     }

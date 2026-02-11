@@ -76,10 +76,10 @@ fn nav_test_generation_rust_output() {
 
     // Current Rust output (regression test)
     // After fixing contour simplification squared distance
-    assert_eq!(poly_mesh.npolys, 530);
-    assert_eq!(poly_mesh.nverts, 1190);
-    assert_eq!(detail_mesh.vert_count, 1190);
-    assert_eq!(detail_mesh.tri_count, 1063);
+    assert_eq!(poly_mesh.poly_count(), 530);
+    assert_eq!(poly_mesh.vert_count(), 1190);
+    assert_eq!(detail_mesh.vert_count(), 1190);
+    assert_eq!(detail_mesh.tri_count(), 1063);
 }
 
 #[test]
@@ -88,8 +88,8 @@ fn nav_test_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
     // C++ RecastCLI ground truth
-    assert_eq!(poly_mesh.npolys, 537);
-    assert_eq!(poly_mesh.nverts, 1197);
+    assert_eq!(poly_mesh.poly_count(), 537);
+    assert_eq!(poly_mesh.vert_count(), 1197);
 }
 
 // ── dungeon.obj ──
@@ -115,10 +115,10 @@ fn dungeon_generation_rust_output() {
 
     // Current Rust output (regression test)
     // After fixing contour simplification squared distance
-    assert_eq!(poly_mesh.npolys, 213);
-    assert_eq!(poly_mesh.nverts, 450);
-    assert_eq!(detail_mesh.vert_count, 450);
-    assert_eq!(detail_mesh.tri_count, 419);
+    assert_eq!(poly_mesh.poly_count(), 213);
+    assert_eq!(poly_mesh.vert_count(), 450);
+    assert_eq!(detail_mesh.vert_count(), 450);
+    assert_eq!(detail_mesh.tri_count(), 419);
 }
 
 #[test]
@@ -127,8 +127,8 @@ fn dungeon_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("dungeon.obj");
 
     // C++ RecastCLI ground truth
-    assert_eq!(poly_mesh.npolys, 217);
-    assert_eq!(poly_mesh.nverts, 452);
+    assert_eq!(poly_mesh.poly_count(), 217);
+    assert_eq!(poly_mesh.vert_count(), 452);
 }
 
 // ── bridge.obj ──
@@ -156,10 +156,10 @@ fn bridge_generation_rust_output() {
     // Current Rust output (regression test)
     // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
     // Bridge now matches C++ exactly
-    assert_eq!(poly_mesh.npolys, 8);
-    assert_eq!(poly_mesh.nverts, 18);
-    assert_eq!(detail_mesh.vert_count, 18);
-    assert_eq!(detail_mesh.tri_count, 16);
+    assert_eq!(poly_mesh.poly_count(), 8);
+    assert_eq!(poly_mesh.vert_count(), 18);
+    assert_eq!(detail_mesh.vert_count(), 18);
+    assert_eq!(detail_mesh.tri_count(), 16);
 }
 
 #[test]
@@ -168,8 +168,8 @@ fn bridge_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("bridge.obj");
 
     // C++ RecastCLI ground truth
-    assert_eq!(poly_mesh.npolys, 8);
-    assert_eq!(poly_mesh.nverts, 18);
+    assert_eq!(poly_mesh.poly_count(), 8);
+    assert_eq!(poly_mesh.vert_count(), 18);
 }
 
 // ── Bounds validation ──
@@ -178,13 +178,15 @@ fn bridge_generation_matches_cpp() {
 fn nav_test_bounds() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
-    assert!((poly_mesh.bmin.x - (-28.889317)).abs() < 0.01);
-    assert!((poly_mesh.bmin.y - (-4.869517)).abs() < 0.01);
-    assert!((poly_mesh.bmin.z - (-46.300152)).abs() < 0.01);
-    assert!((poly_mesh.bmax.x - 62.494808).abs() < 0.01);
+    let bmin = poly_mesh.bmin();
+    let bmax = poly_mesh.bmax();
+    assert!((bmin.x - (-28.889317)).abs() < 0.01);
+    assert!((bmin.y - (-4.869517)).abs() < 0.01);
+    assert!((bmin.z - (-46.300152)).abs() < 0.01);
+    assert!((bmax.x - 62.494808).abs() < 0.01);
     // bmax.y includes walkable_height * ch adjustment (matching C++)
-    assert!((poly_mesh.bmax.y - 17.410753).abs() < 0.01);
-    assert!((poly_mesh.bmax.z - 31.053141).abs() < 0.01);
+    assert!((bmax.y - 17.410753).abs() < 0.01);
+    assert!((bmax.z - 31.053141).abs() < 0.01);
 }
 
 // ── Build does not panic ──

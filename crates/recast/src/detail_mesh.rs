@@ -38,20 +38,20 @@ impl HeightPatch {
 #[derive(Debug, Clone)]
 pub struct PolyMeshDetail {
     /// Vertices of the mesh [x,y,z,...]
-    pub vertices: Vec<f32>,
+    pub(crate) vertices: Vec<f32>,
     /// Triangle indices of the mesh, grouped by polygon
     /// Triangles are stored as 3 consecutive indices per triangle
-    pub triangles: Vec<u32>,
+    pub(crate) triangles: Vec<u32>,
     /// Number of vertices in the mesh
-    pub vert_count: usize,
+    pub(crate) vert_count: usize,
     /// Number of triangles in the mesh
-    pub tri_count: usize,
+    pub(crate) tri_count: usize,
     /// Number of parent polygons for each submesh
-    pub poly_count: usize,
+    pub(crate) poly_count: usize,
     /// Starting indices in the triangles array for each polygon submesh
-    pub poly_start: Vec<usize>,
+    pub(crate) poly_start: Vec<usize>,
     /// Number of triangles in each polygon submesh
-    pub poly_tri_count: Vec<usize>,
+    pub(crate) poly_tri_count: Vec<usize>,
 }
 
 impl Default for PolyMeshDetail {
@@ -72,6 +72,41 @@ impl PolyMeshDetail {
             poly_start: Vec::new(),
             poly_tri_count: Vec::new(),
         }
+    }
+
+    /// Returns the detail vertices as a flat `[x, y, z, ...]` slice.
+    pub fn vertices(&self) -> &[f32] {
+        &self.vertices
+    }
+
+    /// Returns the triangle indices as a flat slice.
+    pub fn triangles(&self) -> &[u32] {
+        &self.triangles
+    }
+
+    /// Returns the number of detail vertices.
+    pub fn vert_count(&self) -> usize {
+        self.vert_count
+    }
+
+    /// Returns the number of detail triangles.
+    pub fn tri_count(&self) -> usize {
+        self.tri_count
+    }
+
+    /// Returns the number of parent polygons.
+    pub fn poly_count(&self) -> usize {
+        self.poly_count
+    }
+
+    /// Returns the starting triangle index for each polygon submesh.
+    pub fn poly_start(&self) -> &[usize] {
+        &self.poly_start
+    }
+
+    /// Returns the triangle count for each polygon submesh.
+    pub fn poly_tri_count(&self) -> &[usize] {
+        &self.poly_tri_count
     }
 
     /// Builds a detailed polygon mesh from a polygon mesh and compact heightfield
@@ -1244,9 +1279,7 @@ mod tests {
         // Add vertices
         // A simple square on the XZ plane
         poly_mesh.verts = vec![0, 0, 0, 10, 0, 0, 10, 0, 10, 0, 0, 10];
-        poly_mesh.vertices = vec![0, 0, 0, 10, 0, 0, 10, 0, 10, 0, 0, 10];
         poly_mesh.nverts = 4;
-        poly_mesh.vert_count = 4;
 
         // Add a single quad
         let vertices = [0u16, 1, 2, 3];
@@ -1255,7 +1288,6 @@ mod tests {
 
         // Setup polygon data
         poly_mesh.npolys = 1;
-        poly_mesh.poly_count = 1;
         poly_mesh.maxpolys = 1;
         poly_mesh.polys = vec![MESH_NULL_IDX; poly_mesh.nvp * 2];
         poly_mesh.regs = vec![region];

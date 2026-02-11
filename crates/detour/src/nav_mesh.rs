@@ -2789,44 +2789,44 @@ impl NavMesh {
             layer: 0,
             user_id: 0,
             data_size: 0, // Will be calculated later
-            bmin: [poly_mesh.bmin.x, poly_mesh.bmin.y, poly_mesh.bmin.z],
-            bmax: [poly_mesh.bmax.x, poly_mesh.bmax.y, poly_mesh.bmax.z],
-            poly_count: poly_mesh.poly_count as i32,
-            vert_count: poly_mesh.vert_count as i32,
-            max_links: poly_mesh.poly_count as i32 * 6, // Max 6 links per polygon
-            detail_mesh_count: detail_mesh.poly_count as i32,
-            detail_vert_count: detail_mesh.vert_count as i32,
-            detail_tri_count: detail_mesh.tri_count as i32,
+            bmin: [poly_mesh.bmin().x, poly_mesh.bmin().y, poly_mesh.bmin().z],
+            bmax: [poly_mesh.bmax().x, poly_mesh.bmax().y, poly_mesh.bmax().z],
+            poly_count: poly_mesh.poly_count() as i32,
+            vert_count: poly_mesh.vert_count() as i32,
+            max_links: poly_mesh.poly_count() as i32 * 6, // Max 6 links per polygon
+            detail_mesh_count: detail_mesh.poly_count() as i32,
+            detail_vert_count: detail_mesh.vert_count() as i32,
+            detail_tri_count: detail_mesh.tri_count() as i32,
             bvh_node_count: 0, // No BVH tree for now
             off_mesh_connection_count: 0,
             bv_quant_factor: 0.0,
         });
 
         // Convert Recast vertices to Detour format (from integer to float coordinates)
-        tile.verts.reserve(poly_mesh.vert_count * 3);
-        for i in 0..poly_mesh.vert_count {
-            let x = poly_mesh.bmin.x + (poly_mesh.vertices[i * 3] as f32) * poly_mesh.cs;
-            let y = poly_mesh.bmin.y + (poly_mesh.vertices[i * 3 + 1] as f32) * poly_mesh.ch;
-            let z = poly_mesh.bmin.z + (poly_mesh.vertices[i * 3 + 2] as f32) * poly_mesh.cs;
+        tile.verts.reserve(poly_mesh.vert_count() * 3);
+        for i in 0..poly_mesh.vert_count() {
+            let x = poly_mesh.bmin().x + (poly_mesh.verts()[i * 3] as f32) * poly_mesh.cs();
+            let y = poly_mesh.bmin().y + (poly_mesh.verts()[i * 3 + 1] as f32) * poly_mesh.ch();
+            let z = poly_mesh.bmin().z + (poly_mesh.verts()[i * 3 + 2] as f32) * poly_mesh.cs();
             tile.verts.push(x);
             tile.verts.push(y);
             tile.verts.push(z);
         }
 
         // Convert Recast polygons to Detour format
-        tile.polys.reserve(poly_mesh.poly_count);
-        for i in 0..poly_mesh.poly_count {
-            let poly_start = i * poly_mesh.max_verts_per_poly;
+        tile.polys.reserve(poly_mesh.poly_count());
+        for i in 0..poly_mesh.poly_count() {
+            let poly_start = i * poly_mesh.max_verts_per_poly();
             let mut poly = Poly::new(
-                poly_mesh.areas[i],
+                poly_mesh.areas()[i],
                 PolyType::Ground,
                 PolyFlags::WALK, // Default to walkable
             );
 
             // Copy vertices
             let mut vert_count = 0;
-            for j in 0..poly_mesh.max_verts_per_poly {
-                let v = poly_mesh.polys[poly_start + j];
+            for j in 0..poly_mesh.max_verts_per_poly() {
+                let v = poly_mesh.polys()[poly_start + j];
                 if v == MESH_NULL_IDX {
                     break;
                 }
@@ -2935,28 +2935,28 @@ impl NavMesh {
         }
 
         // Copy detail mesh data if available
-        if detail_mesh.vert_count > 0 {
+        if detail_mesh.vert_count() > 0 {
             // Copy detail vertices
-            tile.detail_verts = detail_mesh.vertices.clone();
+            tile.detail_verts = detail_mesh.vertices().to_vec();
 
             // Copy detail mesh info for each polygon
-            tile.detail_meshes.reserve(detail_mesh.poly_count);
-            for i in 0..detail_mesh.poly_count {
+            tile.detail_meshes.reserve(detail_mesh.poly_count());
+            for i in 0..detail_mesh.poly_count() {
                 let detail = PolyDetail {
                     vert_base: 0, // Will be calculated
-                    tri_base: detail_mesh.poly_start[i] as u32,
+                    tri_base: detail_mesh.poly_start()[i] as u32,
                     vert_count: 0, // Will be calculated
-                    tri_count: detail_mesh.poly_tri_count[i] as u8,
+                    tri_count: detail_mesh.poly_tri_count()[i] as u8,
                 };
                 tile.detail_meshes.push(detail);
             }
 
             // Copy detail triangles
-            tile.detail_tris.reserve(detail_mesh.tri_count * 4);
-            for i in 0..detail_mesh.tri_count {
+            tile.detail_tris.reserve(detail_mesh.tri_count() * 4);
+            for i in 0..detail_mesh.tri_count() {
                 for j in 0..3 {
                     tile.detail_tris
-                        .push(detail_mesh.triangles[i * 3 + j] as u8);
+                        .push(detail_mesh.triangles()[i * 3 + j] as u8);
                 }
                 tile.detail_tris.push(0); // Padding for alignment
             }

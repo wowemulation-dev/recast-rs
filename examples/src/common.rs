@@ -44,7 +44,8 @@ pub fn build_navmesh_from_obj(
 
     println!(
         "Built navmesh: {} vertices, {} polygons",
-        poly_mesh.nverts, poly_mesh.npolys
+        poly_mesh.vert_count(),
+        poly_mesh.poly_count()
     );
 
     let params = NavMeshParams {
@@ -52,7 +53,7 @@ pub fn build_navmesh_from_obj(
         tile_width: bmax.x - bmin.x,
         tile_height: bmax.z - bmin.z,
         max_tiles: 1,
-        max_polys_per_tile: poly_mesh.npolys as i32,
+        max_polys_per_tile: poly_mesh.poly_count() as i32,
     };
 
     let nav_mesh =
@@ -64,18 +65,15 @@ pub fn build_navmesh_from_obj(
 /// Print statistics about a PolyMesh and PolyMeshDetail.
 pub fn print_stats(poly_mesh: &PolyMesh, detail_mesh: &PolyMeshDetail) {
     println!("--- Navmesh Statistics ---");
-    println!("  Polygons:        {}", poly_mesh.npolys);
-    println!("  Vertices:        {}", poly_mesh.nverts);
-    println!("  Max verts/poly:  {}", poly_mesh.nvp);
-    println!("  Detail vertices: {}", detail_mesh.vert_count);
-    println!("  Detail triangles:{}", detail_mesh.tri_count);
+    println!("  Polygons:        {}", poly_mesh.poly_count());
+    println!("  Vertices:        {}", poly_mesh.vert_count());
+    println!("  Max verts/poly:  {}", poly_mesh.max_verts_per_poly());
+    println!("  Detail vertices: {}", detail_mesh.vert_count());
+    println!("  Detail triangles:{}", detail_mesh.tri_count());
+    let bmin = poly_mesh.bmin();
+    let bmax = poly_mesh.bmax();
     println!(
         "  Bounds: ({:.1}, {:.1}, {:.1}) - ({:.1}, {:.1}, {:.1})",
-        poly_mesh.bmin.x,
-        poly_mesh.bmin.y,
-        poly_mesh.bmin.z,
-        poly_mesh.bmax.x,
-        poly_mesh.bmax.y,
-        poly_mesh.bmax.z,
+        bmin.x, bmin.y, bmin.z, bmax.x, bmax.y, bmax.z,
     );
 }

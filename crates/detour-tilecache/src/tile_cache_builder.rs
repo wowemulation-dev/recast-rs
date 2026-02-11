@@ -335,33 +335,33 @@ impl TileCacheBuilder {
     ) -> Result<MeshTile, TileCacheError> {
         // Create tile header
         let mut tile_header = TileHeader::new(header.tx, header.ty, header.tlayer);
-        tile_header.vert_count = pmesh.vert_count as i32;
-        tile_header.poly_count = pmesh.poly_count as i32;
-        tile_header.detail_mesh_count = dmesh.poly_count as i32;
-        tile_header.detail_vert_count = dmesh.vert_count as i32;
-        tile_header.detail_tri_count = dmesh.tri_count as i32;
+        tile_header.vert_count = pmesh.vert_count() as i32;
+        tile_header.poly_count = pmesh.poly_count() as i32;
+        tile_header.detail_mesh_count = dmesh.poly_count() as i32;
+        tile_header.detail_vert_count = dmesh.vert_count() as i32;
+        tile_header.detail_tri_count = dmesh.tri_count() as i32;
 
         // Copy vertices (convert from i32 to f32)
-        let mut verts = Vec::with_capacity(pmesh.vert_count * 3);
-        for i in 0..pmesh.vert_count {
-            verts.push(pmesh.vertices[i * 3] as f32);
-            verts.push(pmesh.vertices[i * 3 + 1] as f32);
-            verts.push(pmesh.vertices[i * 3 + 2] as f32);
+        let mut verts = Vec::with_capacity(pmesh.vert_count() * 3);
+        for i in 0..pmesh.vert_count() {
+            verts.push(pmesh.verts()[i * 3] as f32);
+            verts.push(pmesh.verts()[i * 3 + 1] as f32);
+            verts.push(pmesh.verts()[i * 3 + 2] as f32);
         }
 
         // Convert polygons
-        let mut polys = Vec::with_capacity(pmesh.poly_count);
-        for i in 0..pmesh.poly_count {
+        let mut polys = Vec::with_capacity(pmesh.poly_count());
+        for i in 0..pmesh.poly_count() {
             // Extract vertices from the polygon mesh data
             let mut vert_count = 0;
             let mut verts = [0u16; MAX_VERTS_PER_POLY];
             let mut neighbors = [0u16; MAX_VERTS_PER_POLY];
 
             // Find actual vertex count by looking at polygon data
-            for j in 0..pmesh.max_verts_per_poly {
-                let poly_idx = i * pmesh.max_verts_per_poly + j;
-                if poly_idx < pmesh.polys.len() {
-                    let v = pmesh.polys[poly_idx];
+            for j in 0..pmesh.max_verts_per_poly() {
+                let poly_idx = i * pmesh.max_verts_per_poly() + j;
+                if poly_idx < pmesh.polys().len() {
+                    let v = pmesh.polys()[poly_idx];
                     if v != MESH_NULL_IDX {
                         verts[vert_count] = v;
                         neighbors[vert_count] = 0; // No neighbor data in PolyMesh
@@ -376,7 +376,7 @@ impl TileCacheBuilder {
                 neighbors,
                 flags: PolyFlags::WALK,
                 vert_count: vert_count as u8,
-                area: pmesh.areas[i],
+                area: pmesh.areas()[i],
                 poly_type: PolyType::Ground,
             };
 
@@ -384,25 +384,25 @@ impl TileCacheBuilder {
         }
 
         // Convert detail meshes
-        let mut detail_meshes = Vec::with_capacity(dmesh.poly_count);
-        for i in 0..dmesh.poly_count {
+        let mut detail_meshes = Vec::with_capacity(dmesh.poly_count());
+        for i in 0..dmesh.poly_count() {
             detail_meshes.push(PolyDetail {
-                vert_base: dmesh.poly_start[i] as u32,
-                tri_base: dmesh.poly_start[i] as u32,
+                vert_base: dmesh.poly_start()[i] as u32,
+                tri_base: dmesh.poly_start()[i] as u32,
                 vert_count: 0, // Will be calculated from triangles
-                tri_count: dmesh.poly_tri_count[i] as u8,
+                tri_count: dmesh.poly_tri_count()[i] as u8,
             });
         }
 
         // Copy detail vertices
-        let detail_verts = dmesh.vertices.clone();
+        let detail_verts = dmesh.vertices().to_vec();
 
         // Copy detail triangles (convert from u32 to u8)
-        let mut detail_tris = Vec::with_capacity(dmesh.tri_count * 3);
-        for i in 0..dmesh.tri_count {
-            detail_tris.push(dmesh.triangles[i * 3] as u8);
-            detail_tris.push(dmesh.triangles[i * 3 + 1] as u8);
-            detail_tris.push(dmesh.triangles[i * 3 + 2] as u8);
+        let mut detail_tris = Vec::with_capacity(dmesh.tri_count() * 3);
+        for i in 0..dmesh.tri_count() {
+            detail_tris.push(dmesh.triangles()[i * 3] as u8);
+            detail_tris.push(dmesh.triangles()[i * 3 + 1] as u8);
+            detail_tris.push(dmesh.triangles()[i * 3 + 2] as u8);
         }
 
         // Create the mesh tile

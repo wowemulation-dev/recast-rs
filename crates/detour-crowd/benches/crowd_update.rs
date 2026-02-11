@@ -44,7 +44,7 @@ fn build_navmesh() -> NavMesh {
         tile_width: bmax.x - bmin.x,
         tile_height: bmax.z - bmin.z,
         max_tiles: 1,
-        max_polys_per_tile: poly_mesh.npolys as i32,
+        max_polys_per_tile: poly_mesh.poly_count() as i32,
     };
 
     NavMesh::build_from_recast(params, &poly_mesh, &detail_mesh, NavMeshFlags::empty())

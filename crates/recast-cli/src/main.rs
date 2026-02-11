@@ -234,7 +234,8 @@ fn build_mesh(
 
     println!(
         "Navigation mesh built: {} vertices, {} polygons",
-        poly_mesh.vert_count, poly_mesh.poly_count
+        poly_mesh.vert_count(),
+        poly_mesh.poly_count()
     );
 
     // Convert to Detour format
@@ -243,7 +244,7 @@ fn build_mesh(
         tile_width: (bmax.x - bmin.x),
         tile_height: (bmax.z - bmin.z),
         max_tiles: 1,
-        max_polys_per_tile: poly_mesh.poly_count as i32,
+        max_polys_per_tile: poly_mesh.poly_count() as i32,
     };
 
     let nav_mesh =

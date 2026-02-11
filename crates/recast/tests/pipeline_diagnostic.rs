@@ -260,9 +260,9 @@ fn run_pipeline_diagnostic(obj_name: &str) {
         PolyMesh::build_from_contour_set(&contour_set, config.max_vertices_per_polygon as usize)
             .expect("failed to build poly mesh");
 
-    println!("  nverts: {}", poly_mesh.nverts);
-    println!("  npolys: {}", poly_mesh.npolys);
-    println!("  maxpolys: {}", poly_mesh.maxpolys);
+    println!("  nverts: {}", poly_mesh.vert_count());
+    println!("  npolys: {}", poly_mesh.poly_count());
+    println!("  maxpolys: {}", poly_mesh.max_polys());
     println!();
 
     // Stage 7: PolyMeshDetail
@@ -275,8 +275,8 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     )
     .expect("failed to build detail mesh");
 
-    println!("  vert_count: {}", detail_mesh.vert_count);
-    println!("  tri_count: {}", detail_mesh.tri_count);
+    println!("  vert_count: {}", detail_mesh.vert_count());
+    println!("  tri_count: {}", detail_mesh.tri_count());
     println!();
 
     println!("--- Summary ---");
@@ -286,8 +286,8 @@ fn run_pipeline_diagnostic(obj_name: &str) {
         chf.span_count,
         normal_regs,
         contour_set.contours.len(),
-        poly_mesh.npolys,
-        poly_mesh.nverts
+        poly_mesh.poly_count(),
+        poly_mesh.vert_count()
     );
     println!();
 }
