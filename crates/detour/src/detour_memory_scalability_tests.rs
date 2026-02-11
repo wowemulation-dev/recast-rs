@@ -11,6 +11,7 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
+    use glam::Vec3;
     use std::mem;
 
     /// Helper to get approximate memory size of a type
@@ -195,12 +196,20 @@ mod tests {
             let ext = [5.0, 5.0, 5.0];
 
             // Find nearest polygons
-            let (start_ref, _) = query.find_nearest_poly(&start_pos, &ext, &filter)?;
-            let (end_ref, _) = query.find_nearest_poly(&end_pos, &ext, &filter)?;
+            let (start_ref, _) =
+                query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(ext), &filter)?;
+            let (end_ref, _) =
+                query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(ext), &filter)?;
 
             if start_ref.is_valid() && end_ref.is_valid() {
                 // Test pathfinding
-                let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+                let path = query.find_path(
+                    start_ref,
+                    end_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &filter,
+                )?;
 
                 println!(
                     "Path from {:?} to {:?}: {} polygons",
@@ -217,7 +226,11 @@ mod tests {
 
                 // Test straight path generation
                 if !path.is_empty() {
-                    let straight_path = query.find_straight_path(&start_pos, &end_pos, &path)?;
+                    let straight_path = query.find_straight_path(
+                        Vec3::from(start_pos),
+                        Vec3::from(end_pos),
+                        &path,
+                    )?;
                     assert!(
                         !straight_path.waypoints.is_empty(),
                         "Should generate straight path"
@@ -358,12 +371,21 @@ mod tests {
         let end_pos = [635.0, 0.0, 635.0]; // Far corner
         let ext = [5.0, 5.0, 5.0];
 
-        let (start_ref, _) = query.find_nearest_poly(&start_pos, &ext, &filter)?;
-        let (end_ref, _) = query.find_nearest_poly(&end_pos, &ext, &filter)?;
+        let (start_ref, _) =
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(ext), &filter)?;
+        let (end_ref, _) =
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(ext), &filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Test with limited iterations using sliced pathfinding
-            query.init_sliced_find_path(start_ref, end_ref, &start_pos, &end_pos, &filter, 0)?;
+            query.init_sliced_find_path(
+                start_ref,
+                end_ref,
+                Vec3::from(start_pos),
+                Vec3::from(end_pos),
+                &filter,
+                0,
+            )?;
 
             let mut total_iters = 0;
             let max_iters_per_update = 100;
@@ -425,7 +447,7 @@ mod tests {
             let pos = [(i % 10) as f32 * 10.0, 0.0, (i / 10) as f32 * 10.0];
             let ext = [5.0, 5.0, 5.0];
 
-            let result = query.find_nearest_poly(&pos, &ext, &filter);
+            let result = query.find_nearest_poly(Vec3::from(pos), Vec3::from(ext), &filter);
             assert!(result.is_ok(), "Query {} should succeed", i);
         }
 
@@ -585,15 +607,29 @@ mod tests {
             let ext = [5.0, 5.0, 5.0];
 
             // Find nearest polygons
-            if let Ok((start_ref, _)) = query.find_nearest_poly(&pos1, &ext, &filter) {
-                if let Ok((end_ref, _)) = query.find_nearest_poly(&pos2, &ext, &filter) {
+            if let Ok((start_ref, _)) =
+                query.find_nearest_poly(Vec3::from(pos1), Vec3::from(ext), &filter)
+            {
+                if let Ok((end_ref, _)) =
+                    query.find_nearest_poly(Vec3::from(pos2), Vec3::from(ext), &filter)
+                {
                     if start_ref.is_valid() && end_ref.is_valid() {
                         // Try pathfinding
-                        match query.find_path(start_ref, end_ref, &pos1, &pos2, &filter) {
+                        match query.find_path(
+                            start_ref,
+                            end_ref,
+                            Vec3::from(pos1),
+                            Vec3::from(pos2),
+                            &filter,
+                        ) {
                             Ok(path) => {
                                 // Generate straight path if path exists
                                 if !path.is_empty() && path.len() < 1000 {
-                                    let _ = query.find_straight_path(&pos1, &pos2, &path);
+                                    let _ = query.find_straight_path(
+                                        Vec3::from(pos1),
+                                        Vec3::from(pos2),
+                                        &path,
+                                    );
                                 }
                             }
                             Err(_) => {

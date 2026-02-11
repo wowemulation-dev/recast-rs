@@ -5,6 +5,8 @@
 
 use std::collections::VecDeque;
 
+use glam::Vec3;
+
 use super::nav_mesh_query::NavMeshQuery;
 use super::{PolyRef, QueryFilter};
 use crate::error::DetourError;
@@ -172,10 +174,11 @@ impl<'a> SlicedPathfindingQuery<'a> {
 
             // Find the nearest polygon for this intermediate position
             let half_extents = self.query.get_query_extent();
-            if let Ok((poly_ref, _)) =
-                self.query
-                    .find_nearest_poly(&intermediate_pos, &half_extents, &self.filter)
-            {
+            if let Ok((poly_ref, _)) = self.query.find_nearest_poly(
+                Vec3::from(intermediate_pos),
+                half_extents,
+                &self.filter,
+            ) {
                 if i == num_segments {
                     // Last segment should target the actual end
                     self.goal_queue.push_back((self.end_ref, self.end_pos));
@@ -232,7 +235,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
             self.start_pos
         } else {
             // Get position of last polygon in path
-            self.query.get_poly_center(segment_start_ref)?
+            self.query.get_poly_center(segment_start_ref)?.to_array()
         };
 
         // Execute pathfinding for this segment
@@ -279,9 +282,13 @@ impl<'a> SlicedPathfindingQuery<'a> {
         let _max_iterations_backup = self.config.max_iterations;
 
         // Execute pathfinding for this segment
-        let segment_path =
-            self.query
-                .find_path(start_ref, end_ref, start_pos, end_pos, &self.filter)?;
+        let segment_path = self.query.find_path(
+            start_ref,
+            end_ref,
+            Vec3::from(*start_pos),
+            Vec3::from(*end_pos),
+            &self.filter,
+        )?;
 
         self.iterations += segment_path.len(); // Approximate iteration count
 

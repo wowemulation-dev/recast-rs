@@ -56,6 +56,8 @@ mod platform_compatibility_tests;
 #[cfg(test)]
 mod test_mesh_helpers;
 
+use glam::Vec3;
+
 pub use dt_status::{
     DtStatus, dt_status_detail, dt_status_failed, dt_status_in_progress, dt_status_succeed,
 };
@@ -418,7 +420,7 @@ pub struct Path {
     /// Polygon references along the path
     pub poly_refs: Vec<PolyRef>,
     /// Waypoints along the path
-    pub waypoints: Vec<[f32; 3]>,
+    pub waypoints: Vec<Vec3>,
 }
 
 impl Default for Path {

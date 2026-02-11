@@ -8,6 +8,7 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
+    use glam::Vec3;
 
     /// Helper to create a simple 2x2 tile mesh
     fn create_2x2_tile_mesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
@@ -170,8 +171,10 @@ mod tests {
         let end_pos = [15.0, 0.0, 15.0];
         let extents = [1.0, 1.0, 1.0];
 
-        let (start_ref, actual_start) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
-        let (end_ref, actual_end) = query.find_nearest_poly(&end_pos, &extents, &filter)?;
+        let (start_ref, actual_start) =
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
+        let (end_ref, actual_end) =
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &filter)?;
 
         assert!(start_ref.is_valid(), "Should find start polygon");
         assert!(end_ref.is_valid(), "Should find end polygon");
@@ -185,7 +188,7 @@ mod tests {
         );
 
         // Find path across tiles
-        let path = query.find_path(start_ref, end_ref, &actual_start, &actual_end, &filter)?;
+        let path = query.find_path(start_ref, end_ref, actual_start, actual_end, &filter)?;
         assert!(path.len() >= 2, "Path should cross multiple tiles");
 
         Ok(())
@@ -202,14 +205,16 @@ mod tests {
         let boundary_pos = [10.0, 0.0, 5.0]; // Between tiles (0,0) and (1,0)
         let small_extents = [0.1, 0.1, 0.1];
 
-        let result = query.find_nearest_poly(&boundary_pos, &small_extents, &filter);
+        let result =
+            query.find_nearest_poly(Vec3::from(boundary_pos), Vec3::from(small_extents), &filter);
         assert!(result.is_ok(), "Should handle boundary queries");
 
         // Test query spanning multiple tiles
         let center_pos = [10.0, 0.0, 10.0]; // At intersection of all 4 tiles
         let large_extents = [5.0, 5.0, 5.0];
 
-        let result = query.find_nearest_poly(&center_pos, &large_extents, &filter);
+        let result =
+            query.find_nearest_poly(Vec3::from(center_pos), Vec3::from(large_extents), &filter);
         assert!(result.is_ok(), "Should handle multi-tile spanning queries");
 
         Ok(())
@@ -471,8 +476,10 @@ mod tests {
         let end_pos = [95.0, 0.0, 95.0]; // Far corner
         let extents = [1.0, 1.0, 1.0];
 
-        let (start_ref, actual_start) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
-        let (end_ref, actual_end) = query.find_nearest_poly(&end_pos, &extents, &filter)?;
+        let (start_ref, actual_start) =
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
+        let (end_ref, actual_end) =
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &filter)?;
 
         assert!(
             start_ref.is_valid() && end_ref.is_valid(),
@@ -481,7 +488,7 @@ mod tests {
 
         // Time the pathfinding
         let start_time = std::time::Instant::now();
-        let path = query.find_path(start_ref, end_ref, &actual_start, &actual_end, &filter)?;
+        let path = query.find_path(start_ref, end_ref, actual_start, actual_end, &filter)?;
         let elapsed = start_time.elapsed();
 
         println!("Large grid pathfinding took: {:?}", elapsed);

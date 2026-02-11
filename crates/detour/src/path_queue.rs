@@ -1,3 +1,5 @@
+use glam::Vec3;
+
 use crate::error::DetourError;
 use crate::{NavMesh, NavMeshQuery, PolyRef, QueryFilter, Status};
 
@@ -115,8 +117,8 @@ impl<'a> DtPathQueue<'a> {
                     match navquery.find_path(
                         query.start_ref,
                         query.end_ref,
-                        &query.start_pos,
-                        &query.end_pos,
+                        Vec3::from(query.start_pos),
+                        Vec3::from(query.end_pos),
                         filter,
                     ) {
                         Ok(path) => {

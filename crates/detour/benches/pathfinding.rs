@@ -10,6 +10,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, PolyRef, QueryFilter};
+use glam::Vec3;
 use recast::{RecastBuilder, RecastConfig};
 use recast_common::TriMesh;
 
@@ -55,10 +56,11 @@ fn build_navmesh(name: &str) -> NavMesh {
 fn snap_to_navmesh(nav_mesh: &NavMesh, pos: [f32; 3]) -> (PolyRef, [f32; 3]) {
     let query = NavMeshQuery::new(nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
-    query
-        .find_nearest_poly(&pos, &extent, &filter)
-        .expect("position not on navmesh")
+    let extent = Vec3::new(5.0, 10.0, 5.0);
+    let (poly_ref, snapped) = query
+        .find_nearest_poly(Vec3::from(pos), extent, &filter)
+        .expect("position not on navmesh");
+    (poly_ref, snapped.to_array())
 }
 
 fn bench_find_path(c: &mut Criterion) {
@@ -75,7 +77,13 @@ fn bench_find_path(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             query
-                .find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)
+                .find_path(
+                    start_ref,
+                    end_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &filter,
+                )
                 .unwrap()
         });
     });
@@ -95,14 +103,20 @@ fn bench_find_straight_path(c: &mut Criterion) {
     let mut query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
     let poly_path = query
-        .find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)
+        .find_path(
+            start_ref,
+            end_ref,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
+            &filter,
+        )
         .expect("failed to find path");
 
     group.bench_function("nav_test", |b| {
         let query = NavMeshQuery::new(&nav_mesh);
         b.iter(|| {
             query
-                .find_straight_path(&start_pos, &end_pos, &poly_path)
+                .find_straight_path(Vec3::from(start_pos), Vec3::from(end_pos), &poly_path)
                 .unwrap()
         });
     });
@@ -123,7 +137,14 @@ fn bench_sliced_find_path(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             query
-                .init_sliced_find_path(start_ref, end_ref, &start_pos, &end_pos, &filter, 0)
+                .init_sliced_find_path(
+                    start_ref,
+                    end_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &filter,
+                    0,
+                )
                 .unwrap();
             loop {
                 let (_, state) = query.update_sliced_find_path(100).unwrap();

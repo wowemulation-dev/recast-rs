@@ -8,6 +8,7 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
+    use glam::Vec3;
 
     /// Helper to create a mesh with multiple area types
     fn create_multi_area_mesh() -> Result<NavMesh, Box<dyn std::error::Error>> {
@@ -122,7 +123,8 @@ mod tests {
         let center = [7.5, 0.0, 7.5];
         let extents = [10.0, 1.0, 10.0];
 
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &default_filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &default_filter)?;
         assert!(poly_ref.is_valid(), "Default filter should find polygons");
 
         // Test with filter excluding swimming areas
@@ -131,7 +133,11 @@ mod tests {
 
         // Try to find polygon in swimming area
         let swim_area_pos = [7.5, 0.0, 2.5]; // Should be in swim area
-        let result = query.find_nearest_poly(&swim_area_pos, &[0.5, 0.5, 0.5], &no_swim_filter);
+        let result = query.find_nearest_poly(
+            Vec3::from(swim_area_pos),
+            Vec3::new(0.5, 0.5, 0.5),
+            &no_swim_filter,
+        );
 
         // TODO: Once flag filtering is properly implemented, verify this excludes swim areas
 
@@ -153,18 +159,21 @@ mod tests {
         let end_pos = [12.5, 0.0, 12.5];
         let extents = [1.0, 1.0, 1.0];
 
-        let (start_ref, actual_start) =
-            query.find_nearest_poly(&start_pos, &extents, &expensive_filter)?;
+        let (start_ref, actual_start) = query.find_nearest_poly(
+            Vec3::from(start_pos),
+            Vec3::from(extents),
+            &expensive_filter,
+        )?;
         let (end_ref, actual_end) =
-            query.find_nearest_poly(&end_pos, &extents, &expensive_filter)?;
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &expensive_filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Find path with expensive area
             let expensive_path = query.find_path(
                 start_ref,
                 end_ref,
-                &actual_start,
-                &actual_end,
+                actual_start,
+                actual_end,
                 &expensive_filter,
             )?;
 
@@ -172,8 +181,8 @@ mod tests {
             let default_path = query.find_path(
                 start_ref,
                 end_ref,
-                &actual_start,
-                &actual_end,
+                actual_start,
+                actual_end,
                 &QueryFilter::default(),
             )?;
 
@@ -199,7 +208,11 @@ mod tests {
         let door_area_pos = [12.5, 0.0, 2.5];
         let extents = [5.0, 1.0, 5.0];
 
-        let result = query.find_nearest_poly(&door_area_pos, &extents, &door_only_filter);
+        let result = query.find_nearest_poly(
+            Vec3::from(door_area_pos),
+            Vec3::from(extents),
+            &door_only_filter,
+        );
 
         // TODO: Verify only door polygons are found
 
@@ -220,7 +233,7 @@ mod tests {
         let center = [7.5, 0.0, 7.5];
         let extents = [10.0, 1.0, 10.0];
 
-        let result = query.find_nearest_poly(&center, &extents, &filter);
+        let result = query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter);
         assert!(result.is_ok(), "Combined filtering should work");
 
         Ok(())
@@ -241,11 +254,13 @@ mod tests {
         let end = [12.5, 0.0, 2.5];
         let extents = [1.0, 1.0, 1.0];
 
-        let (start_ref, start_pos) = query.find_nearest_poly(&start, &extents, &free_filter)?;
-        let (end_ref, end_pos) = query.find_nearest_poly(&end, &extents, &free_filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(start), Vec3::from(extents), &free_filter)?;
+        let (end_ref, end_pos) =
+            query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &free_filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let result = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &free_filter);
+            let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &free_filter);
             assert!(
                 result.is_ok(),
                 "Zero cost areas should still be traversable"
@@ -268,7 +283,7 @@ mod tests {
         // Filter should still be usable, but negative costs might be clamped
         let pos = [2.5, 0.0, 2.5];
         let extents = [1.0, 1.0, 1.0];
-        let result = query.find_nearest_poly(&pos, &extents, &invalid_filter);
+        let result = query.find_nearest_poly(Vec3::from(pos), Vec3::from(extents), &invalid_filter);
 
         // Should handle gracefully
         assert!(result.is_ok(), "Negative costs should be handled");
@@ -292,12 +307,14 @@ mod tests {
         let end = [7.5, 0.0, 7.5];
         let extents = [1.0, 1.0, 1.0];
 
-        let (start_ref, start_pos) = query.find_nearest_poly(&start, &extents, &max_filter)?;
-        let (end_ref, end_pos) = query.find_nearest_poly(&end, &extents, &max_filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(start), Vec3::from(extents), &max_filter)?;
+        let (end_ref, end_pos) =
+            query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &max_filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Pathfinding might fail or succeed with very high cost
-            let result = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &max_filter);
+            let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &max_filter);
             // Both success and failure are valid with maximum costs
         }
 
@@ -320,8 +337,11 @@ mod tests {
             }
 
             // Test that paths prefer the cheap area
-            let result =
-                query.find_nearest_poly(&[7.5, 0.0, 7.5], &[10.0, 1.0, 10.0], &area_filter);
+            let result = query.find_nearest_poly(
+                Vec3::new(7.5, 0.0, 7.5),
+                Vec3::new(10.0, 1.0, 10.0),
+                &area_filter,
+            );
             assert!(result.is_ok(), "Should handle area-specific filters");
         }
 
@@ -343,7 +363,7 @@ mod tests {
         let extents = [1.0, 1.0, 1.0];
 
         // Should still work with empty flags
-        let result = query.find_nearest_poly(&pos, &extents, &empty_filter);
+        let result = query.find_nearest_poly(Vec3::from(pos), Vec3::from(extents), &empty_filter);
         assert!(result.is_ok(), "Empty flags should be handled");
 
         Ok(())
@@ -362,7 +382,8 @@ mod tests {
         let pos = [7.5, 0.0, 7.5];
         let extents = [5.0, 1.0, 5.0];
 
-        let result = query.find_nearest_poly(&pos, &extents, &all_flags_filter);
+        let result =
+            query.find_nearest_poly(Vec3::from(pos), Vec3::from(extents), &all_flags_filter);
         assert!(result.is_ok(), "All flags set should work");
 
         Ok(())
@@ -395,11 +416,13 @@ mod tests {
         ];
 
         for filter in filters {
-            let (start_ref, start_pos) = query.find_nearest_poly(&start, &extents, &filter)?;
-            let (end_ref, end_pos) = query.find_nearest_poly(&end, &extents, &filter)?;
+            let (start_ref, start_pos) =
+                query.find_nearest_poly(Vec3::from(start), Vec3::from(extents), &filter)?;
+            let (end_ref, end_pos) =
+                query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &filter)?;
 
             if start_ref.is_valid() && end_ref.is_valid() {
-                let result = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter);
+                let result = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter);
                 // Different filters may produce different results
             }
         }

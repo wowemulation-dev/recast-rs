@@ -330,20 +330,20 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
     let mut query = NavMeshQuery::new(&nav_mesh);
 
     // Find nearest polygons to start and end points
-    let start_pos = [start.x, start.y, start.z];
-    let end_pos = [end.x, end.y, end.z];
-    let ext = [2.0, 4.0, 2.0]; // Search extents
+    let start_pos = Vec3::new(start.x, start.y, start.z);
+    let end_pos = Vec3::new(end.x, end.y, end.z);
+    let ext = Vec3::new(2.0, 4.0, 2.0); // Search extents
 
     // Create a default filter
     let filter = QueryFilter::default();
 
     // Find nearest polygons to start and end positions
     let (start_ref, closest_start) = query
-        .find_nearest_poly(&start_pos, &ext, &filter)
+        .find_nearest_poly(start_pos, ext, &filter)
         .map_err(|e| anyhow!("Failed to find start polygon: {:?}", e))?;
 
     let (end_ref, closest_end) = query
-        .find_nearest_poly(&end_pos, &ext, &filter)
+        .find_nearest_poly(end_pos, ext, &filter)
         .map_err(|e| anyhow!("Failed to find end polygon: {:?}", e))?;
 
     println!(
@@ -354,14 +354,14 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
 
     // Find the path
     let path = query
-        .find_path(start_ref, end_ref, &closest_start, &closest_end, &filter)
+        .find_path(start_ref, end_ref, closest_start, closest_end, &filter)
         .map_err(|e| anyhow!("Failed to find path: {:?}", e))?;
 
     println!("Found path with {} polygons", path.len());
 
     // Convert polygon path to straight path
     let straight_path = query
-        .find_straight_path(&closest_start, &closest_end, &path)
+        .find_straight_path(closest_start, closest_end, &path)
         .map_err(|e| anyhow!("Failed to find straight path: {:?}", e))?;
 
     println!(

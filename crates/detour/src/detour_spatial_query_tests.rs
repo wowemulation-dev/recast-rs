@@ -8,6 +8,7 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
+    use glam::Vec3;
 
     /// Helper to create a grid mesh for spatial query testing
     fn create_grid_mesh(grid_size: i32) -> Result<NavMesh, Box<dyn std::error::Error>> {
@@ -226,12 +227,14 @@ mod tests {
         // Find starting polygon at center
         let center = [5.0, 0.0, 5.0];
         let extents = [0.5, 0.5, 0.5];
-        let (start_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         if start_ref.is_valid() {
             // Search for polygons within radius
             let radius = 3.0;
-            let result = query.find_polys_around_circle(start_ref, &center, radius, &filter);
+            let result =
+                query.find_polys_around_circle(start_ref, Vec3::from(center), radius, &filter);
 
             match result {
                 Ok(polys) => {
@@ -254,10 +257,12 @@ mod tests {
         let filter = QueryFilter::default();
 
         let center = [5.0, 0.0, 5.0];
-        let (start_ref, _) = query.find_nearest_poly(&center, &[0.5, 0.5, 0.5], &filter)?;
+        let (start_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::new(0.5, 0.5, 0.5), &filter)?;
 
         if start_ref.is_valid() {
-            let result = query.find_polys_around_circle(start_ref, &center, 0.0, &filter);
+            let result =
+                query.find_polys_around_circle(start_ref, Vec3::from(center), 0.0, &filter);
 
             match result {
                 Ok(polys) => {
@@ -283,12 +288,14 @@ mod tests {
         let filter = QueryFilter::default();
 
         let center = [5.0, 0.0, 5.0];
-        let (start_ref, _) = query.find_nearest_poly(&center, &[0.5, 0.5, 0.5], &filter)?;
+        let (start_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::new(0.5, 0.5, 0.5), &filter)?;
 
         if start_ref.is_valid() {
             // Use radius that covers entire mesh
             let radius = 100.0;
-            let result = query.find_polys_around_circle(start_ref, &center, radius, &filter);
+            let result =
+                query.find_polys_around_circle(start_ref, Vec3::from(center), radius, &filter);
 
             match result {
                 Ok(polys) => {
@@ -357,11 +364,13 @@ mod tests {
         let end = [9.0, 0.0, 9.0];
         let extents = [1.0, 1.0, 1.0];
 
-        let (start_ref, start_pos) = query.find_nearest_poly(&start, &extents, &filter)?;
-        let (end_ref, end_pos) = query.find_nearest_poly(&end, &extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(start), Vec3::from(extents), &filter)?;
+        let (end_ref, end_pos) =
+            query.find_nearest_poly(Vec3::from(end), Vec3::from(extents), &filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+            let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 
             if !path.is_empty() {
                 // TODO: Call find_polys_in_path when implemented

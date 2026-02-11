@@ -2,6 +2,8 @@
 //!
 //! This module provides the PolyQuery trait that matches the C++ dtPolyQuery interface
 
+use glam::Vec3;
+
 use super::{MeshTile, NavMeshQuery, Poly, PolyRef};
 
 /// Provides custom polygon query behavior.
@@ -123,14 +125,17 @@ impl<'a> PolyQuery for FindNearestPolyQuery<'a> {
     fn process(&mut self, _tile: &MeshTile, _polys: &[&Poly], refs: &[PolyRef]) {
         for &poly_ref in refs {
             // Get closest point on this polygon
-            if let Ok((closest_pt, is_over_poly)) =
-                self.query.closest_point_on_poly(poly_ref, &self.center)
+            if let Ok((closest_pt, is_over_poly)) = self
+                .query
+                .closest_point_on_poly(poly_ref, Vec3::from(self.center))
             {
+                let closest_arr = closest_pt.to_array();
+
                 // Calculate squared distance
                 let diff = [
-                    self.center[0] - closest_pt[0],
-                    self.center[1] - closest_pt[1],
-                    self.center[2] - closest_pt[2],
+                    self.center[0] - closest_arr[0],
+                    self.center[1] - closest_arr[1],
+                    self.center[2] - closest_arr[2],
                 ];
 
                 let d = if is_over_poly {
@@ -151,7 +156,7 @@ impl<'a> PolyQuery for FindNearestPolyQuery<'a> {
                 if d < self.nearest_distance_sqr {
                     self.nearest_distance_sqr = d;
                     self.nearest_ref = poly_ref;
-                    self.nearest_point = closest_pt;
+                    self.nearest_point = closest_arr;
                     self.over_poly = is_over_poly;
                 }
             }

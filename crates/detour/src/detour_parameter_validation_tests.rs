@@ -7,6 +7,7 @@
 mod tests {
     use crate::nav_mesh_query::NavMeshQuery;
     use crate::{NavMesh, NavMeshParams, PolyRef, QueryFilter};
+    use glam::Vec3;
 
     #[test]
     fn test_navmesh_invalid_params() {
@@ -69,21 +70,21 @@ mod tests {
 
         // Test with invalid (zero) polygon reference
         let invalid_ref = PolyRef::new(0);
-        let pos = [5.0, 0.0, 5.0];
-        let dir = [1.0, 0.0, 0.0];
+        let pos = Vec3::new(5.0, 0.0, 5.0);
+        let dir = Vec3::new(1.0, 0.0, 0.0);
 
         // All these should return proper errors, not crash
-        assert!(
-            query
-                .raycast(invalid_ref, &pos, &dir, 10.0, &filter)
-                .is_err()
-        );
-        assert!(query.closest_point_on_poly(invalid_ref, &pos).is_err());
+        assert!(query.raycast(invalid_ref, pos, dir, 10.0, &filter).is_err());
+        assert!(query.closest_point_on_poly(invalid_ref, pos).is_err());
 
         // Test with very large polygon reference (invalid)
         let huge_ref = PolyRef::new(0xFFFFFFFF);
-        assert!(query.raycast(huge_ref, &pos, &dir, 10.0, &filter).is_err());
-        assert!(query.closest_point_on_poly(huge_ref, &pos).is_err());
+        assert!(query.raycast(huge_ref, pos, dir, 10.0, &filter).is_err());
+        assert!(
+            query
+                .closest_point_on_poly(huge_ref, Vec3::from(pos))
+                .is_err()
+        );
 
         Ok(())
     }
@@ -107,17 +108,20 @@ mod tests {
         let half_extents = [1.0, 1.0, 1.0];
 
         // Should handle NaN gracefully
-        let result = query.find_nearest_poly(&nan_pos, &half_extents, &filter);
+        let result =
+            query.find_nearest_poly(Vec3::from(nan_pos), Vec3::from(half_extents), &filter);
         assert!(result.is_err() || result.unwrap().0 == PolyRef::new(0));
 
         // Test with infinite positions
         let inf_pos = [f32::INFINITY, 0.0, 0.0];
-        let result2 = query.find_nearest_poly(&inf_pos, &half_extents, &filter);
+        let result2 =
+            query.find_nearest_poly(Vec3::from(inf_pos), Vec3::from(half_extents), &filter);
         assert!(result2.is_err() || result2.unwrap().0 == PolyRef::new(0));
 
         // Test with very large coordinates
         let huge_pos = [1e30, 0.0, 1e30];
-        let result3 = query.find_nearest_poly(&huge_pos, &half_extents, &filter);
+        let result3 =
+            query.find_nearest_poly(Vec3::from(huge_pos), Vec3::from(half_extents), &filter);
         // Should not crash, either succeed or fail gracefully
         assert!(result3.is_ok() || result3.is_err());
 
@@ -141,19 +145,19 @@ mod tests {
 
         // Test with zero extents
         let zero_extents = [0.0, 0.0, 0.0];
-        let result = query.find_nearest_poly(&pos, &zero_extents, &filter);
+        let result = query.find_nearest_poly(Vec3::from(pos), Vec3::from(zero_extents), &filter);
         // Should either succeed (finding exact position) or fail gracefully
         assert!(result.is_ok() || result.is_err());
 
         // Test with negative extents
         let neg_extents = [-1.0, -1.0, -1.0];
-        let result2 = query.find_nearest_poly(&pos, &neg_extents, &filter);
+        let result2 = query.find_nearest_poly(Vec3::from(pos), Vec3::from(neg_extents), &filter);
         // Should handle negative extents gracefully
         assert!(result2.is_ok() || result2.is_err());
 
         // Test with NaN extents
         let nan_extents = [f32::NAN, 1.0, 1.0];
-        let result3 = query.find_nearest_poly(&pos, &nan_extents, &filter);
+        let result3 = query.find_nearest_poly(Vec3::from(pos), Vec3::from(nan_extents), &filter);
         assert!(result3.is_err() || result3.unwrap().0 == PolyRef::new(0));
 
         Ok(())
@@ -175,22 +179,22 @@ mod tests {
         // We can't easily get a valid polygon ref without mesh data,
         // but we can test the parameter validation
         let dummy_ref = PolyRef::new(1);
-        let pos = [5.0, 0.0, 5.0];
+        let pos = Vec3::new(5.0, 0.0, 5.0);
 
         // Test with zero direction vector
-        let zero_dir = [0.0, 0.0, 0.0];
-        let result = query.raycast(dummy_ref, &pos, &zero_dir, 10.0, &filter);
+        let zero_dir = Vec3::new(0.0, 0.0, 0.0);
+        let result = query.raycast(dummy_ref, pos, zero_dir, 10.0, &filter);
         // Should handle zero direction gracefully (either error or no movement)
         assert!(result.is_err() || result.unwrap().2 == 0.0);
 
         // Test with NaN direction
-        let nan_dir = [f32::NAN, 0.0, 0.0];
-        let result2 = query.raycast(dummy_ref, &pos, &nan_dir, 10.0, &filter);
+        let nan_dir = Vec3::new(f32::NAN, 0.0, 0.0);
+        let result2 = query.raycast(dummy_ref, pos, nan_dir, 10.0, &filter);
         assert!(result2.is_err());
 
         // Test with infinite direction
-        let inf_dir = [f32::INFINITY, 0.0, 0.0];
-        let result3 = query.raycast(dummy_ref, &pos, &inf_dir, 10.0, &filter);
+        let inf_dir = Vec3::new(f32::INFINITY, 0.0, 0.0);
+        let result3 = query.raycast(dummy_ref, pos, inf_dir, 10.0, &filter);
         assert!(result3.is_err());
 
         Ok(())
@@ -210,20 +214,20 @@ mod tests {
         let filter = QueryFilter::default();
 
         let dummy_ref = PolyRef::new(1);
-        let pos = [5.0, 0.0, 5.0];
-        let dir = [1.0, 0.0, 0.0];
+        let pos = Vec3::new(5.0, 0.0, 5.0);
+        let dir = Vec3::new(1.0, 0.0, 0.0);
 
         // Test with negative distance
-        let result = query.raycast(dummy_ref, &pos, &dir, -10.0, &filter);
+        let result = query.raycast(dummy_ref, pos, dir, -10.0, &filter);
         // Should handle negative distance gracefully
         assert!(result.is_err() || result.unwrap().2 == 0.0);
 
         // Test with NaN distance
-        let result2 = query.raycast(dummy_ref, &pos, &dir, f32::NAN, &filter);
+        let result2 = query.raycast(dummy_ref, pos, dir, f32::NAN, &filter);
         assert!(result2.is_err());
 
         // Test with infinite distance
-        let result3 = query.raycast(dummy_ref, &pos, &dir, f32::INFINITY, &filter);
+        let result3 = query.raycast(dummy_ref, pos, dir, f32::INFINITY, &filter);
         // Should either error or handle large distances
         assert!(result3.is_ok() || result3.is_err());
 
@@ -248,15 +252,33 @@ mod tests {
         let pos = [5.0, 0.0, 5.0];
 
         // Test pathfinding with invalid start ref
-        let result = query.find_path(invalid_ref, valid_ref, &pos, &pos, &filter);
+        let result = query.find_path(
+            invalid_ref,
+            valid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(result.is_err());
 
         // Test pathfinding with invalid end ref
-        let result2 = query.find_path(valid_ref, invalid_ref, &pos, &pos, &filter);
+        let result2 = query.find_path(
+            valid_ref,
+            invalid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         assert!(result2.is_err());
 
         // Test pathfinding with same start and end (edge case)
-        let result3 = query.find_path(valid_ref, valid_ref, &pos, &pos, &filter);
+        let result3 = query.find_path(
+            valid_ref,
+            valid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+        );
         // Should either succeed immediately or fail gracefully
         assert!(result3.is_ok() || result3.is_err());
 
@@ -281,7 +303,14 @@ mod tests {
         let pos = [5.0, 0.0, 5.0];
 
         // Test sliced pathfinding init with invalid refs
-        let result = query.init_sliced_find_path(invalid_ref, valid_ref, &pos, &pos, &filter, 0);
+        let result = query.init_sliced_find_path(
+            invalid_ref,
+            valid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+            0,
+        );
         assert!(result.is_err());
 
         // Test update without init
@@ -314,7 +343,11 @@ mod tests {
         let pos = [5.0, 0.0, 5.0];
         let half_extents = [1.0, 1.0, 1.0];
 
-        let result = query.find_nearest_poly(&pos, &half_extents, &exclude_all_filter);
+        let result = query.find_nearest_poly(
+            Vec3::from(pos),
+            Vec3::from(half_extents),
+            &exclude_all_filter,
+        );
         // Should fail to find any polygons
         assert!(result.is_err() || result.unwrap().0 == PolyRef::new(0));
 
@@ -323,7 +356,11 @@ mod tests {
         extreme_cost_filter.area_cost[0] = f32::INFINITY;
 
         // Should handle infinite costs gracefully
-        let result2 = query.find_nearest_poly(&pos, &half_extents, &extreme_cost_filter);
+        let result2 = query.find_nearest_poly(
+            Vec3::from(pos),
+            Vec3::from(half_extents),
+            &extreme_cost_filter,
+        );
         assert!(result2.is_ok() || result2.is_err());
 
         Ok(())
@@ -366,7 +403,8 @@ mod tests {
 
         // Multiple queries should not interfere (if they were concurrent)
         for _ in 0..10 {
-            let _result = query.find_nearest_poly(&pos, &half_extents, &filter);
+            let _result =
+                query.find_nearest_poly(Vec3::from(pos), Vec3::from(half_extents), &filter);
             // Results may fail due to no mesh data, but should not crash
         }
 

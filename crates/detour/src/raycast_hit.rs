@@ -3,6 +3,7 @@
 //! This module provides the RaycastHit structure that matches the C++ dtRaycastHit
 
 use super::PolyRef;
+use glam::Vec3;
 
 /// Options for raycast behavior
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,8 +31,8 @@ pub struct RaycastHit {
     /// Set to f32::MAX if no wall hit
     pub t: f32,
 
-    /// The normal of the nearest wall hit [(x, y, z)]
-    pub hit_normal: [f32; 3],
+    /// The normal of the nearest wall hit
+    pub hit_normal: Vec3,
 
     /// The index of the edge on the final polygon where the wall was hit
     pub hit_edge_index: i32,
@@ -48,7 +49,7 @@ impl RaycastHit {
     pub fn no_hit() -> Self {
         Self {
             t: f32::MAX,
-            hit_normal: [0.0, 0.0, 0.0],
+            hit_normal: Vec3::ZERO,
             hit_edge_index: -1,
             path: None,
             path_cost: None,
@@ -56,7 +57,7 @@ impl RaycastHit {
     }
 
     /// Creates a new RaycastHit with a wall hit
-    pub fn wall_hit(t: f32, normal: [f32; 3], edge_index: i32) -> Self {
+    pub fn wall_hit(t: f32, normal: Vec3, edge_index: i32) -> Self {
         Self {
             t,
             hit_normal: normal,
@@ -96,7 +97,7 @@ pub struct RaycastResult {
     pub end_ref: PolyRef,
 
     /// The position where the ray ends
-    pub end_pos: [f32; 3],
+    pub end_pos: Vec3,
 
     /// Hit information
     pub hit: RaycastHit,
@@ -104,7 +105,7 @@ pub struct RaycastResult {
 
 impl RaycastResult {
     /// Creates a new raycast result
-    pub fn new(end_ref: PolyRef, end_pos: [f32; 3], hit: RaycastHit) -> Self {
+    pub fn new(end_ref: PolyRef, end_pos: Vec3, hit: RaycastHit) -> Self {
         Self {
             end_ref,
             end_pos,
@@ -127,17 +128,17 @@ mod tests {
 
     #[test]
     fn test_raycast_hit_wall() {
-        let hit = RaycastHit::wall_hit(0.5, [0.0, 1.0, 0.0], 2);
+        let hit = RaycastHit::wall_hit(0.5, Vec3::new(0.0, 1.0, 0.0), 2);
         assert_eq!(hit.t, 0.5);
         assert!(hit.hit_wall());
         assert_eq!(hit.hit_edge_index, 2);
-        assert_eq!(hit.hit_normal, [0.0, 1.0, 0.0]);
+        assert_eq!(hit.hit_normal, Vec3::new(0.0, 1.0, 0.0));
     }
 
     #[test]
     fn test_raycast_hit_with_path() {
         let path = vec![PolyRef::new(1), PolyRef::new(2), PolyRef::new(3)];
-        let hit = RaycastHit::wall_hit(0.7, [1.0, 0.0, 0.0], 1)
+        let hit = RaycastHit::wall_hit(0.7, Vec3::new(1.0, 0.0, 0.0), 1)
             .with_path(path.clone())
             .with_cost(15.5);
 

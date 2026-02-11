@@ -8,6 +8,7 @@
 
 use crate::test_mesh_helpers::*;
 use crate::{NavMeshQuery, PolyFlags, PolyRef, QueryFilter};
+use glam::Vec3;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -33,22 +34,25 @@ mod concurrent_read_tests {
                         // Find starting position
                         let start_pos = get_test_position_complex();
                         let extents = get_test_extents();
-                        let (start_ref, actual_start_pos) =
-                            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+                        let (start_ref, actual_start_pos) = query.find_nearest_poly(
+                            Vec3::from(start_pos),
+                            Vec3::from(extents),
+                            &filter,
+                        )?;
 
                         // Perform many operations
                         for i in 0..operations_per_thread {
                             let offset = (thread_id as f32 * 0.1) + (i as f32 * 0.01);
-                            let end_pos = [
+                            let end_pos = Vec3::new(
                                 actual_start_pos[0] + offset,
                                 actual_start_pos[1],
                                 actual_start_pos[2] + offset,
-                            ];
+                            );
 
                             let result = query.move_along_surface(
                                 start_ref,
-                                &actual_start_pos,
-                                &end_pos,
+                                actual_start_pos,
+                                end_pos,
                                 &filter,
                             )?;
 
@@ -97,8 +101,11 @@ mod concurrent_read_tests {
                         // Find starting position
                         let center_pos = get_test_position_complex();
                         let extents = get_test_extents();
-                        let (start_ref, actual_center_pos) =
-                            query.find_nearest_poly(&center_pos, &extents, &filter)?;
+                        let (start_ref, actual_center_pos) = query.find_nearest_poly(
+                            Vec3::from(center_pos),
+                            Vec3::from(extents),
+                            &filter,
+                        )?;
 
                         // Perform operations with varying parameters
                         for i in 0..operations_per_thread {
@@ -107,7 +114,7 @@ mod concurrent_read_tests {
 
                             let (polys, parents) = query.find_local_neighbourhood(
                                 start_ref,
-                                &actual_center_pos,
+                                actual_center_pos,
                                 radius,
                                 &filter,
                                 max_result,
@@ -159,23 +166,26 @@ mod concurrent_read_tests {
 
                         let start_pos = get_test_position_large();
                         let extents = [5.0, 5.0, 5.0];
-                        let (start_ref, actual_start_pos) =
-                            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+                        let (start_ref, actual_start_pos) = query.find_nearest_poly(
+                            Vec3::from(start_pos),
+                            Vec3::from(extents),
+                            &filter,
+                        )?;
 
                         // Mix different types of read operations
                         for i in 0..50 {
                             match (thread_id + i) % 3 {
                                 0 => {
                                     // moveAlongSurface
-                                    let end_pos = [
+                                    let end_pos = Vec3::new(
                                         actual_start_pos[0] + (i as f32 * 0.1),
                                         actual_start_pos[1],
                                         actual_start_pos[2] + (i as f32 * 0.1),
-                                    ];
+                                    );
                                     query.move_along_surface(
                                         start_ref,
-                                        &actual_start_pos,
-                                        &end_pos,
+                                        actual_start_pos,
+                                        end_pos,
                                         &filter,
                                     )?;
                                 }
@@ -184,7 +194,7 @@ mod concurrent_read_tests {
                                     let radius = 1.0 + (i as f32 * 0.1);
                                     query.find_local_neighbourhood(
                                         start_ref,
-                                        &actual_start_pos,
+                                        actual_start_pos,
                                         radius,
                                         &filter,
                                         10,
@@ -197,7 +207,11 @@ mod concurrent_read_tests {
                                         actual_start_pos[1],
                                         actual_start_pos[2] + (i as f32 * 0.05),
                                     ];
-                                    query.find_nearest_poly(&test_pos, &extents, &filter)?;
+                                    query.find_nearest_poly(
+                                        Vec3::from(test_pos),
+                                        Vec3::from(extents),
+                                        &filter,
+                                    )?;
                                 }
                                 _ => unreachable!(),
                             }
@@ -238,7 +252,8 @@ mod concurrent_write_tests {
             let filter = QueryFilter::default();
             let center_pos = get_test_position_complex();
             let extents = get_test_extents();
-            let (poly_ref, _) = query.find_nearest_poly(&center_pos, &extents, &filter)?;
+            let (poly_ref, _) =
+                query.find_nearest_poly(Vec3::from(center_pos), Vec3::from(extents), &filter)?;
             poly_ref
         };
 
@@ -305,7 +320,8 @@ mod concurrent_write_tests {
             let filter = QueryFilter::default();
             let center_pos = get_test_position_complex();
             let extents = get_test_extents();
-            let (poly_ref, _) = query.find_nearest_poly(&center_pos, &extents, &filter)?;
+            let (poly_ref, _) =
+                query.find_nearest_poly(Vec3::from(center_pos), Vec3::from(extents), &filter)?;
             poly_ref
         };
 
@@ -363,7 +379,8 @@ mod concurrent_write_tests {
             let filter = QueryFilter::default();
             let center_pos = get_test_position_complex();
             let extents = get_test_extents();
-            let (poly_ref, _) = query.find_nearest_poly(&center_pos, &extents, &filter)?;
+            let (poly_ref, _) =
+                query.find_nearest_poly(Vec3::from(center_pos), Vec3::from(extents), &filter)?;
             poly_ref
         };
 
@@ -380,28 +397,31 @@ mod concurrent_write_tests {
 
                             let start_pos = get_test_position_complex();
                             let extents = get_test_extents();
-                            let (start_ref, actual_start_pos) =
-                                query.find_nearest_poly(&start_pos, &extents, &filter)?;
+                            let (start_ref, actual_start_pos) = query.find_nearest_poly(
+                                Vec3::from(start_pos),
+                                Vec3::from(extents),
+                                &filter,
+                            )?;
 
                             // Perform read operations
                             match i % 2 {
                                 0 => {
-                                    let end_pos = [
+                                    let end_pos = Vec3::new(
                                         actual_start_pos[0] + 0.1,
                                         actual_start_pos[1],
                                         actual_start_pos[2] + 0.1,
-                                    ];
+                                    );
                                     query.move_along_surface(
                                         start_ref,
-                                        &actual_start_pos,
-                                        &end_pos,
+                                        actual_start_pos,
+                                        end_pos,
                                         &filter,
                                     )?;
                                 }
                                 1 => {
                                     query.find_local_neighbourhood(
                                         start_ref,
-                                        &actual_start_pos,
+                                        actual_start_pos,
                                         0.5,
                                         &filter,
                                         5,
@@ -504,7 +524,9 @@ mod stress_concurrency_tests {
             for i in 0..10 {
                 let pos = [5.0 + (i as f32), 0.0, 5.0 + (i as f32)];
                 let extents = [1.0, 1.0, 1.0];
-                if let Ok((poly_ref, _)) = query.find_nearest_poly(&pos, &extents, &filter) {
+                if let Ok((poly_ref, _)) =
+                    query.find_nearest_poly(Vec3::from(pos), Vec3::from(extents), &filter)
+                {
                     refs.push(poly_ref);
                 }
             }
@@ -599,9 +621,11 @@ mod stress_concurrency_tests {
                                     let pos = get_test_position_complex();
                                     let extents = get_test_extents();
 
-                                    if let Ok((poly_ref, _)) =
-                                        query.find_nearest_poly(&pos, &extents, &filter)
-                                    {
+                                    if let Ok((poly_ref, _)) = query.find_nearest_poly(
+                                        Vec3::from(pos),
+                                        Vec3::from(extents),
+                                        &filter,
+                                    ) {
                                         drop(mesh); // Release lock early
                                         let mut mesh = nav_mesh_clone.lock().unwrap();
                                         mesh.get_poly_flags(poly_ref)?;
@@ -625,9 +649,11 @@ mod stress_concurrency_tests {
                                         let query = NavMeshQuery::new(&mesh);
                                         let filter = QueryFilter::default();
 
-                                        if let Ok((poly_ref, _)) =
-                                            query.find_nearest_poly(&pos, &extents, &filter)
-                                        {
+                                        if let Ok((poly_ref, _)) = query.find_nearest_poly(
+                                            Vec3::from(pos),
+                                            Vec3::from(extents),
+                                            &filter,
+                                        ) {
                                             poly_ref
                                         } else {
                                             continue;

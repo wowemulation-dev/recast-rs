@@ -87,7 +87,13 @@ impl PathCorridor {
         // Connect with straight line path
         let mut new_path = Vec::new();
         query
-            .find_path(self.path[0], target_ref, &self.pos, &target, filter)
+            .find_path(
+                self.path[0],
+                target_ref,
+                Vec3::from(self.pos),
+                Vec3::from(target),
+                filter,
+            )
             .map(|path| new_path = path)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
@@ -127,7 +133,12 @@ impl PathCorridor {
 
             for i in current_idx + 2..self.path.len() {
                 let result = query
-                    .move_along_surface(self.path[current_idx], &self.pos, &self.target, filter)
+                    .move_along_surface(
+                        self.path[current_idx],
+                        Vec3::from(self.pos),
+                        Vec3::from(self.target),
+                        filter,
+                    )
                     .map_err(|_| CrowdError::CorridorFailed)?;
 
                 // If we can reach the target directly, we're done
@@ -177,11 +188,16 @@ impl PathCorridor {
 
         // Find the new position by moving along the surface
         let result = query
-            .move_along_surface(self.path[0], &self.pos, &new_pos, filter)
+            .move_along_surface(
+                self.path[0],
+                Vec3::from(self.pos),
+                Vec3::from(new_pos),
+                filter,
+            )
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         // Update the position
-        self.pos = result.position;
+        self.pos = result.position.to_array();
 
         // Adjust the path
         if result.visited.len() > 1 {
@@ -246,7 +262,12 @@ impl PathCorridor {
         for i in 1..self.path.len() {
             // Try to move along the surface to each polygon
             let result = query
-                .move_along_surface(self.path[0], &self.pos, &self.target, filter)
+                .move_along_surface(
+                    self.path[0],
+                    Vec3::from(self.pos),
+                    Vec3::from(self.target),
+                    filter,
+                )
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the polygon
@@ -295,7 +316,12 @@ impl PathCorridor {
         for i in self.path.len() - 1..0 {
             // Check if we can reach the target from this polygon
             let result = query
-                .move_along_surface(self.path[i], &new_pos, &self.target, filter)
+                .move_along_surface(
+                    self.path[i],
+                    Vec3::from(new_pos),
+                    Vec3::from(self.target),
+                    filter,
+                )
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the end polygon
@@ -354,13 +380,13 @@ impl PathCorridor {
 
         // Use the straight path functionality to find corners
         let straight_path = navquery
-            .find_straight_path(&self.pos, &self.target, &self.path)
+            .find_straight_path(Vec3::from(self.pos), Vec3::from(self.target), &self.path)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         let corner_count = straight_path.waypoints.len().min(max_corners);
 
         for i in 0..corner_count {
-            corner_verts.push(straight_path.waypoints[i]);
+            corner_verts.push(straight_path.waypoints[i].to_array());
             corner_flags.push(0); // Default flag
             if i < straight_path.poly_refs.len() {
                 corner_polys.push(straight_path.poly_refs[i]);
@@ -393,7 +419,13 @@ impl PathCorridor {
         ];
         let max_dist = distance(&self.pos, next);
 
-        let result = navquery.raycast(self.path[0], &self.pos, &dir, max_dist, filter);
+        let result = navquery.raycast(
+            self.path[0],
+            Vec3::from(self.pos),
+            Vec3::from(dir),
+            max_dist,
+            filter,
+        );
 
         if let Ok((_hit_ref, _hit_pos, t)) = result {
             if t > 0.99 * max_dist {
@@ -442,7 +474,13 @@ impl PathCorridor {
 
         // Try to find a direct path
         let new_path = navquery
-            .find_path(start_ref, end_ref, &start_pos, &end_pos, filter)
+            .find_path(
+                start_ref,
+                end_ref,
+                Vec3::from(start_pos),
+                Vec3::from(end_pos),
+                filter,
+            )
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         if new_path.len() < (end_idx - start_idx + 1) {
@@ -607,29 +645,35 @@ impl PathCorridor {
         navquery: &mut NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<bool, CrowdError> {
-        let npos = &npos.to_array();
+        let npos_arr = npos.to_array();
         if self.path.is_empty() {
             return Ok(false);
         }
 
         // Find the nearest polygon to the new target position
-        let half_extents = [2.0, 4.0, 2.0];
+        let half_extents = Vec3::new(2.0, 4.0, 2.0);
         let (nearest_ref, nearest_point) = navquery
-            .find_nearest_poly(npos, &half_extents, filter)
+            .find_nearest_poly(npos, half_extents, filter)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         if !nearest_ref.is_valid() {
             return Ok(false);
         }
 
-        self.target = nearest_point;
+        self.target = nearest_point.to_array();
 
         // Update the path if needed
         let last_poly = self.path[self.path.len() - 1];
         if last_poly != nearest_ref {
             // Try to extend the path to the new target
             let path_to_target = navquery
-                .find_path(last_poly, nearest_ref, &self.target, npos, filter)
+                .find_path(
+                    last_poly,
+                    nearest_ref,
+                    Vec3::from(self.target),
+                    Vec3::from(npos_arr),
+                    filter,
+                )
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             if !path_to_target.is_empty() {
