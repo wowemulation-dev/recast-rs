@@ -581,11 +581,7 @@ impl<'a> NavMeshQuery<'a> {
             let neighbor_center = match self.get_portal_points(current_poly, neighbor_ref) {
                 Ok((left, right)) => {
                     // Use midpoint of shared edge between polygons
-                    [
-                        (left[0] + right[0]) * 0.5,
-                        (left[1] + right[1]) * 0.5,
-                        (left[2] + right[2]) * 0.5,
-                    ]
+                    ((left + right) * 0.5).to_array()
                 }
                 Err(_) => {
                     // Fallback to polygon center if portal points not available
@@ -1075,8 +1071,9 @@ impl<'a> NavMeshQuery<'a> {
     pub fn get_off_mesh_connection_endpoint(
         &self,
         connection_ref: PolyRef,
-        start_pos: &[f32; 3],
-    ) -> Result<[f32; 3], DetourError> {
+        start_pos: Vec3,
+    ) -> Result<Vec3, DetourError> {
+        let start_pos = start_pos.to_array();
         let connection = self.nav_mesh.get_off_mesh_connection(connection_ref)?;
 
         let conn_start = connection.start_pos();
@@ -1101,14 +1098,14 @@ impl<'a> NavMeshQuery<'a> {
         if dist_to_start < dist_to_end {
             // We're closer to the start, so end is the destination
             if connection.allows_start_to_end() {
-                Ok(conn_end)
+                Ok(Vec3::from(conn_end))
             } else {
                 Err(DetourError::InvalidParam)
             }
         } else {
             // We're closer to the end, so start is the destination
             if connection.allows_end_to_start() {
-                Ok(conn_start)
+                Ok(Vec3::from(conn_start))
             } else {
                 Err(DetourError::InvalidParam)
             }
@@ -1130,7 +1127,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         prev_ref: PolyRef,
         connection_ref: PolyRef,
-    ) -> Result<([f32; 3], [f32; 3]), DetourError> {
+    ) -> Result<(Vec3, Vec3), DetourError> {
         let connection = self.nav_mesh.get_off_mesh_connection(connection_ref)?;
 
         let conn_start = connection.start_pos();
@@ -1138,7 +1135,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // If we don't have a valid previous reference, return natural order
         if !prev_ref.is_valid() {
-            return Ok((conn_start, conn_end));
+            return Ok((Vec3::from(conn_start), Vec3::from(conn_end)));
         }
 
         // Get the previous polygon's position to determine approach direction
@@ -1167,14 +1164,14 @@ impl<'a> NavMeshQuery<'a> {
                 if dist_to_start < dist_to_end {
                     // We're approaching from the start side, go start->end
                     if connection.allows_start_to_end() {
-                        Ok((conn_start, conn_end))
+                        Ok((Vec3::from(conn_start), Vec3::from(conn_end)))
                     } else {
                         Err(DetourError::InvalidParam)
                     }
                 } else {
                     // We're approaching from the end side, go end->start
                     if connection.allows_end_to_start() {
-                        Ok((conn_end, conn_start))
+                        Ok((Vec3::from(conn_end), Vec3::from(conn_start)))
                     } else {
                         Err(DetourError::InvalidParam)
                     }
@@ -1182,7 +1179,7 @@ impl<'a> NavMeshQuery<'a> {
             }
             Err(_) => {
                 // If we can't get the previous polygon, fall back to natural order
-                Ok((conn_start, conn_end))
+                Ok((Vec3::from(conn_start), Vec3::from(conn_end)))
             }
         }
     }
@@ -1978,7 +1975,9 @@ impl<'a> NavMeshQuery<'a> {
 
         for i in 0..path.len() - 1 {
             // Get portal points between current and next polygon
-            let (left, right) = self.get_portal_points(path[i], path[i + 1])?;
+            let (left_v, right_v) = self.get_portal_points(path[i], path[i + 1])?;
+            let left = left_v.to_array();
+            let right = right_v.to_array();
 
             // If starting really close to the portal, skip it
             if i == 0 {
@@ -2085,7 +2084,7 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         from_ref: PolyRef,
         to_ref: PolyRef,
-    ) -> Result<([f32; 3], [f32; 3]), DetourError> {
+    ) -> Result<(Vec3, Vec3), DetourError> {
         let (from_tile, from_poly) = self.nav_mesh.get_tile_and_poly_by_ref(from_ref)?;
         let (_to_tile, to_poly) = self.nav_mesh.get_tile_and_poly_by_ref(to_ref)?;
 
@@ -2107,6 +2106,7 @@ impl<'a> NavMeshQuery<'a> {
                                 from_tile.verts[v_idx * 3 + 2],
                             ];
                             // Return same position for both left and right
+                            let pos = Vec3::from(pos);
                             return Ok((pos, pos));
                         }
                     }
@@ -2133,6 +2133,7 @@ impl<'a> NavMeshQuery<'a> {
                                 _to_tile.verts[v_idx * 3 + 2],
                             ];
                             // Return same position for both left and right
+                            let pos = Vec3::from(pos);
                             return Ok((pos, pos));
                         }
                     }
@@ -2164,7 +2165,7 @@ impl<'a> NavMeshQuery<'a> {
                         from_tile.verts[vj_idx * 3 + 2],
                     ];
 
-                    return Ok((left, right));
+                    return Ok((Vec3::from(left), Vec3::from(right)));
                 }
             }
         }
@@ -2347,10 +2348,10 @@ impl<'a> NavMeshQuery<'a> {
                     let within_circle = match portal_result {
                         Ok((left_portal, right_portal)) => {
                             // Calculate 2D distance from circle center to portal edge
+                            let left_arr = left_portal.to_array();
+                            let right_arr = right_portal.to_array();
                             let dist_squared = self.distance_point_to_segment_2d_squared(
-                                center_pos,
-                                &left_portal,
-                                &right_portal,
+                                center_pos, &left_arr, &right_arr,
                             );
                             dist_squared <= radius_squared
                         }
@@ -2713,8 +2714,9 @@ impl<'a> NavMeshQuery<'a> {
     pub fn get_poly_height(
         &self,
         poly_ref: PolyRef,
-        pos: &[f32; 3],
+        pos: Vec3,
     ) -> Result<Option<f32>, DetourError> {
+        let pos = pos.to_array();
         // Validate the polygon reference
         if !self.nav_mesh.is_valid_poly_ref(poly_ref) {
             return Err(DetourError::InvalidParam);
@@ -2724,7 +2726,7 @@ impl<'a> NavMeshQuery<'a> {
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
         // Delegate to the NavMesh implementation
-        self.nav_mesh.get_poly_height(tile, poly, pos)
+        self.nav_mesh.get_poly_height(tile, poly, &pos)
     }
 
     /// Finds a random point within a given radius of a center point using custom random function
@@ -3020,10 +3022,12 @@ impl<'a> NavMeshQuery<'a> {
                     }
 
                     // Get edge vertices between current and neighbor
-                    let (va, vb) = match self.get_portal_points(current_ref, neighbor_ref) {
+                    let (va_v, vb_v) = match self.get_portal_points(current_ref, neighbor_ref) {
                         Ok((a, b)) => (a, b),
                         Err(_) => continue,
                     };
+                    let va = va_v.to_array();
+                    let vb = vb_v.to_array();
 
                     // Check if the circle (radius around center) touches this edge
                     let closest_on_edge = self.closest_point_on_segment(&va, &vb, center_pos);
@@ -3779,10 +3783,12 @@ impl<'a> NavMeshQuery<'a> {
                 }
 
                 // Get portal points
-                let (va, vb) = match self.get_portal_points(best_ref, neighbor_ref) {
+                let (va_v, vb_v) = match self.get_portal_points(best_ref, neighbor_ref) {
                     Ok(val) => val,
                     Err(_) => continue,
                 };
+                let va = va_v.to_array();
+                let vb = vb_v.to_array();
 
                 // Check if the edge intersects the shape
                 match intersect_segment_poly_2d(&va, &vb, &flat_verts, verts.len()) {
@@ -3902,10 +3908,11 @@ impl<'a> NavMeshQuery<'a> {
     pub fn closest_point_on_poly_boundary(
         &self,
         poly_ref: PolyRef,
-        pos: &[f32; 3],
-    ) -> Result<[f32; 3], DetourError> {
+        pos: Vec3,
+    ) -> Result<Vec3, DetourError> {
         use recast_common::distance_pt_poly_edges_sqr;
 
+        let pos = pos.to_array();
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
         // Collect vertices
@@ -3918,11 +3925,11 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         let (inside, edge_dists, edge_ts) =
-            distance_pt_poly_edges_sqr(pos, &verts, poly.vert_count as usize);
+            distance_pt_poly_edges_sqr(&pos, &verts, poly.vert_count as usize);
 
         if inside {
             // Point is inside the polygon, return the point itself
-            Ok(*pos)
+            Ok(Vec3::from(pos))
         } else {
             // Point is outside, find closest edge
             let mut min_dist = edge_dists[0];
@@ -3944,11 +3951,11 @@ impl<'a> NavMeshQuery<'a> {
             let t = edge_ts[min_idx];
 
             // Linear interpolation
-            Ok([
+            Ok(Vec3::from([
                 va[0] + (vb[0] - va[0]) * t,
                 va[1] + (vb[1] - va[1]) * t,
                 va[2] + (vb[2] - va[2]) * t,
-            ])
+            ]))
         }
     }
 
@@ -3966,15 +3973,11 @@ impl<'a> NavMeshQuery<'a> {
         &self,
         from_ref: PolyRef,
         to_ref: PolyRef,
-    ) -> Result<[f32; 3], DetourError> {
+    ) -> Result<Vec3, DetourError> {
         let (left, right) = self.get_portal_points(from_ref, to_ref)?;
 
         // Calculate midpoint
-        Ok([
-            (left[0] + right[0]) * 0.5,
-            (left[1] + right[1]) * 0.5,
-            (left[2] + right[2]) * 0.5,
-        ])
+        Ok((left + right) * 0.5)
     }
 
     /// Gets a path from the explored nodes in the previous search
@@ -4348,23 +4351,23 @@ mod tests {
         let endpoint = query
             .get_off_mesh_connection_endpoint(
                 connection_ref,
-                &[11.0, 0.0, 11.0], // Close to start
+                Vec3::new(11.0, 0.0, 11.0), // Close to start
             )
             .unwrap();
 
         // Should return the end position since we're closer to start
-        assert_eq!(endpoint, [20.0, 0.0, 20.0]);
+        assert_eq!(endpoint, Vec3::new(20.0, 0.0, 20.0));
 
         // Test from the other direction
         let endpoint2 = query
             .get_off_mesh_connection_endpoint(
                 connection_ref,
-                &[19.0, 0.0, 19.0], // Close to end
+                Vec3::new(19.0, 0.0, 19.0), // Close to end
             )
             .unwrap();
 
         // Should return the start position since we're closer to end
-        assert_eq!(endpoint2, [10.0, 0.0, 10.0]);
+        assert_eq!(endpoint2, Vec3::new(10.0, 0.0, 10.0));
     }
 
     #[test]
@@ -4451,15 +4454,15 @@ mod tests {
         // Should work from start to end
         let endpoint1 = query.get_off_mesh_connection_endpoint(
             connection_ref,
-            &[1.0, 0.0, 0.0], // Close to start
+            Vec3::new(1.0, 0.0, 0.0), // Close to start
         );
         assert!(endpoint1.is_ok());
-        assert_eq!(endpoint1.unwrap(), [10.0, 0.0, 0.0]);
+        assert_eq!(endpoint1.unwrap(), Vec3::new(10.0, 0.0, 0.0));
 
         // Should NOT work from end to start
         let endpoint2 = query.get_off_mesh_connection_endpoint(
             connection_ref,
-            &[9.0, 0.0, 0.0], // Close to end
+            Vec3::new(9.0, 0.0, 0.0), // Close to end
         );
         assert!(endpoint2.is_err()); // Should fail due to direction constraint
     }
@@ -4500,8 +4503,8 @@ mod tests {
         let (start, end) = query
             .get_off_mesh_connection_poly_end_points(PolyRef::new(0), connection_ref)
             .unwrap();
-        assert_eq!(start, [10.0, 0.0, 10.0]);
-        assert_eq!(end, [20.0, 0.0, 20.0]);
+        assert_eq!(start, Vec3::new(10.0, 0.0, 10.0));
+        assert_eq!(end, Vec3::new(20.0, 0.0, 20.0));
 
         // Test with a mock previous polygon reference
         // In a real scenario, this would be a valid polygon reference
@@ -4510,11 +4513,10 @@ mod tests {
         // Since we can't easily create valid polygon references in this test,
         // we expect it to fall back to natural order
         if let Ok((start, end)) = result {
+            let a = Vec3::new(10.0, 0.0, 10.0);
+            let b = Vec3::new(20.0, 0.0, 20.0);
             // Should still work, either in natural order or reversed based on approach
-            assert!(
-                (start == [10.0, 0.0, 10.0] && end == [20.0, 0.0, 20.0])
-                    || (start == [20.0, 0.0, 20.0] && end == [10.0, 0.0, 10.0])
-            );
+            assert!((start == a && end == b) || (start == b && end == a));
         }
         // If it fails due to invalid prev_ref, that's also acceptable behavior
     }
@@ -5332,7 +5334,7 @@ mod tests {
         // If we found a valid polygon
         if poly_ref.is_valid() {
             // Test get_poly_height with the nearest point (should be inside the polygon)
-            let height = query.get_poly_height(poly_ref, &nearest_pt.to_array())?;
+            let height = query.get_poly_height(poly_ref, nearest_pt)?;
 
             // For simple nav mesh without detail mesh, height might be None
             // This is still a valid test - we're testing the API exists and works
@@ -5342,8 +5344,8 @@ mod tests {
             }
 
             // Test with a position definitely outside any polygon
-            let outside_pos = [1000.0, 0.0, 1000.0];
-            let height_outside = query.get_poly_height(poly_ref, &outside_pos)?;
+            let outside_pos = Vec3::new(1000.0, 0.0, 1000.0);
+            let height_outside = query.get_poly_height(poly_ref, outside_pos)?;
 
             // Height should be None for a position outside the polygon
             assert!(height_outside.is_none());
