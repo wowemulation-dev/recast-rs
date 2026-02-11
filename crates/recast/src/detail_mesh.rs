@@ -1,16 +1,31 @@
 //! Detail mesh generation for Recast
 //!
-//! This module contains structures and functions to generate detailed meshes
-//! from polygon meshes following the exact C++ implementation.
-
-use glam::Vec3;
+//! This module generates detailed meshes from polygon meshes, adding height
+//! detail from the compact heightfield. Matches the C++ `rcBuildPolyMeshDetail`
+//! and `buildPolyDetail` implementation.
 
 use super::compact_heightfield::CompactHeightfield;
-use super::polymesh::{MESH_NULL_IDX, PolyMesh};
+use super::polymesh::{MESH_NULL_IDX, PolyMesh, RC_MULTIPLE_REGS};
+use super::triangle_utils::{get_dir_for_offset, get_dir_offset_x, get_dir_offset_z};
 use crate::error::BuildError;
 
 /// Unset height marker (matches C++ RC_UNSET_HEIGHT)
 const RC_UNSET_HEIGHT: u16 = 0xffff;
+
+/// Max vertices in local per-polygon buffer (matches C++ MAX_VERTS)
+const MAX_VERTS: usize = 127;
+
+/// Max vertices per edge sample (matches C++ MAX_VERTS_PER_EDGE)
+const MAX_VERTS_PER_EDGE: usize = 32;
+
+/// Max triangles per polygon (matches C++ MAX_TRIS)
+const MAX_TRIS: usize = 255;
+
+/// Edge value: undefined face (matches C++ EV_UNDEF)
+const EV_UNDEF: i32 = -1;
+
+/// Edge value: hull boundary (matches C++ EV_HULL)
+const EV_HULL: i32 = -2;
 
 /// Height patch for storing sampled heights
 #[derive(Debug)]
@@ -40,7 +55,7 @@ pub struct PolyMeshDetail {
     /// Vertices of the mesh [x,y,z,...]
     pub(crate) vertices: Vec<f32>,
     /// Triangle indices of the mesh, grouped by polygon
-    /// Triangles are stored as 3 consecutive indices per triangle
+    /// Triangles are stored as 4 consecutive values: 3 indices + 1 flags byte
     pub(crate) triangles: Vec<u32>,
     /// Number of vertices in the mesh
     pub(crate) vert_count: usize,
@@ -59,6 +74,929 @@ impl Default for PolyMeshDetail {
         Self::new()
     }
 }
+
+// ── Helper math functions (matches C++ static helpers) ──────────────────────
+
+/// 2D dot product (XZ plane)
+fn vdot2(a: &[f32], b: &[f32]) -> f32 {
+    a[0] * b[0] + a[2] * b[2]
+}
+
+/// 2D squared distance (XZ plane)
+fn vdist_sq2(p: &[f32], q: &[f32]) -> f32 {
+    let dx = q[0] - p[0];
+    let dz = q[2] - p[2];
+    dx * dx + dz * dz
+}
+
+/// 2D distance (XZ plane)
+fn vdist2(p: &[f32], q: &[f32]) -> f32 {
+    vdist_sq2(p, q).sqrt()
+}
+
+/// 2D cross product (matches C++ vcross2)
+fn vcross2(p1: &[f32], p2: &[f32], p3: &[f32]) -> f32 {
+    let u1 = p2[0] - p1[0];
+    let v1 = p2[2] - p1[2];
+    let u2 = p3[0] - p1[0];
+    let v2 = p3[2] - p1[2];
+    u1 * v2 - v1 * u2
+}
+
+/// 3D distance from point to segment (matches C++ distancePtSeg)
+fn distance_pt_seg(pt: &[f32], p: &[f32], q: &[f32]) -> f32 {
+    let pqx = q[0] - p[0];
+    let pqy = q[1] - p[1];
+    let pqz = q[2] - p[2];
+    let dx = pt[0] - p[0];
+    let dy = pt[1] - p[1];
+    let dz = pt[2] - p[2];
+    let d = pqx * pqx + pqy * pqy + pqz * pqz;
+    let mut t = pqx * dx + pqy * dy + pqz * dz;
+    if d > 0.0 {
+        t /= d;
+    }
+    t = t.clamp(0.0, 1.0);
+
+    let rx = p[0] + t * pqx - pt[0];
+    let ry = p[1] + t * pqy - pt[1];
+    let rz = p[2] + t * pqz - pt[2];
+    rx * rx + ry * ry + rz * rz
+}
+
+/// 2D distance from point to segment (matches C++ distancePtSeg2d)
+fn distance_pt_seg_2d(pt: &[f32], p: &[f32], q: &[f32]) -> f32 {
+    let pqx = q[0] - p[0];
+    let pqz = q[2] - p[2];
+    let dx = pt[0] - p[0];
+    let dz = pt[2] - p[2];
+    let d = pqx * pqx + pqz * pqz;
+    let mut t = pqx * dx + pqz * dz;
+    if d > 0.0 {
+        t /= d;
+    }
+    t = t.clamp(0.0, 1.0);
+
+    let rx = p[0] + t * pqx - pt[0];
+    let rz = p[2] + t * pqz - pt[2];
+    rx * rx + rz * rz
+}
+
+/// Calculate distance from point to triangle (matches C++ distPtTri)
+fn dist_pt_tri(p: &[f32], a: &[f32], b: &[f32], c: &[f32]) -> f32 {
+    let v0 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    let v1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    let v2 = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
+
+    let dot00 = vdot2(&v0, &v0);
+    let dot01 = vdot2(&v0, &v1);
+    let dot02 = vdot2(&v0, &v2);
+    let dot11 = vdot2(&v1, &v1);
+    let dot12 = vdot2(&v1, &v2);
+
+    let inv_denom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+    let u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
+    let v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
+
+    // Check if point is in triangle
+    let eps: f32 = 1e-4;
+    if u >= -eps && v >= -eps && (u + v) <= 1.0 + eps {
+        let y = a[1] + v0[1] * u + v1[1] * v;
+        return (y - p[1]).abs();
+    }
+    f32::MAX
+}
+
+/// Distance from point to triangle mesh (matches C++ distToTriMesh)
+/// Returns -1 if point doesn't project onto any triangle
+fn dist_to_tri_mesh(p: &[f32], verts: &[f32], tris: &[i32]) -> f32 {
+    let ntris = tris.len() / 4;
+    let mut dmin = f32::MAX;
+    for i in 0..ntris {
+        let va = &verts[tris[i * 4] as usize * 3..];
+        let vb = &verts[tris[i * 4 + 1] as usize * 3..];
+        let vc = &verts[tris[i * 4 + 2] as usize * 3..];
+        let d = dist_pt_tri(p, va, vb, vc);
+        if d < dmin {
+            dmin = d;
+        }
+    }
+    if dmin == f32::MAX { -1.0 } else { dmin }
+}
+
+/// Signed distance from point to polygon boundary (matches C++ distToPoly)
+/// Returns negative if inside the polygon
+fn dist_to_poly(nvert: usize, verts: &[f32], p: &[f32]) -> f32 {
+    let mut dmin = f32::MAX;
+    let mut c = false;
+    let mut j = nvert - 1;
+    for i in 0..nvert {
+        let vi = &verts[i * 3..];
+        let vj = &verts[j * 3..];
+        if ((vi[2] > p[2]) != (vj[2] > p[2]))
+            && (p[0] < (vj[0] - vi[0]) * (p[2] - vi[2]) / (vj[2] - vi[2]) + vi[0])
+        {
+            c = !c;
+        }
+        dmin = dmin.min(distance_pt_seg_2d(p, vj, vi));
+        j = i;
+    }
+    if c { -dmin } else { dmin }
+}
+
+/// Calculate minimum extent of polygon (matches C++ polyMinExtent)
+fn poly_min_extent(verts: &[f32], nverts: usize) -> f32 {
+    let mut min_dist = f32::MAX;
+    for i in 0..nverts {
+        let ni = (i + 1) % nverts;
+        let p1 = &verts[i * 3..];
+        let p2 = &verts[ni * 3..];
+        let mut max_edge_dist: f32 = 0.0;
+        for j in 0..nverts {
+            if j == i || j == ni {
+                continue;
+            }
+            let d = distance_pt_seg_2d(&verts[j * 3..], p1, p2);
+            max_edge_dist = max_edge_dist.max(d);
+        }
+        min_dist = min_dist.min(max_edge_dist);
+    }
+    min_dist.sqrt()
+}
+
+/// Circumcircle of three points (matches C++ circumCircle)
+fn circum_circle(p1: &[f32], p2: &[f32], p3: &[f32], c: &mut [f32; 3], r: &mut f32) -> bool {
+    const EPS: f32 = 1e-6;
+
+    let v1 = [0.0f32, 0.0, 0.0];
+    let v2 = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
+    let v3 = [p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]];
+
+    let cp = vcross2(&v1, &v2, &v3);
+    if cp.abs() > EPS {
+        let v1_sq = vdot2(&v1, &v1);
+        let v2_sq = vdot2(&v2, &v2);
+        let v3_sq = vdot2(&v3, &v3);
+
+        c[0] = (v1_sq * (v2[2] - v3[2]) + v2_sq * (v3[2] - v1[2]) + v3_sq * (v1[2] - v2[2]))
+            / (2.0 * cp);
+        c[1] = 0.0;
+        c[2] = (v1_sq * (v3[0] - v2[0]) + v2_sq * (v1[0] - v3[0]) + v3_sq * (v2[0] - v1[0]))
+            / (2.0 * cp);
+
+        *r = vdist2(c, &v1);
+
+        c[0] += p1[0];
+        c[1] += p1[1];
+        c[2] += p1[2];
+
+        true
+    } else {
+        false
+    }
+}
+
+/// Jitter X for sample position (matches C++ getJitterX)
+fn get_jitter_x(i: i32) -> f32 {
+    ((i.wrapping_mul(0x8da6b343_u32 as i32) as u32 & 0xffff) as f32 / 65535.0 * 2.0) - 1.0
+}
+
+/// Jitter Y for sample position (matches C++ getJitterY)
+fn get_jitter_y(i: i32) -> f32 {
+    ((i.wrapping_mul(0xd8163841_u32 as i32) as u32 & 0xffff) as f32 / 65535.0 * 2.0) - 1.0
+}
+
+/// Get height from height patch (matches C++ getHeight)
+fn get_height(fx: f32, fy: f32, _fz: f32, ics: f32, ch: f32, radius: i32, hp: &HeightPatch) -> u16 {
+    let mut ix = (fx * ics + 0.01).floor() as i32;
+    let mut iz = (_fz * ics + 0.01).floor() as i32;
+    ix = (ix - hp.xmin).clamp(0, hp.width - 1);
+    iz = (iz - hp.ymin).clamp(0, hp.height - 1);
+
+    let mut h = hp.data[(ix + iz * hp.width) as usize];
+    if h == RC_UNSET_HEIGHT {
+        // Spiral search for valid height
+        let mut x = 1i32;
+        let mut z = 0i32;
+        let mut dx = 1i32;
+        let mut dz = 0i32;
+        let max_size = radius * 2 + 1;
+        let max_iter = max_size * max_size - 1;
+
+        let mut next_ring_iter_start = 8;
+        let mut next_ring_iters = 16;
+
+        let mut dmin = f32::MAX;
+        for i in 0..max_iter {
+            let nx = ix + x;
+            let nz = iz + z;
+
+            if nx >= 0 && nz >= 0 && nx < hp.width && nz < hp.height {
+                let nh = hp.data[(nx + nz * hp.width) as usize];
+                if nh != RC_UNSET_HEIGHT {
+                    let d = (nh as f32 * ch - fy).abs();
+                    if d < dmin {
+                        h = nh;
+                        dmin = d;
+                    }
+                }
+            }
+
+            if i + 1 == next_ring_iter_start {
+                if h != RC_UNSET_HEIGHT {
+                    break;
+                }
+                next_ring_iter_start += next_ring_iters;
+                next_ring_iters += 8;
+            }
+
+            if (x == z) || ((x < 0) && (x == -z)) || ((x > 0) && (x == 1 - z)) {
+                let tmp = dx;
+                dx = -dz;
+                dz = tmp;
+            }
+            x += dx;
+            z += dz;
+        }
+    }
+    h
+}
+
+// ── Edge management for Delaunay triangulation ──────────────────────────────
+
+/// Find edge in edge list (matches C++ findEdge)
+fn find_edge(edges: &[i32], nedges: usize, s: i32, t: i32) -> i32 {
+    for i in 0..nedges {
+        let e = &edges[i * 4..];
+        if (e[0] == s && e[1] == t) || (e[0] == t && e[1] == s) {
+            return i as i32;
+        }
+    }
+    EV_UNDEF
+}
+
+/// Add edge to edge list (matches C++ addEdge)
+fn add_edge(
+    edges: &mut [i32],
+    nedges: &mut usize,
+    max_edges: usize,
+    s: i32,
+    t: i32,
+    l: i32,
+    r: i32,
+) -> i32 {
+    if *nedges >= max_edges {
+        return EV_UNDEF;
+    }
+
+    let e = find_edge(edges, *nedges, s, t);
+    if e == EV_UNDEF {
+        let idx = *nedges;
+        edges[idx * 4] = s;
+        edges[idx * 4 + 1] = t;
+        edges[idx * 4 + 2] = l;
+        edges[idx * 4 + 3] = r;
+        *nedges += 1;
+        idx as i32
+    } else {
+        EV_UNDEF
+    }
+}
+
+/// Update left face of an edge (matches C++ updateLeftFace)
+fn update_left_face(edges: &mut [i32], e_idx: usize, s: i32, t: i32, f: i32) {
+    let e = &mut edges[e_idx * 4..e_idx * 4 + 4];
+    if e[0] == s && e[1] == t && e[2] == EV_UNDEF {
+        e[2] = f;
+    } else if e[1] == s && e[0] == t && e[3] == EV_UNDEF {
+        e[3] = f;
+    }
+}
+
+/// Check if two 2D segments overlap (matches C++ overlapSegSeg2d)
+fn overlap_seg_seg_2d(a: &[f32], b: &[f32], c: &[f32], d: &[f32]) -> bool {
+    let a1 = vcross2(a, b, d);
+    let a2 = vcross2(a, b, c);
+    if a1 * a2 < 0.0 {
+        let a3 = vcross2(c, d, a);
+        let a4 = a3 + a2 - a1;
+        if a3 * a4 < 0.0 {
+            return true;
+        }
+    }
+    false
+}
+
+/// Check if edge overlaps any existing edges (matches C++ overlapEdges)
+fn overlap_edges(pts: &[f32], edges: &[i32], nedges: usize, s1: i32, t1: i32) -> bool {
+    for i in 0..nedges {
+        let s0 = edges[i * 4];
+        let t0 = edges[i * 4 + 1];
+        // Same or connected edges do not overlap
+        if s0 == s1 || s0 == t1 || t0 == s1 || t0 == t1 {
+            continue;
+        }
+        if overlap_seg_seg_2d(
+            &pts[s0 as usize * 3..],
+            &pts[t0 as usize * 3..],
+            &pts[s1 as usize * 3..],
+            &pts[t1 as usize * 3..],
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Complete a facet of the Delaunay triangulation (matches C++ completeFacet)
+fn complete_facet(
+    pts: &[f32],
+    npts: usize,
+    edges: &mut Vec<i32>,
+    nedges: &mut usize,
+    max_edges: usize,
+    nfaces: &mut usize,
+    e: usize,
+) {
+    const EPS: f32 = 1e-5;
+
+    let (s, t) = {
+        let edge = &edges[e * 4..e * 4 + 4];
+        if edge[2] == EV_UNDEF {
+            (edge[0], edge[1])
+        } else if edge[3] == EV_UNDEF {
+            (edge[1], edge[0])
+        } else {
+            return; // Edge already completed
+        }
+    };
+
+    // Find best point on left of edge
+    let mut pt = npts as i32;
+    let mut c = [0.0f32; 3];
+    let mut r: f32 = -1.0;
+    for u in 0..npts as i32 {
+        if u == s || u == t {
+            continue;
+        }
+        if vcross2(
+            &pts[s as usize * 3..],
+            &pts[t as usize * 3..],
+            &pts[u as usize * 3..],
+        ) > EPS
+        {
+            if r < 0.0 {
+                pt = u;
+                circum_circle(
+                    &pts[s as usize * 3..],
+                    &pts[t as usize * 3..],
+                    &pts[u as usize * 3..],
+                    &mut c,
+                    &mut r,
+                );
+                continue;
+            }
+            let d = vdist2(&c, &pts[u as usize * 3..]);
+            let tol = 0.001;
+            if d > r * (1.0 + tol) {
+                continue;
+            } else if d < r * (1.0 - tol) {
+                pt = u;
+                circum_circle(
+                    &pts[s as usize * 3..],
+                    &pts[t as usize * 3..],
+                    &pts[u as usize * 3..],
+                    &mut c,
+                    &mut r,
+                );
+            } else {
+                if overlap_edges(pts, edges, *nedges, s, u) {
+                    continue;
+                }
+                if overlap_edges(pts, edges, *nedges, t, u) {
+                    continue;
+                }
+                pt = u;
+                circum_circle(
+                    &pts[s as usize * 3..],
+                    &pts[t as usize * 3..],
+                    &pts[u as usize * 3..],
+                    &mut c,
+                    &mut r,
+                );
+            }
+        }
+    }
+
+    if pt < npts as i32 {
+        update_left_face(edges, e, s, t, *nfaces as i32);
+
+        let e2 = find_edge(edges, *nedges, pt, s);
+        if e2 == EV_UNDEF {
+            add_edge(edges, nedges, max_edges, pt, s, *nfaces as i32, EV_UNDEF);
+        } else {
+            update_left_face(edges, e2 as usize, pt, s, *nfaces as i32);
+        }
+
+        let e3 = find_edge(edges, *nedges, t, pt);
+        if e3 == EV_UNDEF {
+            add_edge(edges, nedges, max_edges, t, pt, *nfaces as i32, EV_UNDEF);
+        } else {
+            update_left_face(edges, e3 as usize, t, pt, *nfaces as i32);
+        }
+
+        *nfaces += 1;
+    } else {
+        update_left_face(edges, e, s, t, EV_HULL);
+    }
+}
+
+/// Delaunay triangulation from hull (matches C++ delaunayHull)
+fn delaunay_hull(
+    npts: usize,
+    pts: &[f32],
+    nhull: usize,
+    hull: &[i32],
+    tris: &mut Vec<i32>,
+    edges: &mut Vec<i32>,
+) {
+    let mut nfaces = 0usize;
+    let mut nedges = 0usize;
+    let max_edges = npts * 10;
+    edges.resize(max_edges * 4, 0);
+
+    let mut j = nhull - 1;
+    for i in 0..nhull {
+        add_edge(
+            edges,
+            &mut nedges,
+            max_edges,
+            hull[j],
+            hull[i],
+            EV_HULL,
+            EV_UNDEF,
+        );
+        j = i;
+    }
+
+    let mut current_edge = 0;
+    while current_edge < nedges {
+        if edges[current_edge * 4 + 2] == EV_UNDEF {
+            complete_facet(
+                pts,
+                npts,
+                edges,
+                &mut nedges,
+                max_edges,
+                &mut nfaces,
+                current_edge,
+            );
+        }
+        if edges[current_edge * 4 + 3] == EV_UNDEF {
+            complete_facet(
+                pts,
+                npts,
+                edges,
+                &mut nedges,
+                max_edges,
+                &mut nfaces,
+                current_edge,
+            );
+        }
+        current_edge += 1;
+    }
+
+    // Create tris
+    tris.resize(nfaces * 4, -1);
+
+    for i in 0..nedges {
+        let e = &edges[i * 4..i * 4 + 4];
+        if e[3] >= 0 {
+            let t_idx = e[3] as usize * 4;
+            if tris[t_idx] == -1 {
+                tris[t_idx] = e[0];
+                tris[t_idx + 1] = e[1];
+            } else if tris[t_idx] == e[1] {
+                tris[t_idx + 2] = e[0];
+            } else if tris[t_idx + 1] == e[0] {
+                tris[t_idx + 2] = e[1];
+            }
+        }
+        if e[2] >= 0 {
+            let t_idx = e[2] as usize * 4;
+            if tris[t_idx] == -1 {
+                tris[t_idx] = e[1];
+                tris[t_idx + 1] = e[0];
+            } else if tris[t_idx] == e[0] {
+                tris[t_idx + 2] = e[1];
+            } else if tris[t_idx + 1] == e[1] {
+                tris[t_idx + 2] = e[0];
+            }
+        }
+    }
+
+    // Remove dangling faces
+    let mut i = 0;
+    while i < tris.len() / 4 {
+        let t = i * 4;
+        if tris[t] == -1 || tris[t + 1] == -1 || tris[t + 2] == -1 {
+            let last = tris.len() - 4;
+            tris[t] = tris[last];
+            tris[t + 1] = tris[last + 1];
+            tris[t + 2] = tris[last + 2];
+            tris[t + 3] = tris[last + 3];
+            tris.truncate(tris.len() - 4);
+        } else {
+            i += 1;
+        }
+    }
+}
+
+/// Triangulate hull using shortest-perimeter ear heuristic (matches C++ triangulateHull)
+fn triangulate_hull(verts: &[f32], nhull: usize, hull: &[i32], nin: usize, tris: &mut Vec<i32>) {
+    let mut start = 0i32;
+    let mut left = 1i32;
+    let mut right = nhull as i32 - 1;
+
+    // Start from an ear with shortest perimeter
+    let mut dmin = f32::MAX;
+    for i in 0..nhull as i32 {
+        if hull[i as usize] >= nin as i32 {
+            continue;
+        }
+        let pi = if i - 1 >= 0 { i - 1 } else { nhull as i32 - 1 };
+        let ni = if i + 1 < nhull as i32 { i + 1 } else { 0 };
+        let pv = &verts[hull[pi as usize] as usize * 3..];
+        let cv = &verts[hull[i as usize] as usize * 3..];
+        let nv = &verts[hull[ni as usize] as usize * 3..];
+        let d = vdist2(pv, cv) + vdist2(cv, nv) + vdist2(nv, pv);
+        if d < dmin {
+            start = i;
+            left = ni;
+            right = pi;
+            dmin = d;
+        }
+    }
+
+    // Add first triangle
+    tris.push(hull[start as usize]);
+    tris.push(hull[left as usize]);
+    tris.push(hull[right as usize]);
+    tris.push(0); // flags
+
+    // Triangulate by moving left or right based on shorter perimeter
+    while {
+        let nleft = if left + 1 < nhull as i32 { left + 1 } else { 0 };
+        nleft != right
+    } {
+        let nleft = if left + 1 < nhull as i32 { left + 1 } else { 0 };
+        let nright = if right - 1 >= 0 {
+            right - 1
+        } else {
+            nhull as i32 - 1
+        };
+
+        let cvleft = &verts[hull[left as usize] as usize * 3..];
+        let nvleft = &verts[hull[nleft as usize] as usize * 3..];
+        let cvright = &verts[hull[right as usize] as usize * 3..];
+        let nvright = &verts[hull[nright as usize] as usize * 3..];
+        let dleft = vdist2(cvleft, nvleft) + vdist2(nvleft, cvright);
+        let dright = vdist2(cvright, nvright) + vdist2(cvleft, nvright);
+
+        if dleft < dright {
+            tris.push(hull[left as usize]);
+            tris.push(hull[nleft as usize]);
+            tris.push(hull[right as usize]);
+            tris.push(0);
+            left = nleft;
+        } else {
+            tris.push(hull[left as usize]);
+            tris.push(hull[nright as usize]);
+            tris.push(hull[right as usize]);
+            tris.push(0);
+            right = nright;
+        }
+    }
+}
+
+/// Check if edge a-b is on the hull (matches C++ onHull)
+fn on_hull(a: i32, b: i32, nhull: usize, hull: &[i32]) -> bool {
+    if a as usize >= nhull || b as usize >= nhull {
+        return false;
+    }
+    let mut j = nhull - 1;
+    for i in 0..nhull {
+        if a == hull[j] && b == hull[i] {
+            return true;
+        }
+        j = i;
+    }
+    false
+}
+
+/// Set triangle edge flags (matches C++ setTriFlags)
+fn set_tri_flags(tris: &mut [i32], nhull: usize, hull: &[i32]) {
+    const DETAIL_EDGE_BOUNDARY: i32 = 0x1;
+    let ntris = tris.len() / 4;
+    for i in 0..ntris {
+        let a = tris[i * 4];
+        let b = tris[i * 4 + 1];
+        let c = tris[i * 4 + 2];
+        let mut flags = 0u16;
+        if on_hull(a, b, nhull, hull) {
+            flags |= DETAIL_EDGE_BOUNDARY as u16;
+        }
+        if on_hull(b, c, nhull, hull) {
+            flags |= (DETAIL_EDGE_BOUNDARY as u16) << 2;
+        }
+        if on_hull(c, a, nhull, hull) {
+            flags |= (DETAIL_EDGE_BOUNDARY as u16) << 4;
+        }
+        tris[i * 4 + 3] = flags as i32;
+    }
+}
+
+// ── buildPolyDetail (matches C++ buildPolyDetail) ───────────────────────────
+
+/// Build detail mesh for a single polygon (matches C++ buildPolyDetail)
+#[allow(clippy::too_many_arguments)]
+fn build_poly_detail(
+    input: &[f32], // Polygon boundary vertices (world-relative, nin*3 floats)
+    nin: usize,    // Number of boundary vertices
+    sample_dist: f32,
+    sample_max_error: f32,
+    height_search_radius: i32,
+    chf: &CompactHeightfield,
+    hp: &HeightPatch,
+    verts: &mut [f32], // Output: local vertex buffer (MAX_VERTS*3)
+    nverts: &mut usize,
+    tris: &mut Vec<i32>,
+    edges: &mut Vec<i32>,
+    samples: &mut Vec<i32>,
+) -> bool {
+    let cs = chf.cs;
+    let ics = 1.0 / cs;
+
+    // Phase 1: Copy boundary vertices
+    *nverts = nin;
+    for i in 0..nin {
+        verts[i * 3] = input[i * 3];
+        verts[i * 3 + 1] = input[i * 3 + 1];
+        verts[i * 3 + 2] = input[i * 3 + 2];
+    }
+
+    tris.clear();
+
+    let mut hull = vec![0i32; MAX_VERTS];
+    let mut nhull = 0usize;
+
+    // Phase 2: Edge tessellation
+    let mut edge = [0.0f32; MAX_VERTS_PER_EDGE * 3];
+
+    if sample_dist > 0.0 {
+        let mut j = nin - 1;
+        for i in 0..nin {
+            let mut vj_idx = j;
+            let mut vi_idx = i;
+            let mut swapped = false;
+
+            // Lexicographic sort to ensure consistent edge ordering
+            if (input[vj_idx * 3] - input[vi_idx * 3]).abs() < 1e-6 {
+                if input[vj_idx * 3 + 2] > input[vi_idx * 3 + 2] {
+                    std::mem::swap(&mut vj_idx, &mut vi_idx);
+                    swapped = true;
+                }
+            } else if input[vj_idx * 3] > input[vi_idx * 3] {
+                std::mem::swap(&mut vj_idx, &mut vi_idx);
+                swapped = true;
+            }
+
+            let vj = &input[vj_idx * 3..vj_idx * 3 + 3];
+            let vi = &input[vi_idx * 3..vi_idx * 3 + 3];
+
+            let dx = vi[0] - vj[0];
+            let dy = vi[1] - vj[1];
+            let dz = vi[2] - vj[2];
+            let d = (dx * dx + dz * dz).sqrt();
+            let mut nn = 1 + (d / sample_dist).floor() as usize;
+            if nn >= MAX_VERTS_PER_EDGE {
+                nn = MAX_VERTS_PER_EDGE - 1;
+            }
+            if *nverts + nn >= MAX_VERTS {
+                nn = MAX_VERTS - 1 - *nverts;
+            }
+
+            for k in 0..=nn {
+                let u = k as f32 / nn as f32;
+                let pos = &mut edge[k * 3..k * 3 + 3];
+                pos[0] = vj[0] + dx * u;
+                pos[1] = vj[1] + dy * u;
+                pos[2] = vj[2] + dz * u;
+                pos[1] = get_height(
+                    pos[0],
+                    pos[1],
+                    pos[2],
+                    ics,
+                    chf.ch,
+                    height_search_radius,
+                    hp,
+                ) as f32
+                    * chf.ch;
+            }
+
+            // Simplify edge samples (Douglas-Peucker style)
+            let mut idx = [0i32; MAX_VERTS_PER_EDGE];
+            idx[0] = 0;
+            idx[1] = nn as i32;
+            let mut nidx = 2usize;
+
+            let mut k = 0;
+            while k < nidx - 1 {
+                let a = idx[k] as usize;
+                let b = idx[k + 1] as usize;
+                let va = &edge[a * 3..a * 3 + 3];
+                let vb = &edge[b * 3..b * 3 + 3];
+
+                let mut maxd: f32 = 0.0;
+                let mut maxi: i32 = -1;
+                for m in (a + 1)..b {
+                    let dev = distance_pt_seg(&edge[m * 3..m * 3 + 3], va, vb);
+                    if dev > maxd {
+                        maxd = dev;
+                        maxi = m as i32;
+                    }
+                }
+
+                if maxi != -1 && maxd > sample_max_error * sample_max_error {
+                    // Insert point
+                    for m in (k + 1..nidx).rev() {
+                        idx[m + 1] = idx[m];
+                    }
+                    idx[k + 1] = maxi;
+                    nidx += 1;
+                } else {
+                    k += 1;
+                }
+            }
+
+            hull[nhull] = j as i32;
+            nhull += 1;
+
+            // Add new vertices
+            if swapped {
+                for k in (1..nidx - 1).rev() {
+                    let src = idx[k] as usize * 3;
+                    verts[*nverts * 3] = edge[src];
+                    verts[*nverts * 3 + 1] = edge[src + 1];
+                    verts[*nverts * 3 + 2] = edge[src + 2];
+                    hull[nhull] = *nverts as i32;
+                    nhull += 1;
+                    *nverts += 1;
+                }
+            } else {
+                for k in 1..nidx - 1 {
+                    let src = idx[k] as usize * 3;
+                    verts[*nverts * 3] = edge[src];
+                    verts[*nverts * 3 + 1] = edge[src + 1];
+                    verts[*nverts * 3 + 2] = edge[src + 2];
+                    hull[nhull] = *nverts as i32;
+                    nhull += 1;
+                    *nverts += 1;
+                }
+            }
+
+            j = i;
+        }
+    }
+
+    // If no edge tessellation, hull is just the original boundary
+    if nhull == 0 {
+        for i in 0..nin {
+            hull[i] = i as i32;
+        }
+        nhull = nin;
+    }
+
+    // Check polygon minimum extent for sliver detection
+    if sample_dist > 0.0 {
+        let min_extent = poly_min_extent(input, nin);
+        if min_extent < sample_dist * 2.0 {
+            triangulate_hull(verts, nhull, &hull, nin, tris);
+            set_tri_flags(tris, nhull, &hull);
+            return true;
+        }
+    }
+
+    // Phase 3: Initial triangulation
+    triangulate_hull(verts, nhull, &hull, nin, tris);
+
+    if tris.is_empty() {
+        return true;
+    }
+
+    // Phase 4: Interior sampling
+    if sample_dist > 0.0 {
+        // Create sample locations in a grid
+        let mut bmin = [input[0], input[1], input[2]];
+        let mut bmax = [input[0], input[1], input[2]];
+        for i in 1..nin {
+            bmin[0] = bmin[0].min(input[i * 3]);
+            bmin[1] = bmin[1].min(input[i * 3 + 1]);
+            bmin[2] = bmin[2].min(input[i * 3 + 2]);
+            bmax[0] = bmax[0].max(input[i * 3]);
+            bmax[1] = bmax[1].max(input[i * 3 + 1]);
+            bmax[2] = bmax[2].max(input[i * 3 + 2]);
+        }
+
+        let x0 = (bmin[0] / sample_dist).floor() as i32;
+        let x1 = (bmax[0] / sample_dist).ceil() as i32;
+        let z0 = (bmin[2] / sample_dist).floor() as i32;
+        let z1 = (bmax[2] / sample_dist).ceil() as i32;
+
+        samples.clear();
+        for z in z0..z1 {
+            for x in x0..x1 {
+                let pt = [
+                    x as f32 * sample_dist,
+                    (bmax[1] + bmin[1]) * 0.5,
+                    z as f32 * sample_dist,
+                ];
+                // Make sure samples are not too close to the edges
+                if dist_to_poly(nin, input, &pt) > -sample_dist / 2.0 {
+                    continue;
+                }
+                samples.push(x);
+                samples.push(
+                    get_height(pt[0], pt[1], pt[2], ics, chf.ch, height_search_radius, hp) as i32,
+                );
+                samples.push(z);
+                samples.push(0); // not added flag
+            }
+        }
+
+        // Add samples starting from the one with most error
+        let nsamples = samples.len() / 4;
+        for _iter in 0..nsamples {
+            if *nverts >= MAX_VERTS {
+                break;
+            }
+
+            // Find sample with most error
+            let mut bestpt = [0.0f32; 3];
+            let mut bestd: f32 = 0.0;
+            let mut besti: i32 = -1;
+
+            for si in 0..nsamples {
+                let s = &samples[si * 4..si * 4 + 4];
+                if s[3] != 0 {
+                    continue; // skip added
+                }
+                let pt = [
+                    s[0] as f32 * sample_dist + get_jitter_x(si as i32) * cs * 0.1,
+                    s[1] as f32 * chf.ch,
+                    s[2] as f32 * sample_dist + get_jitter_y(si as i32) * cs * 0.1,
+                ];
+                let d = dist_to_tri_mesh(&pt, &verts[..(*nverts * 3)], tris);
+                if d < 0.0 {
+                    continue;
+                }
+                if d > bestd {
+                    bestd = d;
+                    besti = si as i32;
+                    bestpt = pt;
+                }
+            }
+
+            if bestd <= sample_max_error || besti == -1 {
+                break;
+            }
+
+            // Mark sample as added
+            samples[besti as usize * 4 + 3] = 1;
+
+            // Add the new sample point
+            verts[*nverts * 3] = bestpt[0];
+            verts[*nverts * 3 + 1] = bestpt[1];
+            verts[*nverts * 3 + 2] = bestpt[2];
+            *nverts += 1;
+
+            // Rebuild triangulation
+            edges.clear();
+            tris.clear();
+            delaunay_hull(*nverts, verts, nhull, &hull, tris, edges);
+        }
+    }
+
+    let ntris = tris.len() / 4;
+    if ntris > MAX_TRIS {
+        tris.truncate(MAX_TRIS * 4);
+    }
+
+    set_tri_flags(tris, nhull, &hull);
+    true
+}
+
+// ── PolyMeshDetail impl ────────────────────────────────────────────────────
 
 impl PolyMeshDetail {
     /// Creates a new empty detailed polygon mesh
@@ -79,7 +1017,7 @@ impl PolyMeshDetail {
         &self.vertices
     }
 
-    /// Returns the triangle indices as a flat slice.
+    /// Returns the triangle indices as a flat slice (4 values per tri: v0, v1, v2, flags).
     pub fn triangles(&self) -> &[u32] {
         &self.triangles
     }
@@ -110,7 +1048,7 @@ impl PolyMeshDetail {
     }
 
     /// Builds a detailed polygon mesh from a polygon mesh and compact heightfield
-    /// Following the exact C++ rcBuildPolyMeshDetail implementation
+    /// (matches C++ rcBuildPolyMeshDetail)
     pub fn build_from_poly_mesh(
         poly_mesh: &PolyMesh,
         chf: &CompactHeightfield,
@@ -121,900 +1059,161 @@ impl PolyMeshDetail {
             return Ok(Self::new());
         }
 
-        let mut detail_mesh = Self::new();
         let nvp = poly_mesh.nvp;
         let cs = poly_mesh.cs;
         let ch = poly_mesh.ch;
-        let orig = &poly_mesh.bmin;
-        let _border_size = poly_mesh.border_size;
+        let orig = poly_mesh.bmin;
+        let border_size = poly_mesh.border_size;
         let height_search_radius = 1.max((poly_mesh.max_edge_error + 0.999) as i32);
 
-        let max_edges = poly_mesh.npolys * nvp * 4;
-        let max_tris = poly_mesh.npolys * nvp * 2;
-        let max_verts_per_edge = 32;
+        // Allocate output
+        let mut dmesh = Self::new();
+        dmesh.poly_count = poly_mesh.npolys;
+        dmesh.poly_start.resize(poly_mesh.npolys + 1, 0);
+        dmesh.poly_tri_count.resize(poly_mesh.npolys, 0);
 
-        // Allocate mesh data
-        detail_mesh.poly_count = poly_mesh.npolys;
-        detail_mesh.poly_start.resize(poly_mesh.npolys + 1, 0);
-        detail_mesh.poly_tri_count.resize(poly_mesh.npolys, 0);
-
-        // Allocate temp arrays
-        let _edges: Vec<(i32, i32, i32, i32)> = Vec::with_capacity(max_edges);
-        let mut samples: Vec<f32> = Vec::with_capacity(max_verts_per_edge * 3);
-        let mut verts = Vec::with_capacity(256 * 3);
+        // Temp buffers (reused across polygons)
+        let mut verts = vec![0.0f32; MAX_VERTS * 3];
+        let mut tris: Vec<i32> = Vec::with_capacity(MAX_TRIS * 4);
+        let mut edges: Vec<i32> = Vec::new();
+        let mut samples: Vec<i32> = Vec::new();
+        let mut poly = vec![0.0f32; nvp * 3]; // polygon boundary verts in world-relative coords
         let mut hp = HeightPatch::new();
-        let mut tris = Vec::with_capacity(max_tris * 3);
-        let mut poly = Vec::with_capacity(nvp);
 
-        // Initialize base vertices
-        for i in 0..poly_mesh.nverts {
-            let v = &poly_mesh.verts[i * 3..(i + 1) * 3];
-            verts.push(v[0] as f32 * cs + orig.x);
-            verts.push(v[1] as f32 * ch + orig.y);
-            verts.push(v[2] as f32 * cs + orig.z);
+        // Calculate bounds for each polygon (for height patch)
+        let mut bounds = vec![0i32; poly_mesh.npolys * 4];
+        for i in 0..poly_mesh.npolys {
+            let p = &poly_mesh.polys[i * nvp * 2..];
+            let mut xmin = chf.width;
+            let mut xmax = 0;
+            let mut zmin = chf.height;
+            let mut zmax = 0;
+
+            for j in 0..nvp {
+                if p[j] == MESH_NULL_IDX {
+                    break;
+                }
+                let v = p[j] as usize * 3;
+                xmin = xmin.min(poly_mesh.verts[v] as i32);
+                xmax = xmax.max(poly_mesh.verts[v] as i32);
+                zmin = zmin.min(poly_mesh.verts[v + 2] as i32);
+                zmax = zmax.max(poly_mesh.verts[v + 2] as i32);
+            }
+
+            xmin = (xmin - 1).max(0);
+            xmax = (xmax + 1).min(chf.width - 1);
+            zmin = (zmin - 1).max(0);
+            zmax = (zmax + 1).min(chf.height - 1);
+
+            bounds[i * 4] = xmin;
+            bounds[i * 4 + 1] = xmax;
+            bounds[i * 4 + 2] = zmin;
+            bounds[i * 4 + 3] = zmax;
         }
-        let nv = verts.len() / 3;
-
-        // Initialize triangles
-        detail_mesh.triangles = Vec::new();
-        detail_mesh.vertices = Vec::new();
 
         // Process each polygon
         for i in 0..poly_mesh.npolys {
-            let p = &poly_mesh.polys[i * nvp * 2..(i + 1) * nvp * 2];
+            let p = &poly_mesh.polys[i * nvp * 2..];
 
-            // Store polygon start
-            detail_mesh.poly_start[i] = detail_mesh.triangles.len() / 3;
-
-            // Count polygon vertices
-            let npoly = p
-                .iter()
-                .take(nvp)
-                .position(|&x| x == MESH_NULL_IDX)
-                .unwrap_or(nvp);
-            poly.extend_from_slice(&p[..npoly]);
-
-            // Get polygon bounding box and sample height detail
-            if npoly > 0 {
-                Self::get_height_data(
-                    chf,
-                    &p[0..nvp],
-                    nvp,
-                    &poly_mesh.verts,
-                    &mut hp,
-                    poly_mesh.regs[i],
-                )?;
-            }
-
-            // Build detail triangulation
-            let mut nverts = nv;
-            if sample_dist > 0.0 {
-                // Create sample points on edges
-                for j in 0..npoly {
-                    let j0 = j;
-                    let j1 = (j + 1) % npoly;
-                    let v0 = poly[j0] as usize * 3;
-                    let v1 = poly[j1] as usize * 3;
-
-                    let d0 = [
-                        verts[v0] - orig.x,
-                        verts[v0 + 1] - orig.y,
-                        verts[v0 + 2] - orig.z,
-                    ];
-                    let d1 = [
-                        verts[v1] - orig.x,
-                        verts[v1 + 1] - orig.y,
-                        verts[v1 + 2] - orig.z,
-                    ];
-
-                    // Sample edge
-                    Self::sample_edge(
-                        &d0,
-                        &d1,
-                        sample_dist,
-                        sample_max_error,
-                        &hp,
-                        chf,
-                        height_search_radius,
-                        &mut samples,
-                    )?;
-
-                    // Simplify samples
-                    let ns = samples.len() / 3;
-                    if ns > 1 {
-                        Self::simplify_edge(&mut samples, sample_max_error);
-                    }
-
-                    // Add samples as vertices
-                    for k in 0..samples.len() / 3 {
-                        verts.push(samples[k * 3] + orig.x);
-                        verts.push(samples[k * 3 + 1] + orig.y);
-                        verts.push(samples[k * 3 + 2] + orig.z);
-                        nverts += 1;
-                    }
-
-                    samples.clear();
-                }
-            }
-
-            // Triangulate polygon with detail
-            let ntris = Self::triangulate_detail(
-                &verts[nv * 3..nverts * 3],
-                nverts - nv,
-                &poly,
-                npoly,
-                &mut tris,
-            )?;
-
-            // Store triangles
-            if ntris > 0 {
-                detail_mesh.poly_tri_count[i] = ntris;
-                detail_mesh
-                    .triangles
-                    .extend(tris.iter().take(ntris * 3).map(|&x| x as u32));
-            }
-
-            // Clear temp arrays for next polygon
-            poly.clear();
-            tris.clear();
-        }
-
-        // Store final counts
-        detail_mesh.poly_start[poly_mesh.npolys] = detail_mesh.triangles.len() / 3;
-        detail_mesh.tri_count = detail_mesh.triangles.len() / 3;
-        detail_mesh.vert_count = verts.len() / 3;
-        detail_mesh.vertices = verts;
-
-        Ok(detail_mesh)
-    }
-
-    /// Sample points along an edge (matches C++ seedArrayWithPolyCenter/sampleEdge logic)
-    #[allow(clippy::too_many_arguments)]
-    fn sample_edge(
-        v0: &[f32; 3],
-        v1: &[f32; 3],
-        sample_dist: f32,
-        _sample_max_error: f32,
-        hp: &HeightPatch,
-        chf: &CompactHeightfield,
-        height_search_radius: i32,
-        samples: &mut Vec<f32>,
-    ) -> Result<(), BuildError> {
-        let dx = v1[0] - v0[0];
-        let dy = v1[1] - v0[1];
-        let dz = v1[2] - v0[2];
-        let d = (dx * dx + dz * dz).sqrt();
-
-        if d < sample_dist {
-            return Ok(());
-        }
-
-        let nn = ((d / sample_dist) + 0.5) as i32;
-        if nn >= 2 {
-            let cs_inv = 1.0 / chf.cs;
-            let ch_inv = 1.0 / chf.ch;
-
-            for i in 0..=nn {
-                let u = i as f32 / nn as f32;
-                let pos = [v0[0] + dx * u, v0[1] + dy * u, v0[2] + dz * u];
-
-                // Get height at sample position
-                let x = ((pos[0] - chf.bmin.x) * cs_inv) as i32;
-                let z = ((pos[2] - chf.bmin.z) * cs_inv) as i32;
-
-                let mut y = 0i32;
-                if Self::get_height(&pos, cs_inv, ch_inv, hp, &mut y) {
-                    samples.push(pos[0]);
-                    samples.push(chf.bmin.y + y as f32 * chf.ch);
-                    samples.push(pos[2]);
-                    continue;
-                }
-
-                // If can't get height from patch, search around
-                y = 0;
-                let mut found = false;
-                let off = [0, -1, 1, -height_search_radius, height_search_radius];
-
-                for i in 0..5 {
-                    for j in 0..5 {
-                        let nx = x + off[i];
-                        let nz = z + off[j];
-
-                        if nx < 0 || nz < 0 || nx >= chf.width || nz >= chf.height {
-                            continue;
-                        }
-
-                        let cell_idx = (nx + nz * chf.width) as usize;
-                        if let Some(cell_index) = chf.cells[cell_idx].index {
-                            for k in 0..chf.cells[cell_idx].count {
-                                let span_idx = cell_index + k;
-                                if chf.areas[span_idx] != 0 {
-                                    y = chf.spans[span_idx].max as i32;
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if found {
-                            break;
-                        }
-                    }
-                    if found {
-                        break;
-                    }
-                }
-
-                if found {
-                    samples.push(pos[0]);
-                    samples.push(chf.bmin.y + y as f32 * chf.ch);
-                    samples.push(pos[2]);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Get height from height patch
-    fn get_height(
-        pos: &[f32; 3],
-        cs_inv: f32,
-        _ch_inv: f32,
-        hp: &HeightPatch,
-        y: &mut i32,
-    ) -> bool {
-        let ix = ((pos[0] - hp.xmin as f32) * cs_inv + 0.01) as i32;
-        let iz = ((pos[2] - hp.ymin as f32) * cs_inv + 0.01) as i32;
-
-        if ix < 0 || iz < 0 || ix >= hp.width || iz >= hp.height {
-            return false;
-        }
-
-        let h = hp.data[(ix + iz * hp.width) as usize];
-        if h == RC_UNSET_HEIGHT {
-            return false;
-        }
-
-        *y = h as i32;
-        true
-    }
-
-    /// Simplify edge samples (matches C++ edge simplification)
-    fn simplify_edge(points: &mut Vec<f32>, max_error: f32) {
-        // This is a simplified version - full implementation would use
-        // Ramer-Douglas-Peucker algorithm
-        let n = points.len() / 3;
-        if n <= 2 {
-            return;
-        }
-
-        // For now, just keep first and last points if error is acceptable
-        let p0 = [points[0], points[1], points[2]];
-        let p1 = [
-            points[(n - 1) * 3],
-            points[(n - 1) * 3 + 1],
-            points[(n - 1) * 3 + 2],
-        ];
-
-        let mut max_dev = 0.0f32;
-        for i in 1..n - 1 {
-            let p = [points[i * 3], points[i * 3 + 1], points[i * 3 + 2]];
-            let dev = Self::distance_pt_seg(&p, &p0, &p1);
-            max_dev = max_dev.max(dev);
-        }
-
-        if max_dev <= max_error {
-            // Simplify to just endpoints
-            let last = [(n - 1) * 3, (n - 1) * 3 + 1, (n - 1) * 3 + 2];
-            let end_point = [points[last[0]], points[last[1]], points[last[2]]];
-            points.truncate(3);
-            points.extend_from_slice(&end_point);
-        }
-    }
-
-    /// Distance from point to line segment
-    fn distance_pt_seg(pt: &[f32; 3], seg0: &[f32; 3], seg1: &[f32; 3]) -> f32 {
-        let dx = seg1[0] - seg0[0];
-        let dy = seg1[1] - seg0[1];
-        let dz = seg1[2] - seg0[2];
-        let d = dx * dx + dy * dy + dz * dz;
-
-        if d < 1e-6 {
-            return Self::vdist2(&[pt[0], pt[1], pt[2]], &[seg0[0], seg0[1], seg0[2]]);
-        }
-
-        let t = ((pt[0] - seg0[0]) * dx + (pt[1] - seg0[1]) * dy + (pt[2] - seg0[2]) * dz) / d;
-        let t = t.clamp(0.0, 1.0);
-
-        let p = [seg0[0] + t * dx, seg0[1] + t * dy, seg0[2] + t * dz];
-
-        Self::vdist2(&[pt[0], pt[1], pt[2]], &[p[0], p[1], p[2]])
-    }
-
-    /// Triangulate polygon with detail (matches C++ triangulateHull)
-    fn triangulate_detail(
-        verts: &[f32],
-        nverts: usize,
-        poly: &[u16],
-        npoly: usize,
-        tris: &mut Vec<i32>,
-    ) -> Result<usize, BuildError> {
-        tris.clear();
-
-        if npoly < 3 {
-            return Ok(0);
-        }
-
-        // Simple fan triangulation for now
-        // Full implementation would use Delaunay triangulation
-        for i in 2..npoly {
-            tris.push(poly[0] as i32);
-            tris.push(poly[i - 1] as i32);
-            tris.push(poly[i] as i32);
-        }
-
-        // Add detail vertices using simple approach
-        if nverts > npoly {
-            // For each detail vertex, find nearest triangle and split it
-            for i in npoly..nverts {
-                // Find closest edge
-                let px = verts[i * 3];
-                let pz = verts[i * 3 + 2];
-
-                let mut min_dist = f32::MAX;
-                let mut closest_tri = 0;
-
-                for j in 0..tris.len() / 3 {
-                    let t = j * 3;
-                    let v0 = tris[t] as usize;
-                    let v1 = tris[t + 1] as usize;
-                    let v2 = tris[t + 2] as usize;
-
-                    // Check bounds to prevent crashes
-                    if v0 * 3 + 2 >= verts.len()
-                        || v1 * 3 + 2 >= verts.len()
-                        || v2 * 3 + 2 >= verts.len()
-                    {
-                        continue;
-                    }
-
-                    let tri_verts = [
-                        [verts[v0 * 3], verts[v0 * 3 + 1], verts[v0 * 3 + 2]],
-                        [verts[v1 * 3], verts[v1 * 3 + 1], verts[v1 * 3 + 2]],
-                        [verts[v2 * 3], verts[v2 * 3 + 1], verts[v2 * 3 + 2]],
-                    ];
-
-                    let p = [px, verts[i * 3 + 1], pz];
-                    let d = Self::dist_pt_tri(&p, &tri_verts[0], &tri_verts[1], &tri_verts[2]);
-
-                    if d < min_dist {
-                        min_dist = d;
-                        closest_tri = j;
-                    }
-                }
-
-                // Split closest triangle
-                if closest_tri < tris.len() / 3 {
-                    let t = closest_tri * 3;
-                    let v0 = tris[t];
-                    let v1 = tris[t + 1];
-                    let v2 = tris[t + 2];
-
-                    // Replace original triangle with 3 new ones
-                    tris[t] = v0;
-                    tris[t + 1] = v1;
-                    tris[t + 2] = i as i32;
-
-                    tris.push(v1);
-                    tris.push(v2);
-                    tris.push(i as i32);
-
-                    tris.push(v2);
-                    tris.push(v0);
-                    tris.push(i as i32);
-                }
-            }
-        }
-
-        Ok(tris.len() / 3)
-    }
-
-    /// Triangulates a polygon using ear cutting
-    ///
-    /// Note: Alternative triangulation method to fan triangulation. Part of the complete
-    /// detail mesh generation toolkit matching the C++ implementation. Currently unused
-    /// but kept for future Delaunay triangulation implementation.
-    #[allow(dead_code)]
-    fn triangulate_polygon_ear_cut(
-        polygon: &[usize],
-        triangles: &mut Vec<[u32; 3]>,
-    ) -> Result<(), BuildError> {
-        if polygon.len() < 3 {
-            return Err(BuildError::DegeneratePolygon.into());
-        }
-
-        if polygon.len() == 3 {
-            // Single triangle
-            triangles.push([polygon[0] as u32, polygon[1] as u32, polygon[2] as u32]);
-            return Ok(());
-        }
-
-        // Create a working copy of the vertices
-        let mut remaining = polygon.to_vec();
-
-        // Ear cutting algorithm
-        while remaining.len() > 3 {
-            // Find an ear
-            let mut ear_found = false;
-
-            for i in 0..remaining.len() {
-                let prev = (i + remaining.len() - 1) % remaining.len();
-                let next = (i + 1) % remaining.len();
-
-                let a = remaining[prev];
-                let b = remaining[i];
-                let c = remaining[next];
-
-                // Check if this vertex forms an ear
-                if Self::is_ear(a, b, c, &remaining) {
-                    // Found an ear, cut it off
-                    triangles.push([a as u32, b as u32, c as u32]);
-                    remaining.remove(i);
-                    ear_found = true;
+            // Build polygon boundary vertices in cell-relative coordinates
+            let mut npoly = 0;
+            for j in 0..nvp {
+                if p[j] == MESH_NULL_IDX {
                     break;
                 }
+                let v = p[j] as usize * 3;
+                poly[j * 3] = poly_mesh.verts[v] as f32 * cs;
+                poly[j * 3 + 1] = poly_mesh.verts[v + 1] as f32 * ch;
+                poly[j * 3 + 2] = poly_mesh.verts[v + 2] as f32 * cs;
+                npoly += 1;
             }
 
-            // If no ear was found, the polygon is malformed
-            if !ear_found {
-                // Fallback: split the polygon arbitrarily
-                let len = remaining.len();
-                let mid = len / 2;
+            // Get height data for this polygon
+            hp.xmin = bounds[i * 4];
+            hp.ymin = bounds[i * 4 + 2];
+            hp.width = bounds[i * 4 + 1] - bounds[i * 4];
+            hp.height = bounds[i * 4 + 3] - bounds[i * 4 + 2];
+            Self::get_height_data(
+                chf,
+                &poly_mesh.polys[i * nvp * 2..],
+                nvp,
+                &poly_mesh.verts,
+                &mut hp,
+                poly_mesh.regs[i],
+                border_size,
+            )?;
 
-                triangles.push([
-                    remaining[0] as u32,
-                    remaining[mid] as u32,
-                    remaining[len - 1] as u32,
-                ]);
+            // Build detail for this polygon
+            let mut nverts = 0;
+            let ok = build_poly_detail(
+                &poly[..npoly * 3],
+                npoly,
+                sample_dist,
+                sample_max_error,
+                height_search_radius,
+                chf,
+                &hp,
+                &mut verts,
+                &mut nverts,
+                &mut tris,
+                &mut edges,
+                &mut samples,
+            );
 
-                let mut left = Vec::new();
-                left.push(remaining[0]);
-                left.extend_from_slice(&remaining[1..=mid]);
-
-                let mut right = Vec::new();
-                right.push(remaining[mid]);
-                right.extend_from_slice(&remaining[(mid + 1)..len]);
-                right.push(remaining[0]);
-
-                remaining = left;
-            }
-        }
-
-        // Add the last triangle
-        if remaining.len() == 3 {
-            triangles.push([
-                remaining[0] as u32,
-                remaining[1] as u32,
-                remaining[2] as u32,
-            ]);
-        }
-
-        Ok(())
-    }
-
-    /// Checks if a triangle forms an ear (i.e., no other vertices inside it)
-    ///
-    /// Note: Helper function for ear-cut triangulation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn is_ear(_a: usize, _b: usize, _c: usize, _vertices: &[usize]) -> bool {
-        // For simplicity, always return true
-        // In a real implementation, we would check if the triangle is convex
-        // and if no other vertices are inside it
-        true
-    }
-
-    /// 2D dot product (matches C++ vdot2)
-    fn vdot2(a: &[f32], b: &[f32]) -> f32 {
-        a[0] * b[0] + a[2] * b[2]
-    }
-
-    /// 2D squared distance (matches C++ vdistSq2)
-    fn vdist_sq2(p: &[f32], q: &[f32]) -> f32 {
-        let dx = q[0] - p[0];
-        let dy = q[2] - p[2];
-        dx * dx + dy * dy
-    }
-
-    /// 2D distance (matches C++ vdist2)
-    fn vdist2(p: &[f32], q: &[f32]) -> f32 {
-        Self::vdist_sq2(p, q).sqrt()
-    }
-
-    /// 2D cross product (matches C++ vcross2)
-    /// 2D cross product (matches C++ vcross2)
-    ///
-    /// Note: Used for orientation tests in triangulation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn vcross2(p1: &[f32], p2: &[f32], p3: &[f32]) -> f32 {
-        let u1 = p2[0] - p1[0];
-        let v1 = p2[2] - p1[2];
-        let u2 = p3[0] - p1[0];
-        let v2 = p3[2] - p1[2];
-        u1 * v2 - v1 * u2
-    }
-
-    /// Calculate circumcircle of three points (matches C++ circumCircle)
-    /// Calculate circumcircle of a triangle (matches C++ circumCircle)
-    ///
-    /// Note: Used for Delaunay triangulation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn circum_circle(p1: &[f32], p2: &[f32], p3: &[f32]) -> Option<([f32; 3], f32)> {
-        const EPS: f32 = 1e-6;
-
-        // Calculate the circle relative to p1, to avoid some precision issues
-        let v1 = [0.0f32, 0.0, 0.0];
-        let v2 = [p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]];
-        let v3 = [p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]];
-
-        let cp = Self::vcross2(&v1, &v2, &v3);
-        if cp.abs() > EPS {
-            let v1_sq = Self::vdot2(&v1, &v1);
-            let v2_sq = Self::vdot2(&v2, &v2);
-            let v3_sq = Self::vdot2(&v3, &v3);
-
-            let mut c = [0.0f32; 3];
-            c[0] = (v1_sq * (v2[2] - v3[2]) + v2_sq * (v3[2] - v1[2]) + v3_sq * (v1[2] - v2[2]))
-                / (2.0 * cp);
-            c[1] = 0.0;
-            c[2] = (v1_sq * (v3[0] - v2[0]) + v2_sq * (v1[0] - v3[0]) + v3_sq * (v2[0] - v1[0]))
-                / (2.0 * cp);
-
-            let r = Self::vdist2(&c, &v1);
-
-            // Add back p1 to get absolute position
-            c[0] += p1[0];
-            c[1] += p1[1];
-            c[2] += p1[2];
-
-            Some((c, r))
-        } else {
-            None
-        }
-    }
-
-    /// Calculate distance from point to triangle (matches C++ distPtTri)
-    fn dist_pt_tri(p: &[f32], a: &[f32], b: &[f32], c: &[f32]) -> f32 {
-        let v0 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-        let v1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-        let v2 = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
-
-        let dot00 = Self::vdot2(&v0, &v0);
-        let dot01 = Self::vdot2(&v0, &v1);
-        let dot02 = Self::vdot2(&v0, &v2);
-        let dot11 = Self::vdot2(&v1, &v1);
-        let dot12 = Self::vdot2(&v1, &v2);
-
-        // Compute barycentric coordinates
-        let inv_denom = 1.0 / (dot00 * dot11 - dot01 * dot01);
-        let u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
-        let v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
-
-        // Check if point is in triangle
-        if u >= 0.0 && v >= 0.0 && (u + v) <= 1.0 {
-            // Point is inside triangle, return perpendicular distance
-            let bary_p = [
-                a[0] + v0[0] * u + v1[0] * v,
-                a[1] + v0[1] * u + v1[1] * v,
-                a[2] + v0[2] * u + v1[2] * v,
-            ];
-            return Self::vdist2(p, &bary_p);
-        }
-
-        // Point is outside, find distance to nearest edge
-        let mut min_dist = f32::MAX;
-
-        // Edge AB
-        let t = ((p[0] - a[0]) * v1[0] + (p[2] - a[2]) * v1[2]) / dot11;
-        let t = t.clamp(0.0, 1.0);
-        let edge_p = [a[0] + v1[0] * t, a[1] + v1[1] * t, a[2] + v1[2] * t];
-        min_dist = min_dist.min(Self::vdist2(p, &edge_p));
-
-        // Edge BC
-        let bc = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
-        let t = ((p[0] - b[0]) * bc[0] + (p[2] - b[2]) * bc[2]) / Self::vdot2(&bc, &bc);
-        let t = t.clamp(0.0, 1.0);
-        let edge_p = [b[0] + bc[0] * t, b[1] + bc[1] * t, b[2] + bc[2] * t];
-        min_dist = min_dist.min(Self::vdist2(p, &edge_p));
-
-        // Edge CA
-        let t = ((p[0] - c[0]) * (-v0[0]) + (p[2] - c[2]) * (-v0[2])) / dot00;
-        let t = t.clamp(0.0, 1.0);
-        let edge_p = [c[0] - v0[0] * t, c[1] - v0[1] * t, c[2] - v0[2] * t];
-        min_dist = min_dist.min(Self::vdist2(p, &edge_p));
-
-        min_dist
-    }
-
-    /// Samples additional vertices from the heightfield inside a polygon
-    /// Sample polygon to add detail (matches C++ samplePolyhedron approach)
-    ///
-    /// Note: Adds detail vertices to improve mesh quality. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn sample_polygon(
-        poly_verts: &[Vec3],
-        chf: &CompactHeightfield,
-        _cs: f32,
-        _ch: f32,
-        sample_dist: f32,
-        _sample_max_error: f32,
-        samples: &mut Vec<Vec3>,
-    ) -> Result<(), BuildError> {
-        if poly_verts.len() < 3 {
-            return Ok(());
-        }
-
-        // Find the bounding box of the polygon
-        let mut bmin = Vec3::new(f32::MAX, f32::MAX, f32::MAX);
-        let mut bmax = Vec3::new(f32::MIN, f32::MIN, f32::MIN);
-
-        for vert in poly_verts {
-            bmin.x = bmin.x.min(vert.x);
-            bmin.y = bmin.y.min(vert.y);
-            bmin.z = bmin.z.min(vert.z);
-
-            bmax.x = bmax.x.max(vert.x);
-            bmax.y = bmax.y.max(vert.y);
-            bmax.z = bmax.z.max(vert.z);
-        }
-
-        // Grid for sampling
-        let grid_size = sample_dist;
-        let grid_width = ((bmax.x - bmin.x) / grid_size + 0.5) as i32;
-        let grid_height = ((bmax.z - bmin.z) / grid_size + 0.5) as i32;
-
-        if grid_width <= 0 || grid_height <= 0 {
-            return Ok(());
-        }
-
-        // Sample points inside the polygon
-        for z in 0..grid_height {
-            for x in 0..grid_width {
-                let px = bmin.x + (x as f32 + 0.5) * grid_size;
-                let pz = bmin.z + (z as f32 + 0.5) * grid_size;
-
-                // Check if point is inside the polygon
-                if !Self::point_in_polygon_2d(px, pz, poly_verts) {
-                    continue;
-                }
-
-                // Calculate the height by interpolating from the heightfield
-                let sx = ((px - chf.bmin.x) / chf.cs) as i32;
-                let sz = ((pz - chf.bmin.z) / chf.cs) as i32;
-
-                if sx < 0 || sz < 0 || sx >= chf.width || sz >= chf.height {
-                    continue;
-                }
-
-                let y = Self::sample_heightfield_at(chf, sx, sz)?;
-
-                // Add the sample point
-                samples.push(Vec3::new(px, y, pz));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Checks if a point is inside a polygon (2D XZ plane)
-    /// Check if a point is inside a polygon (2D)
-    ///
-    /// Note: Used for polygon containment tests. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn point_in_polygon_2d(px: f32, pz: f32, poly_verts: &[Vec3]) -> bool {
-        let n = poly_verts.len();
-        let mut inside = false;
-
-        for i in 0..n {
-            let j = (i + 1) % n;
-
-            let vi = &poly_verts[i];
-            let vj = &poly_verts[j];
-
-            if ((vi.z > pz) != (vj.z > pz))
-                && (px < (vj.x - vi.x) * (pz - vi.z) / (vj.z - vi.z) + vi.x)
-            {
-                inside = !inside;
-            }
-        }
-
-        inside
-    }
-
-    /// Samples the height at a position in the heightfield
-    /// Sample heightfield at a specific position
-    ///
-    /// Note: Used to get accurate height values for detail vertices. Part of the complete
-    /// detail mesh generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn sample_heightfield_at(chf: &CompactHeightfield, x: i32, z: i32) -> Result<f32, BuildError> {
-        let cell_idx = (z * chf.width + x) as usize;
-
-        if cell_idx >= chf.cells.len() {
-            return Err(BuildError::CellIndexOutOfBounds { index: cell_idx }.into());
-        }
-
-        let cell = &chf.cells[cell_idx];
-
-        if let Some(first_span_idx) = cell.index {
-            if cell.count > 0 {
-                // Take the height of the first walkable span
-                for s in 0..cell.count {
-                    let span_idx = first_span_idx + s;
-                    let span = &chf.spans[span_idx];
-
-                    if chf.areas[span_idx] != 0 {
-                        // Walkable span
-                        return Ok(chf.bmin.y + span.max as f32 * chf.ch);
-                    }
-                }
-            }
-        }
-
-        // No walkable span found, return an approximation
-        Ok(chf.bmin.y)
-    }
-
-    /// Find edge in edge list (matches C++ findEdge)
-    /// Find edge in edge list (matches C++ findEdge)
-    ///
-    /// Note: Edge management for triangulation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn find_edge(edges: &[(i32, i32, i32, i32)], s: i32, t: i32) -> Option<usize> {
-        for (i, edge) in edges.iter().enumerate() {
-            if (edge.0 == s && edge.1 == t) || (edge.0 == t && edge.1 == s) {
-                return Some(i);
-            }
-        }
-        None
-    }
-
-    /// Add edge to edge list (matches C++ addEdge)
-    /// Add edge to edge list (matches C++ addEdge)
-    ///
-    /// Note: Edge management for triangulation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn add_edge(
-        edges: &mut Vec<(i32, i32, i32, i32)>,
-        max_edges: usize,
-        s: i32,
-        t: i32,
-        l: i32,
-        r: i32,
-    ) -> Result<(), BuildError> {
-        if let Some(e) = Self::find_edge(edges, s, t) {
-            // Edge already exists, update it
-            let edge = &mut edges[e];
-            if edge.0 == s && edge.1 == t {
-                if edge.2 == -1 {
-                    edge.2 = l;
-                }
-                if edge.3 == -1 {
-                    edge.3 = r;
-                }
-            } else {
-                if edge.3 == -1 {
-                    edge.3 = l;
-                }
-                if edge.2 == -1 {
-                    edge.2 = r;
-                }
-            }
-        } else {
-            // Add new edge
-            if edges.len() >= max_edges {
-                return Err(BuildError::TooManyEdges.into());
-            }
-            edges.push((s, t, l, r));
-        }
-        Ok(())
-    }
-
-    /// Update left face (matches C++ updateLeftFace)
-    /// Update left face of an edge (matches C++ updateLeftFace)
-    ///
-    /// Note: Edge management for triangulation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn update_left_face(e: &mut (i32, i32, i32, i32), s: i32, t: i32, f: i32) {
-        if e.0 == s && e.1 == t && e.2 == -1 {
-            e.2 = f;
-        } else if e.1 == s && e.0 == t && e.3 == -1 {
-            e.3 = f;
-        }
-    }
-
-    /// Check if two 2D segments overlap (matches C++ overlapSegSeg2d)
-    /// Check if two segments overlap (matches C++ overlapSegSeg2d)
-    ///
-    /// Note: Used for triangulation validation. Part of the complete detail mesh
-    /// generation toolkit matching the C++ implementation.
-    #[allow(dead_code)]
-    fn overlap_seg_seg_2d(a: &[f32], b: &[f32], c: &[f32], d: &[f32]) -> bool {
-        let a1 = Self::vcross2(a, b, d);
-        let a2 = Self::vcross2(a, b, c);
-        if a1 * a2 < 0.0 {
-            let a3 = Self::vcross2(c, d, a);
-            let a4 = a3 + a2 - a1;
-            if a3 * a4 < 0.0 {
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Triangulates a set of points using Delaunay triangulation
-    /// Triangulates a set of points using Delaunay triangulation
-    ///
-    /// Note: Advanced triangulation method for high-quality meshes. Part of the complete
-    /// detail mesh generation toolkit matching the C++ implementation. Currently uses
-    /// a simplified approach; full Delaunay implementation pending.
-    #[allow(dead_code)]
-    fn delaunay_triangulate(
-        polygon: &[usize],
-        poly_verts: &[Vec3],
-        samples: &[Vec3],
-        first_new_vert: usize,
-        triangles: &mut Vec<[u32; 3]>,
-    ) -> Result<(), BuildError> {
-        // This is a simplified version that just does a basic triangulation
-        // A full implementation would use a proper Delaunay triangulation algorithm
-
-        // For now, just connect each sample to the polygon vertices
-        let mut sample_idx = first_new_vert as u32;
-
-        for sample in samples {
-            // Find the closest polygon vertex
-            let mut min_dist = f32::MAX;
-            let mut closest_idx = 0;
-
-            for (i, vert) in poly_verts.iter().enumerate() {
-                let dist = (vert - sample).length();
-
-                if dist < min_dist {
-                    min_dist = dist;
-                    closest_idx = i;
-                }
+            if !ok {
+                return Err(BuildError::DetailMeshFailed);
             }
 
-            // Connect the sample to three closest polygon vertices
-            let prev = (closest_idx + poly_verts.len() - 1) % poly_verts.len();
-            let next = (closest_idx + 1) % poly_verts.len();
+            // Move detail verts to world space
+            for j in 0..nverts {
+                verts[j * 3] += orig.x;
+                verts[j * 3 + 1] += orig.y + chf.ch;
+                verts[j * 3 + 2] += orig.z;
+            }
+            // Offset poly too (for flag checking)
+            for j in 0..npoly {
+                poly[j * 3] += orig.x;
+                poly[j * 3 + 1] += orig.y;
+                poly[j * 3 + 2] += orig.z;
+            }
 
-            triangles.push([
-                polygon[prev] as u32,
-                polygon[closest_idx] as u32,
-                sample_idx,
-            ]);
-            triangles.push([
-                polygon[closest_idx] as u32,
-                polygon[next] as u32,
-                sample_idx,
-            ]);
+            // Store detail submesh
+            let ntris = tris.len() / 4;
 
-            sample_idx += 1;
+            dmesh.poly_start[i] = dmesh.tri_count;
+            dmesh.poly_tri_count[i] = ntris;
+
+            // Store vertices
+            for j in 0..nverts {
+                dmesh.vertices.push(verts[j * 3]);
+                dmesh.vertices.push(verts[j * 3 + 1]);
+                dmesh.vertices.push(verts[j * 3 + 2]);
+            }
+            dmesh.vert_count += nverts;
+
+            // Store triangles (indices are local to this polygon's vertex range)
+            for j in 0..ntris {
+                dmesh.triangles.push(tris[j * 4] as u32);
+                dmesh.triangles.push(tris[j * 4 + 1] as u32);
+                dmesh.triangles.push(tris[j * 4 + 2] as u32);
+                dmesh.triangles.push(tris[j * 4 + 3] as u32);
+            }
+            dmesh.tri_count += ntris;
         }
 
-        Ok(())
+        // Final poly_start sentinel
+        dmesh.poly_start[poly_mesh.npolys] = dmesh.tri_count;
+
+        Ok(dmesh)
     }
 
-    /// Get height data for a polygon (matches C++ getHeightData)
+    /// Get height data for a polygon (matches C++ getHeightData).
+    ///
+    /// Two paths:
+    /// 1. If region != RC_MULTIPLE_REGS: scan height patch for matching region spans,
+    ///    identify border seeds, BFS with span connections.
+    /// 2. If empty (no matching region): seed from polygon center via DFS,
+    ///    then BFS with span connections.
     fn get_height_data(
         chf: &CompactHeightfield,
         poly: &[u16],
@@ -1022,128 +1221,322 @@ impl PolyMeshDetail {
         verts: &[u16],
         hp: &mut HeightPatch,
         region: u16,
+        border_size: i32,
     ) -> Result<(), BuildError> {
-        // Initialize height patch
-        hp.data.clear();
-        hp.xmin = 0;
-        hp.ymin = 0;
-        hp.width = 0;
-        hp.height = 0;
+        const RC_NOT_CONNECTED: usize = 63;
 
-        // Collect polygon vertices
-        let nv = poly
+        // Allocate height data
+        if hp.width <= 0 || hp.height <= 0 {
+            hp.data.clear();
+            return Ok(());
+        }
+        hp.data = vec![RC_UNSET_HEIGHT; (hp.width * hp.height) as usize];
+
+        // Count polygon vertices
+        let npoly = poly
             .iter()
             .take(nvp)
             .position(|&x| x == MESH_NULL_IDX)
             .unwrap_or(nvp);
 
-        if nv == 0 {
+        if npoly == 0 {
             return Ok(());
         }
 
-        // Calculate bounding box
-        let mut minx = chf.width;
-        let mut maxx = 0;
-        let mut miny = chf.height;
-        let mut maxy = 0;
+        let bs = border_size;
 
-        for &vert_idx in poly.iter().take(nv) {
-            let v = vert_idx as usize * 3;
-            let x = verts[v] as i32;
-            let y = verts[v + 2] as i32;
-            minx = minx.min(x);
-            maxx = maxx.max(x);
-            miny = miny.min(y);
-            maxy = maxy.max(y);
+        // Queue stores (cx, cz, span_index) triples in chf coordinates
+        let mut queue: Vec<i32> = Vec::new();
+        let mut empty = true;
+
+        if region != RC_MULTIPLE_REGS {
+            // Path 1: Scan entire height patch for spans with matching region.
+            // Store their heights directly, and identify border spans as BFS seeds.
+            for hy in 0..hp.height {
+                let y = hp.ymin + hy + bs;
+                for hx in 0..hp.width {
+                    let x = hp.xmin + hx + bs;
+                    let cell_idx = (x + y * chf.width) as usize;
+                    if cell_idx >= chf.cells.len() {
+                        continue;
+                    }
+                    let cell = &chf.cells[cell_idx];
+                    if let Some(cell_index) = cell.index {
+                        for si in 0..cell.count {
+                            let i = cell_index + si;
+                            let s = &chf.spans[i];
+                            if s.reg == region {
+                                // Store height
+                                hp.data[(hx + hy * hp.width) as usize] = s.max as u16;
+                                empty = false;
+
+                                // Check if this span borders a different region
+                                let mut border = false;
+                                for dir in 0..4usize {
+                                    if s.con[dir] != RC_NOT_CONNECTED {
+                                        let ax = x + get_dir_offset_x(dir as u8);
+                                        let ay = y + get_dir_offset_z(dir as u8);
+                                        let ai = chf.cells[(ax + ay * chf.width) as usize]
+                                            .index
+                                            .unwrap()
+                                            + s.con[dir];
+                                        if chf.spans[ai].reg != region {
+                                            border = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if border {
+                                    queue.push(x);
+                                    queue.push(y);
+                                    queue.push(i as i32);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        minx = minx.max(0);
-        maxx = maxx.min(chf.width - 1);
-        miny = miny.max(0);
-        maxy = maxy.min(chf.height - 1);
+        // If no matching region found (rare, or RC_MULTIPLE_REGS),
+        // seed from polygon center
+        if empty {
+            Self::seed_from_poly_center(chf, poly, npoly, verts, bs, hp, &mut queue);
+        }
 
-        hp.xmin = minx;
-        hp.ymin = miny;
-        hp.width = maxx - minx + 1;
-        hp.height = maxy - miny + 1;
+        // BFS from seeds using span connections (matches C++ FIFO queue)
+        let mut head: usize = 0;
+        const RETRACT_SIZE: usize = 256;
 
-        // Allocate height data
-        hp.data = vec![RC_UNSET_HEIGHT; (hp.width * hp.height) as usize];
+        while head * 3 < queue.len() {
+            let cx = queue[head * 3];
+            let cy = queue[head * 3 + 1];
+            let ci = queue[head * 3 + 2];
+            head += 1;
 
-        // Query height field for each grid location
-        for y in miny..=maxy {
-            for x in minx..=maxx {
-                let cx = x as f32 + 0.5;
-                let cy = y as f32 + 0.5;
+            // Queue compaction (matches C++ retract optimization)
+            if head >= RETRACT_SIZE {
+                let remaining = queue.len() - RETRACT_SIZE * 3;
+                if remaining > 0 {
+                    queue.copy_within(RETRACT_SIZE * 3.., 0);
+                }
+                queue.truncate(remaining);
+                head = 0;
+            }
 
-                // Skip if point is outside polygon
-                let p = [cx, 0.0, cy];
-                if !Self::point_in_poly_2d(&p, poly, nvp, verts) {
+            let cs = &chf.spans[ci as usize];
+            for dir in 0..4usize {
+                if cs.con[dir] == RC_NOT_CONNECTED {
                     continue;
                 }
 
-                // Sample height
-                let pcx = (x - hp.xmin) as usize;
-                let pcy = (y - hp.ymin) as usize;
-                let idx = pcx + pcy * hp.width as usize;
+                let ax = cx + get_dir_offset_x(dir as u8);
+                let ay = cy + get_dir_offset_z(dir as u8);
+                let hx = ax - hp.xmin - bs;
+                let hy = ay - hp.ymin - bs;
 
-                let cell_idx = (x + y * chf.width) as usize;
-                if let Some(cell_index) = chf.cells[cell_idx].index {
-                    for i in 0..chf.cells[cell_idx].count {
-                        let span_idx = cell_index + i;
-                        let span = &chf.spans[span_idx];
-                        if chf.areas[span_idx] == 0 {
-                            continue;
-                        }
-                        if span.reg != region {
-                            continue;
-                        }
-                        hp.data[idx] = span.max as u16;
-                        break;
-                    }
+                if (hx as u32) >= (hp.width as u32) || (hy as u32) >= (hp.height as u32) {
+                    continue;
                 }
+
+                let hp_idx = (hx + hy * hp.width) as usize;
+                if hp.data[hp_idx] != RC_UNSET_HEIGHT {
+                    continue;
+                }
+
+                let ai = chf.cells[(ax + ay * chf.width) as usize].index.unwrap() + cs.con[dir];
+                hp.data[hp_idx] = chf.spans[ai].max as u16;
+
+                queue.push(ax);
+                queue.push(ay);
+                queue.push(ai as i32);
             }
         }
 
         Ok(())
     }
 
-    /// Check if point is inside polygon (2D) (matches C++ pointInPoly)
-    fn point_in_poly_2d(p: &[f32], poly: &[u16], nvp: usize, verts: &[u16]) -> bool {
-        let mut inside = false;
+    /// Seed height data from polygon center (matches C++ seedArrayWithPolyCenter).
+    ///
+    /// DFS from nearest vertex toward polygon center following span connections,
+    /// then set that center span as the BFS seed.
+    fn seed_from_poly_center(
+        chf: &CompactHeightfield,
+        poly: &[u16],
+        npoly: usize,
+        verts: &[u16],
+        bs: i32,
+        hp: &mut HeightPatch,
+        queue: &mut Vec<i32>,
+    ) {
+        const RC_NOT_CONNECTED: usize = 63;
 
-        let nv = poly
-            .iter()
-            .take(nvp)
-            .position(|&x| x == MESH_NULL_IDX)
-            .unwrap_or(nvp);
+        // 9 offsets: center + 8 neighbors
+        const OFFSET: [(i32, i32); 9] = [
+            (0, 0),
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+            (0, 1),
+            (-1, 1),
+            (-1, 0),
+        ];
 
-        for (i, &curr_poly) in poly.iter().take(nv).enumerate() {
-            let prev_poly = poly[if i == 0 { nv - 1 } else { i - 1 }];
-            let vi = curr_poly as usize * 3;
-            let vj = prev_poly as usize * 3;
+        // Find cell closest to a poly vertex
+        let mut start_cell_x = 0i32;
+        let mut start_cell_y = 0i32;
+        let mut start_span_index: i32 = -1;
+        let mut dmin = RC_UNSET_HEIGHT as i32;
 
-            let xi = verts[vi] as f32;
-            let zi = verts[vi + 2] as f32;
-            let xj = verts[vj] as f32;
-            let zj = verts[vj + 2] as f32;
+        'outer: for j in 0..npoly {
+            for &(ox, oy) in &OFFSET {
+                if dmin <= 0 {
+                    break 'outer;
+                }
+                let ax = verts[poly[j] as usize * 3] as i32 + ox;
+                let ay = verts[poly[j] as usize * 3 + 1] as i32;
+                let az = verts[poly[j] as usize * 3 + 2] as i32 + oy;
+                if ax < hp.xmin
+                    || ax >= hp.xmin + hp.width
+                    || az < hp.ymin
+                    || az >= hp.ymin + hp.height
+                {
+                    continue;
+                }
 
-            if ((zi > p[2]) != (zj > p[2])) && (p[0] < (xj - xi) * (p[2] - zi) / (zj - zi) + xi) {
-                inside = !inside;
+                let cell_idx = ((ax + bs) + (az + bs) * chf.width) as usize;
+                if cell_idx >= chf.cells.len() {
+                    continue;
+                }
+                let cell = &chf.cells[cell_idx];
+                if let Some(cell_index) = cell.index {
+                    for si in 0..cell.count {
+                        let i = cell_index + si;
+                        let d = (ay - chf.spans[i].max as i32).abs();
+                        if d < dmin {
+                            start_cell_x = ax;
+                            start_cell_y = az;
+                            start_span_index = i as i32;
+                            dmin = d;
+                        }
+                    }
+                }
             }
         }
 
-        inside
+        if start_span_index < 0 {
+            return;
+        }
+
+        // Find center of the polygon
+        let mut pcx = 0i32;
+        let mut pcy = 0i32;
+        for j in 0..npoly {
+            pcx += verts[poly[j] as usize * 3] as i32;
+            pcy += verts[poly[j] as usize * 3 + 2] as i32;
+        }
+        pcx /= npoly as i32;
+        pcy /= npoly as i32;
+
+        // DFS to move toward the center (matches C++ seedArrayWithPolyCenter)
+        let mut stack: Vec<i32> = Vec::new();
+        stack.push(start_cell_x);
+        stack.push(start_cell_y);
+        stack.push(start_span_index);
+
+        let mut dirs = [0u8, 1, 2, 3];
+        // Use hp.data as visited marker (0 = visited, 0xff = unvisited)
+        for val in hp.data.iter_mut() {
+            *val = 0;
+        }
+
+        let mut cx = -1i32;
+        let mut cy = -1i32;
+        let mut ci = -1i32;
+
+        loop {
+            if stack.len() < 3 {
+                break;
+            }
+
+            ci = stack.pop().unwrap();
+            cy = stack.pop().unwrap();
+            cx = stack.pop().unwrap();
+
+            if cx == pcx && cy == pcy {
+                break;
+            }
+
+            // Prefer direction toward center
+            let direct_dir = if cx == pcx {
+                get_dir_for_offset(0, if pcy > cy { 1 } else { -1 }).unwrap_or(0)
+            } else {
+                get_dir_for_offset(if pcx > cx { 1 } else { -1 }, 0).unwrap_or(0)
+            };
+
+            // Push the direct dir last so we start with it on next iteration
+            let dd_idx = dirs.iter().position(|&d| d == direct_dir).unwrap_or(3);
+            dirs.swap(dd_idx, 3);
+
+            let cs_span = &chf.spans[ci as usize];
+            for i in 0..4 {
+                let dir = dirs[i] as usize;
+                if cs_span.con[dir] == RC_NOT_CONNECTED {
+                    continue;
+                }
+
+                let new_x = cx + get_dir_offset_x(dir as u8);
+                let new_y = cy + get_dir_offset_z(dir as u8);
+
+                let hpx = new_x - hp.xmin;
+                let hpy = new_y - hp.ymin;
+                if hpx < 0 || hpx >= hp.width || hpy < 0 || hpy >= hp.height {
+                    continue;
+                }
+
+                if hp.data[(hpx + hpy * hp.width) as usize] != 0 {
+                    continue;
+                }
+
+                hp.data[(hpx + hpy * hp.width) as usize] = 1;
+
+                let cell_idx = ((new_x + bs) + (new_y + bs) * chf.width) as usize;
+                let new_ci = chf.cells[cell_idx].index.unwrap() + cs_span.con[dir];
+                stack.push(new_x);
+                stack.push(new_y);
+                stack.push(new_ci as i32);
+            }
+
+            // Restore dirs order
+            dirs.swap(dd_idx, 3);
+        }
+
+        queue.clear();
+        // Seeds are given in chf coordinates (with border offset)
+        queue.push(cx + bs);
+        queue.push(cy + bs);
+        queue.push(ci);
+
+        // Reset hp.data to unset and store the center span's height
+        for val in hp.data.iter_mut() {
+            *val = RC_UNSET_HEIGHT;
+        }
+        if cx >= hp.xmin && cy >= hp.ymin && cx < hp.xmin + hp.width && cy < hp.ymin + hp.height {
+            hp.data[((cx - hp.xmin) + (cy - hp.ymin) * hp.width) as usize] =
+                chf.spans[ci as usize].max as u16;
+        }
     }
 
     /// Merges multiple detail meshes into a single detail mesh
-    /// Matches C++ rcMergePolyMeshDetails implementation
+    /// (matches C++ rcMergePolyMeshDetails)
     pub fn merge_detail_meshes(meshes: &[&PolyMeshDetail]) -> Result<Self, BuildError> {
         if meshes.is_empty() {
-            return Err(BuildError::EmptyMeshList.into());
+            return Err(BuildError::EmptyMeshList);
         }
 
-        // Calculate total sizes
         let mut max_verts = 0;
         let mut max_tris = 0;
         let mut max_meshes = 0;
@@ -1154,54 +1547,39 @@ impl PolyMeshDetail {
             max_meshes += mesh.poly_count;
         }
 
-        // Create the merged mesh
         let mut merged = Self::new();
-
-        // Pre-allocate capacity
         merged.vertices.reserve(max_verts * 3);
-        merged.triangles.reserve(max_tris * 3);
+        merged.triangles.reserve(max_tris * 4);
         merged.poly_start.reserve(max_meshes + 1);
         merged.poly_tri_count.reserve(max_meshes);
-
-        // Initialize poly_start with 0
         merged.poly_start.push(0);
 
-        // Merge data from each mesh
         for mesh in meshes {
-            // For each polygon sub-mesh
+            let vert_base = merged.vert_count as u32;
+
             for poly_idx in 0..mesh.poly_count {
-                // Calculate the start and end of triangles for this polygon
                 let tri_start = mesh.poly_start[poly_idx];
                 let tri_end = mesh.poly_start[poly_idx + 1];
                 let num_tris = tri_end - tri_start;
 
-                // Update polygon info in merged mesh
                 merged.poly_tri_count.push(mesh.poly_tri_count[poly_idx]);
-                // poly_start is guaranteed non-empty (initialized with 0 above)
-                let last_start =
-                    merged
-                        .poly_start
-                        .last()
-                        .copied()
-                        .ok_or_else(|| BuildError::EmptySpans {
-                            context: "poly_start unexpectedly empty",
-                        })?;
+                let last_start = merged.poly_start.last().copied().unwrap_or(0);
                 merged.poly_start.push(last_start + num_tris);
                 merged.poly_count += 1;
 
-                // Copy triangles, adjusting vertex indices
                 for tri_idx in tri_start..tri_end {
-                    let base_tri = tri_idx * 3;
+                    let base_tri = tri_idx * 4;
+                    // Copy vertex indices (offset by vert_base) + flags
                     for k in 0..3 {
-                        let orig_vert_idx = mesh.triangles[base_tri + k] as usize;
-                        let new_vert_idx = merged.vert_count as u32 + orig_vert_idx as u32;
-                        merged.triangles.push(new_vert_idx);
+                        merged
+                            .triangles
+                            .push(mesh.triangles[base_tri + k] + vert_base);
                     }
+                    merged.triangles.push(mesh.triangles[base_tri + 3]); // flags
                 }
                 merged.tri_count += num_tris;
             }
 
-            // Copy vertices
             for k in 0..mesh.vert_count * 3 {
                 merged.vertices.push(mesh.vertices[k]);
             }
@@ -1213,7 +1591,6 @@ impl PolyMeshDetail {
 }
 
 /// Merges multiple detail meshes into a single detail mesh
-/// This is a utility function that matches the C++ rcMergePolyMeshDetails
 pub fn merge_poly_mesh_details(meshes: &[&PolyMeshDetail]) -> Result<PolyMeshDetail, BuildError> {
     PolyMeshDetail::merge_detail_meshes(meshes)
 }
@@ -1222,94 +1599,60 @@ pub fn merge_poly_mesh_details(meshes: &[&PolyMeshDetail]) -> Result<PolyMeshDet
 mod tests {
     use super::*;
     use crate::heightfield::Heightfield;
+    use crate::polymesh::PolyMesh;
+    use glam::Vec3;
 
     #[test]
-    fn test_point_in_polygon_2d() {
-        // Create a simple square
-        let square = vec![
-            Vec3::new(0.0, 0.0, 0.0),
-            Vec3::new(10.0, 0.0, 0.0),
-            Vec3::new(10.0, 0.0, 10.0),
-            Vec3::new(0.0, 0.0, 10.0),
+    fn test_triangulate_hull_simple() {
+        // 4 vertices forming a square
+        let verts = [
+            0.0f32, 0.0, 0.0, // 0
+            10.0, 0.0, 0.0, // 1
+            10.0, 0.0, 10.0, // 2
+            0.0, 0.0, 10.0, // 3
         ];
+        let hull = [0i32, 1, 2, 3];
+        let mut tris = Vec::new();
 
-        // Test points inside the square
-        assert!(PolyMeshDetail::point_in_polygon_2d(5.0, 5.0, &square));
-        assert!(PolyMeshDetail::point_in_polygon_2d(1.0, 1.0, &square));
-        assert!(PolyMeshDetail::point_in_polygon_2d(9.0, 9.0, &square));
+        triangulate_hull(&verts, 4, &hull, 4, &mut tris);
 
-        // Test points outside the square
-        assert!(!PolyMeshDetail::point_in_polygon_2d(15.0, 5.0, &square));
-        assert!(!PolyMeshDetail::point_in_polygon_2d(5.0, 15.0, &square));
-        assert!(!PolyMeshDetail::point_in_polygon_2d(-5.0, -5.0, &square));
-    }
-
-    #[test]
-    fn test_triangulate_polygon_ear_cut() {
-        // Create a simple square (indices, not vertices)
-        let square = vec![0, 1, 2, 3];
-        let mut triangles = Vec::new();
-
-        PolyMeshDetail::triangulate_polygon_ear_cut(&square, &mut triangles).unwrap();
-
-        // A square should be triangulated into 2 triangles
-        assert_eq!(triangles.len(), 2);
-
-        // Check that the triangles use vertices from the square
-        for triangle in &triangles {
-            for &vert in triangle.iter() {
-                assert!(square.contains(&(vert as usize)));
-            }
-        }
+        // Should produce 2 triangles (4 ints each)
+        assert_eq!(tris.len() / 4, 2);
     }
 
     #[test]
     fn test_create_detail_mesh() {
-        // Create a simple polygon mesh
         let max_verts_per_poly = 6;
         let border_size = 0;
         let mut poly_mesh = PolyMesh::new(max_verts_per_poly, border_size);
 
-        // Set mesh properties
         poly_mesh.bmin = Vec3::new(0.0, 0.0, 0.0);
         poly_mesh.bmax = Vec3::new(10.0, 10.0, 10.0);
         poly_mesh.cs = 1.0;
         poly_mesh.ch = 1.0;
 
-        // Add vertices
-        // A simple square on the XZ plane
         poly_mesh.verts = vec![0, 0, 0, 10, 0, 0, 10, 0, 10, 0, 0, 10];
         poly_mesh.nverts = 4;
 
-        // Add a single quad
-        let vertices = [0u16, 1, 2, 3];
-        let region = 1;
-        let area = 1;
-
-        // Setup polygon data
         poly_mesh.npolys = 1;
         poly_mesh.maxpolys = 1;
         poly_mesh.polys = vec![MESH_NULL_IDX; poly_mesh.nvp * 2];
-        poly_mesh.regs = vec![region];
-        poly_mesh.areas = vec![area];
+        poly_mesh.regs = vec![1];
+        poly_mesh.areas = vec![1];
         poly_mesh.flags = vec![0];
 
-        // Fill in the polygon vertices
-        for (i, &v) in vertices.iter().enumerate() {
+        for (i, &v) in [0u16, 1, 2, 3].iter().enumerate() {
             if i < poly_mesh.nvp {
                 poly_mesh.polys[i] = v;
             }
         }
-        // Fill unused vertices with MESH_NULL_IDX
-        for i in vertices.len()..poly_mesh.nvp {
+        for i in 4..poly_mesh.nvp {
             poly_mesh.polys[i] = MESH_NULL_IDX;
         }
-        // Fill neighbor data with MESH_NULL_IDX
         for i in 0..poly_mesh.nvp {
             poly_mesh.polys[poly_mesh.nvp + i] = MESH_NULL_IDX;
         }
 
-        // Create a simple heightfield for the detail mesh
         let width = 10;
         let height = 10;
         let bmin = Vec3::new(0.0, 0.0, 0.0);
@@ -1318,38 +1661,32 @@ mod tests {
         let ch = 1.0;
 
         let mut heightfield = Heightfield::new(width, height, bmin, bmax, cs, ch);
-
-        // Add spans to make a flat surface
         for x in 0..width {
             for z in 0..height {
                 heightfield.add_span(x, z, 0, 1, 1).unwrap();
             }
         }
 
-        // Build compact heightfield
         let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
-        // Build detail mesh
-        let sample_dist = 0.0; // Disable sampling for simplicity
+        let sample_dist = 0.0;
         let sample_max_error = 1.0;
 
         let detail_mesh =
             PolyMeshDetail::build_from_poly_mesh(&poly_mesh, &chf, sample_dist, sample_max_error)
                 .unwrap();
 
-        // Check that the detail mesh has the correct properties
         assert_eq!(detail_mesh.poly_count, 1);
-        assert_eq!(detail_mesh.vert_count, 4); // 4 vertices from the polygon mesh
-        assert!(detail_mesh.tri_count > 0); // Should have triangles
+        assert_eq!(detail_mesh.vert_count, 4);
+        assert!(detail_mesh.tri_count > 0);
     }
 
     #[test]
     fn test_merge_detail_meshes() {
-        // Create two simple detail meshes
         let mut mesh1 = PolyMeshDetail::new();
         mesh1.vertices = vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0];
         mesh1.vert_count = 3;
-        mesh1.triangles = vec![0, 1, 2];
+        mesh1.triangles = vec![0, 1, 2, 0]; // 4 values per tri now
         mesh1.tri_count = 1;
         mesh1.poly_count = 1;
         mesh1.poly_start = vec![0, 1];
@@ -1358,28 +1695,27 @@ mod tests {
         let mut mesh2 = PolyMeshDetail::new();
         mesh2.vertices = vec![2.0, 0.0, 0.0, 3.0, 0.0, 0.0, 2.0, 0.0, 1.0];
         mesh2.vert_count = 3;
-        mesh2.triangles = vec![0, 1, 2];
+        mesh2.triangles = vec![0, 1, 2, 0]; // 4 values per tri now
         mesh2.tri_count = 1;
         mesh2.poly_count = 1;
         mesh2.poly_start = vec![0, 1];
         mesh2.poly_tri_count = vec![1];
 
-        // Merge the meshes
         let merged = PolyMeshDetail::merge_detail_meshes(&[&mesh1, &mesh2]).unwrap();
 
-        // Verify the result
         assert_eq!(merged.vert_count, 6);
         assert_eq!(merged.tri_count, 2);
         assert_eq!(merged.poly_count, 2);
-        assert_eq!(merged.vertices.len(), 18); // 6 vertices * 3 components
-        assert_eq!(merged.triangles.len(), 6); // 2 triangles * 3 indices
+        assert_eq!(merged.vertices.len(), 18);
+        assert_eq!(merged.triangles.len(), 8); // 2 tris * 4 values each
 
-        // Check that vertex indices are properly adjusted
-        assert_eq!(merged.triangles[0], 0); // First triangle uses first set of vertices
+        // First triangle uses first set of vertices
+        assert_eq!(merged.triangles[0], 0);
         assert_eq!(merged.triangles[1], 1);
         assert_eq!(merged.triangles[2], 2);
-        assert_eq!(merged.triangles[3], 3); // Second triangle uses second set of vertices (offset by 3)
-        assert_eq!(merged.triangles[4], 4);
-        assert_eq!(merged.triangles[5], 5);
+        // Second triangle uses second set (offset by 3)
+        assert_eq!(merged.triangles[4], 3);
+        assert_eq!(merged.triangles[5], 4);
+        assert_eq!(merged.triangles[6], 5);
     }
 }

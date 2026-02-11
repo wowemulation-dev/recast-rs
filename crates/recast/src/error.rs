@@ -86,6 +86,9 @@ pub enum BuildError {
 
     #[error("triangle must have exactly 3 vertices")]
     InvalidTriangle,
+
+    #[error("detail mesh generation failed")]
+    DetailMeshFailed,
 }
 
 /// Error during convex volume creation
