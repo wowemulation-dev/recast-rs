@@ -79,12 +79,20 @@ mod tests {
                 .raycast(invalid_ref, &pos, &dir, 10.0, &filter)
                 .is_err()
         );
-        assert!(query.closest_point_on_poly(invalid_ref, &pos).is_err());
+        assert!(
+            query
+                .closest_point_on_poly(invalid_ref, Vec3::from(pos))
+                .is_err()
+        );
 
         // Test with very large polygon reference (invalid)
         let huge_ref = PolyRef::new(0xFFFFFFFF);
         assert!(query.raycast(huge_ref, &pos, &dir, 10.0, &filter).is_err());
-        assert!(query.closest_point_on_poly(huge_ref, &pos).is_err());
+        assert!(
+            query
+                .closest_point_on_poly(huge_ref, Vec3::from(pos))
+                .is_err()
+        );
 
         Ok(())
     }

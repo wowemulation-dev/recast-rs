@@ -268,7 +268,7 @@ mod tests {
         assert!(result.is_err(), "Invalid polygon ID should fail");
 
         // Test closest_point_on_poly with invalid ref
-        let result = query.closest_point_on_poly(null_ref, &pos);
+        let result = query.closest_point_on_poly(null_ref, Vec3::from(pos));
         assert!(
             result.is_err(),
             "Invalid ref should fail for closest_point_on_poly"

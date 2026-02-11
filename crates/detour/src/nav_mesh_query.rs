@@ -257,13 +257,15 @@ impl<'a> NavMeshQuery<'a> {
 
         // Find the closest polygon
         for poly_ref in polys {
-            let (closest_pt, is_over_poly) = self.closest_point_on_poly(poly_ref, &center)?;
+            let (closest_pt, is_over_poly) =
+                self.closest_point_on_poly(poly_ref, Vec3::from(center))?;
+            let closest_arr = closest_pt.to_array();
 
             // Calculate distance
             let diff = [
-                center[0] - closest_pt[0],
-                center[1] - closest_pt[1],
-                center[2] - closest_pt[2],
+                center[0] - closest_arr[0],
+                center[1] - closest_arr[1],
+                center[2] - closest_arr[2],
             ];
 
             let d = if is_over_poly {
@@ -285,7 +287,7 @@ impl<'a> NavMeshQuery<'a> {
             };
 
             if d < nearest_distance_sqr {
-                nearest_point = closest_pt;
+                nearest_point = closest_arr;
                 nearest_distance_sqr = d;
                 nearest_ref = poly_ref;
             }
@@ -342,13 +344,15 @@ impl<'a> NavMeshQuery<'a> {
 
         // Find the closest polygon
         for poly_ref in polys {
-            let (closest_pt, is_over_poly) = self.closest_point_on_poly(poly_ref, &center)?;
+            let (closest_pt, is_over_poly) =
+                self.closest_point_on_poly(poly_ref, Vec3::from(center))?;
+            let closest_arr = closest_pt.to_array();
 
             // Calculate distance
             let diff = [
-                center[0] - closest_pt[0],
-                center[1] - closest_pt[1],
-                center[2] - closest_pt[2],
+                center[0] - closest_arr[0],
+                center[1] - closest_arr[1],
+                center[2] - closest_arr[2],
             ];
 
             let d = if is_over_poly {
@@ -370,7 +374,7 @@ impl<'a> NavMeshQuery<'a> {
             };
 
             if d < nearest_distance_sqr {
-                nearest_point = closest_pt;
+                nearest_point = closest_arr;
                 nearest_distance_sqr = d;
                 nearest_ref = poly_ref;
                 nearest_is_over_poly = is_over_poly;
@@ -963,29 +967,32 @@ impl<'a> NavMeshQuery<'a> {
     pub fn closest_point_on_poly(
         &self,
         poly_ref: PolyRef,
-        pos: &[f32; 3],
-    ) -> Result<([f32; 3], bool), DetourError> {
+        pos: Vec3,
+    ) -> Result<(Vec3, bool), DetourError> {
+        let pos = pos.to_array();
+
         // Handle off-mesh connections
         if self.nav_mesh.is_off_mesh_connection(poly_ref) {
-            return self.closest_point_on_off_mesh_connection(poly_ref, pos);
+            let (pt, over) = self.closest_point_on_off_mesh_connection(poly_ref, &pos)?;
+            return Ok((Vec3::from(pt), over));
         }
 
         // Get the tile and poly
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
-        let mut closest = *pos;
+        let mut closest = pos;
         let mut is_over_poly = false;
 
         // Try to get height for the position within the polygon
-        if let Some(height) = self.nav_mesh.get_poly_height(tile, poly, pos)? {
+        if let Some(height) = self.nav_mesh.get_poly_height(tile, poly, &pos)? {
             closest[1] = height;
             is_over_poly = true;
-            return Ok((closest, is_over_poly));
+            return Ok((Vec3::from(closest), is_over_poly));
         }
 
         // Skip the old off-mesh connection handling since we handle it above
         if poly.poly_type == PolyType::OffMeshConnection {
-            return Ok((*pos, false));
+            return Ok((Vec3::from(pos), false));
         }
 
         // Point is outside polygon, find closest point on edges
@@ -1027,7 +1034,7 @@ impl<'a> NavMeshQuery<'a> {
             }
         }
 
-        Ok((closest, is_over_poly))
+        Ok((Vec3::from(closest), is_over_poly))
     }
 
     /// Finds the closest point on an off-mesh connection
