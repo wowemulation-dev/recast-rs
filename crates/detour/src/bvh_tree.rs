@@ -115,7 +115,7 @@ impl BVHNode {
     }
 
     /// Queries all items that overlap with the given bounds
-    pub fn query(&self, query_bounds: &Aabb, results: &mut Vec<PolyRef>) {
+    pub(crate) fn query(&self, query_bounds: &Aabb, results: &mut Vec<PolyRef>) {
         if !self.bounds().overlaps(query_bounds) {
             return;
         }

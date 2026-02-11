@@ -228,11 +228,9 @@ impl ConvexVolume {
     }
 
     /// Clips a polygon against this convex volume
-    pub fn clip_polygon(&self, polygon: &[Vec3], clipped: &mut Vec<Vec3>) -> bool {
-        clipped.clear();
-
+    pub fn clip_polygon(&self, polygon: &[Vec3]) -> Option<Vec<Vec3>> {
         if polygon.is_empty() {
-            return false;
+            return None;
         }
 
         // Start with the input polygon
@@ -241,7 +239,7 @@ impl ConvexVolume {
         // Clip against each edge of the convex volume
         for i in 0..self.vertices.len() {
             if temp_poly.is_empty() {
-                return false;
+                return None;
             }
 
             let j = (i + 1) % self.vertices.len();
@@ -255,9 +253,11 @@ impl ConvexVolume {
             temp_poly = new_poly;
         }
 
-        // Store the result
-        *clipped = temp_poly;
-        !clipped.is_empty()
+        if temp_poly.is_empty() {
+            None
+        } else {
+            Some(temp_poly)
+        }
     }
 
     /// Clips a polygon against a single edge using Sutherland-Hodgman algorithm

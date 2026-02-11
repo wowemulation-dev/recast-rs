@@ -32,26 +32,22 @@ mod move_along_surface_tests {
             actual_start_pos[1],
             actual_start_pos[2] + 0.1,
         ];
-        let mut visited = Vec::new();
-
-        let result_pos = query.move_along_surface(
-            start_ref,
-            &actual_start_pos,
-            &end_pos,
-            &filter,
-            &mut visited,
-        )?;
+        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
 
         // Should successfully move to target position within same polygon
-        assert!(!visited.is_empty(), "Should visit at least one polygon");
+        assert!(
+            !result.visited.is_empty(),
+            "Should visit at least one polygon"
+        );
         assert_eq!(
-            visited[0], start_ref,
+            result.visited[0], start_ref,
             "First visited should be start polygon"
         );
 
         // Result position should be close to target
-        let dist =
-            ((result_pos[0] - end_pos[0]).powi(2) + (result_pos[2] - end_pos[2]).powi(2)).sqrt();
+        let dist = ((result.position[0] - end_pos[0]).powi(2)
+            + (result.position[2] - end_pos[2]).powi(2))
+        .sqrt();
         assert!(
             dist < 0.01,
             "Should reach near target position, got distance: {}",
@@ -75,24 +71,20 @@ mod move_along_surface_tests {
 
         // Move to opposite corner, crossing multiple polygons
         let end_pos = [0.75, 0.0, 0.75];
-        let mut visited = Vec::new();
 
-        let result_pos = query.move_along_surface(
-            start_ref,
-            &actual_start_pos,
-            &end_pos,
-            &filter,
-            &mut visited,
-        )?;
+        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
 
         // Should visit at least one polygon (might visit more depending on path)
-        assert!(!visited.is_empty(), "Should visit at least one polygon");
+        assert!(
+            !result.visited.is_empty(),
+            "Should visit at least one polygon"
+        );
 
         // All visited polygons should be unique
-        let unique_visited: HashSet<_> = visited.iter().collect();
+        let unique_visited: HashSet<_> = result.visited.iter().collect();
         assert_eq!(
             unique_visited.len(),
-            visited.len(),
+            result.visited.len(),
             "All visited polygons should be unique"
         );
 
@@ -100,8 +92,9 @@ mod move_along_surface_tests {
         let start_dist = ((actual_start_pos[0] - end_pos[0]).powi(2)
             + (actual_start_pos[2] - end_pos[2]).powi(2))
         .sqrt();
-        let result_dist =
-            ((result_pos[0] - end_pos[0]).powi(2) + (result_pos[2] - end_pos[2]).powi(2)).sqrt();
+        let result_dist = ((result.position[0] - end_pos[0]).powi(2)
+            + (result.position[2] - end_pos[2]).powi(2))
+        .sqrt();
         assert!(
             result_dist <= start_dist + 0.1,
             "Should not move significantly further from target"
@@ -124,24 +117,18 @@ mod move_along_surface_tests {
 
         // Try to move far outside mesh bounds (should hit wall)
         let end_pos = [10.0, 0.0, 10.0];
-        let mut visited = Vec::new();
 
-        let result_pos = query.move_along_surface(
-            start_ref,
-            &actual_start_pos,
-            &end_pos,
-            &filter,
-            &mut visited,
-        )?;
+        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
 
         // Should stop at mesh boundary, not reach target
-        let result_dist =
-            ((result_pos[0] - end_pos[0]).powi(2) + (result_pos[2] - end_pos[2]).powi(2)).sqrt();
+        let result_dist = ((result.position[0] - end_pos[0]).powi(2)
+            + (result.position[2] - end_pos[2]).powi(2))
+        .sqrt();
         assert!(result_dist > 5.0, "Should not reach far target due to wall");
 
         // Should have visited only one polygon (blocked immediately)
         assert_eq!(
-            visited.len(),
+            result.visited.len(),
             1,
             "Should only visit start polygon when blocked"
         );
@@ -157,12 +144,10 @@ mod move_along_surface_tests {
 
         let start_pos = [0.0, 0.0, 0.0];
         let end_pos = [1.0, 0.0, 1.0];
-        let mut visited = Vec::new();
 
         // Use invalid polygon reference
         let invalid_ref = PolyRef::new(0);
-        let result =
-            query.move_along_surface(invalid_ref, &start_pos, &end_pos, &filter, &mut visited);
+        let result = query.move_along_surface(invalid_ref, &start_pos, &end_pos, &filter);
 
         assert!(
             result.is_err(),
@@ -184,26 +169,20 @@ mod move_along_surface_tests {
             query.find_nearest_poly(&start_pos, &extents, &filter)?;
 
         // Move to same position
-        let mut visited = Vec::new();
-        let result_pos = query.move_along_surface(
-            start_ref,
-            &actual_start_pos,
-            &actual_start_pos,
-            &filter,
-            &mut visited,
-        )?;
+        let result =
+            query.move_along_surface(start_ref, &actual_start_pos, &actual_start_pos, &filter)?;
 
         // Should return same position
         for i in 0..3 {
             assert!(
-                (result_pos[i] - actual_start_pos[i]).abs() < 1e-6,
+                (result.position[i] - actual_start_pos[i]).abs() < 1e-6,
                 "Should return same position for zero distance move"
             );
         }
 
         // Should still visit the start polygon
-        assert_eq!(visited.len(), 1, "Should visit start polygon");
-        assert_eq!(visited[0], start_ref, "Should visit start polygon");
+        assert_eq!(result.visited.len(), 1, "Should visit start polygon");
+        assert_eq!(result.visited[0], start_ref, "Should visit start polygon");
 
         Ok(())
     }
@@ -222,19 +201,12 @@ mod move_along_surface_tests {
 
         // Try to move very far (should be constrained by search radius)
         let end_pos = [25.0, 0.0, 25.0];
-        let mut visited = Vec::new();
 
-        let result_pos = query.move_along_surface(
-            start_ref,
-            &actual_start_pos,
-            &end_pos,
-            &filter,
-            &mut visited,
-        )?;
+        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
 
         // Should move some distance towards target
-        let moved_dist = ((result_pos[0] - actual_start_pos[0]).powi(2)
-            + (result_pos[2] - actual_start_pos[2]).powi(2))
+        let moved_dist = ((result.position[0] - actual_start_pos[0]).powi(2)
+            + (result.position[2] - actual_start_pos[2]).powi(2))
         .sqrt();
         let target_dist = ((end_pos[0] - actual_start_pos[0]).powi(2)
             + (end_pos[2] - actual_start_pos[2]).powi(2))
@@ -262,7 +234,7 @@ mod move_along_surface_tests {
     }
 
     #[test]
-    fn test_move_along_surface_visited_refs_cleared() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_move_along_surface_returns_visited() -> Result<(), Box<dyn std::error::Error>> {
         let nav_mesh = create_minimal_test_navmesh()?;
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
@@ -278,26 +250,16 @@ mod move_along_surface_tests {
             actual_start_pos[2] + 0.1,
         ];
 
-        // Pre-populate visited refs
-        let mut visited = vec![PolyRef::new(999), PolyRef::new(888)];
+        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
 
-        query.move_along_surface(
-            start_ref,
-            &actual_start_pos,
-            &end_pos,
-            &filter,
-            &mut visited,
-        )?;
-
-        // visited_refs should be cleared and repopulated
-        assert!(!visited.is_empty(), "Visited refs should not be empty");
+        // Result should contain visited polygon refs
         assert!(
-            !visited.contains(&PolyRef::new(999)),
-            "Old visited refs should be cleared"
+            !result.visited.is_empty(),
+            "Visited refs should not be empty"
         );
-        assert!(
-            !visited.contains(&PolyRef::new(888)),
-            "Old visited refs should be cleared"
+        assert_eq!(
+            result.visited[0], start_ref,
+            "First visited should be start polygon"
         );
 
         Ok(())
@@ -846,9 +808,7 @@ mod edge_case_tests {
             start_pos[2] + tiny_offset,
         ];
 
-        let mut visited = Vec::new();
-        let result =
-            query.move_along_surface(start_ref, &start_pos, &end_pos, &filter, &mut visited);
+        let result = query.move_along_surface(start_ref, &start_pos, &end_pos, &filter);
 
         assert!(
             result.is_ok(),

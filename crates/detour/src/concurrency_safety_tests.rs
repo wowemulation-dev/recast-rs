@@ -45,19 +45,20 @@ mod concurrent_read_tests {
                                 actual_start_pos[2] + offset,
                             ];
 
-                            let mut visited = Vec::new();
-                            query.move_along_surface(
+                            let result = query.move_along_surface(
                                 start_ref,
                                 &actual_start_pos,
                                 &end_pos,
                                 &filter,
-                                &mut visited,
                             )?;
 
                             // Verify results are consistent
-                            assert!(!visited.is_empty(), "Should visit at least one polygon");
                             assert!(
-                                visited[0] == start_ref,
+                                !result.visited.is_empty(),
+                                "Should visit at least one polygon"
+                            );
+                            assert!(
+                                result.visited[0] == start_ref,
                                 "First visited should be start polygon"
                             );
                         }
@@ -171,13 +172,11 @@ mod concurrent_read_tests {
                                         actual_start_pos[1],
                                         actual_start_pos[2] + (i as f32 * 0.1),
                                     ];
-                                    let mut visited = Vec::new();
                                     query.move_along_surface(
                                         start_ref,
                                         &actual_start_pos,
                                         &end_pos,
                                         &filter,
-                                        &mut visited,
                                     )?;
                                 }
                                 1 => {
@@ -392,13 +391,11 @@ mod concurrent_write_tests {
                                         actual_start_pos[1],
                                         actual_start_pos[2] + 0.1,
                                     ];
-                                    let mut visited = Vec::new();
                                     query.move_along_surface(
                                         start_ref,
                                         &actual_start_pos,
                                         &end_pos,
                                         &filter,
-                                        &mut visited,
                                     )?;
                                 }
                                 1 => {

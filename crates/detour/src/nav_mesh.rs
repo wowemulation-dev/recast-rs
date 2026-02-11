@@ -3738,15 +3738,12 @@ impl NavMesh {
     }
 
     /// Stores the non-structural tile state (polygon flags and areas)
-    pub fn store_tile_state(&self, tile: &MeshTile, data: &mut [u8]) -> Result<usize, DetourError> {
+    pub fn store_tile_state(&self, tile: &MeshTile) -> Result<Vec<u8>, DetourError> {
         const DT_NAVMESH_STATE_MAGIC: u32 = 0x5354544E; // 'STTN'
         const DT_NAVMESH_STATE_VERSION: u32 = 1;
 
         let required_size = self.get_tile_state_size(tile);
-        if data.len() < required_size {
-            return Err(DetourError::BufferTooSmall);
-        }
-
+        let mut data = vec![0u8; required_size];
         let mut offset = 0;
 
         // Write header
@@ -3786,7 +3783,7 @@ impl NavMesh {
             offset += 1;
         }
 
-        Ok(required_size)
+        Ok(data)
     }
 
     /// Restores the non-structural tile state (polygon flags and areas)

@@ -111,7 +111,7 @@ functions use `&mut [f32; 3]`, 235 parameters across the workspace use
 `&[f32; 3]` instead of `Vec3`. See roadmap section 3.1 for targets and
 migration strategy.
 
-- [ ] Convert 4 public C-style output params: `bvh_tree::query`, `convex_volume::clip_polygon`, `nav_mesh::store_tile_state`, `nav_mesh_query::move_along_surface`
+- [x] Convert 4 public C-style output params: `bvh_tree::query`, `convex_volume::clip_polygon`, `nav_mesh::store_tile_state`, `nav_mesh_query::move_along_surface`
 - [ ] Replace 12 `detour_common.rs` vector functions with `glam::Vec3` operations
 - [ ] Migrate `NavMeshQuery` public methods from `&[f32; 3]` to `Vec3` (170 params in detour)
 - [ ] Migrate `Crowd` public methods from `&[f32; 3]` to `Vec3` (40 params in detour-crowd)

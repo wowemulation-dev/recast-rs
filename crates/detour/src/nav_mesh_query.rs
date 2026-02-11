@@ -63,6 +63,15 @@ pub enum NodeState {
     Closed,
 }
 
+/// Result of a `move_along_surface` query
+#[derive(Debug, Clone)]
+pub struct MoveAlongSurfaceResult {
+    /// The resulting position after moving along the surface
+    pub position: [f32; 3],
+    /// Polygon references visited during the move
+    pub visited: Vec<PolyRef>,
+}
+
 /// Node wrapper for the binary heap (priority queue)
 #[derive(Debug, Clone, Copy)]
 struct HeapNode {
@@ -1216,8 +1225,7 @@ impl<'a> NavMeshQuery<'a> {
         start_pos: &[f32; 3],
         end_pos: &[f32; 3],
         filter: &QueryFilter,
-        visited_refs: &mut Vec<PolyRef>,
-    ) -> Result<[f32; 3], DetourError> {
+    ) -> Result<MoveAlongSurfaceResult, DetourError> {
         use recast_common::{dist_point_segment_sqr_2d_with_t, point_in_polygon_2d};
         use std::collections::VecDeque;
 
@@ -1225,8 +1233,6 @@ impl<'a> NavMeshQuery<'a> {
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
-
-        visited_refs.clear();
 
         // Constants matching C++
         const MAX_STACK: usize = 48;
@@ -1380,12 +1386,16 @@ impl<'a> NavMeshQuery<'a> {
         // Reverse to get path from start to end
         path_indices.reverse();
 
-        // Store visited polygons
-        for idx in path_indices {
-            visited_refs.push(nodes[idx].poly_ref);
-        }
+        // Collect visited polygons
+        let visited = path_indices
+            .iter()
+            .map(|&idx| nodes[idx].poly_ref)
+            .collect();
 
-        Ok(best_pos)
+        Ok(MoveAlongSurfaceResult {
+            position: best_pos,
+            visited,
+        })
     }
 
     /// Casts a ray along the navigation mesh

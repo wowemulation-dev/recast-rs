@@ -158,9 +158,7 @@ fn bench_move_along_surface(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             for target in &targets {
-                let mut visited = Vec::new();
-                let _ =
-                    query.move_along_surface(start_ref, &start_pos, target, &filter, &mut visited);
+                let _ = query.move_along_surface(start_ref, &start_pos, target, &filter);
             }
         });
     });

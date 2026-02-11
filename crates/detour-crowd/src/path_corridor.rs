@@ -111,7 +111,6 @@ impl PathCorridor {
 
         // Simplify the path
         let mut opt_path = Vec::new();
-        let mut visited = Vec::new();
 
         // Start with the current position
         opt_path.push(self.path[0]);
@@ -123,18 +122,12 @@ impl PathCorridor {
             let mut furthest_idx = current_idx + 1;
 
             for i in current_idx + 2..self.path.len() {
-                let _result = query
-                    .move_along_surface(
-                        self.path[current_idx],
-                        &self.pos,
-                        &self.target,
-                        filter,
-                        &mut visited,
-                    )
+                let result = query
+                    .move_along_surface(self.path[current_idx], &self.pos, &self.target, filter)
                     .map_err(|_| CrowdError::CorridorFailed)?;
 
                 // If we can reach the target directly, we're done
-                if visited.contains(&self.path[i]) {
+                if result.visited.contains(&self.path[i]) {
                     furthest_idx = i;
                 } else {
                     break;
@@ -178,22 +171,21 @@ impl PathCorridor {
         }
 
         // Find the new position by moving along the surface
-        let mut visited = Vec::new();
         let result = query
-            .move_along_surface(self.path[0], &self.pos, &new_pos, filter, &mut visited)
+            .move_along_surface(self.path[0], &self.pos, &new_pos, filter)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         // Update the position
-        self.pos = result;
+        self.pos = result.position;
 
         // Adjust the path
-        if visited.len() > 1 {
+        if result.visited.len() > 1 {
             // Check if we're now in a later polygon in the path
             let mut in_path = false;
             let mut path_idx = 0;
 
             for i in 1..self.path.len() {
-                if self.path[i] == visited[visited.len() - 1] {
+                if self.path[i] == result.visited[result.visited.len() - 1] {
                     in_path = true;
                     path_idx = i;
                     break;
@@ -205,7 +197,7 @@ impl PathCorridor {
                 self.path.drain(0..path_idx);
             } else {
                 // We moved outside the path, so we need to rebuild it
-                self.path = visited;
+                self.path = result.visited;
             }
         }
 
@@ -247,13 +239,12 @@ impl PathCorridor {
 
         for i in 1..self.path.len() {
             // Try to move along the surface to each polygon
-            let mut visited = Vec::new();
-            let _result = query
-                .move_along_surface(self.path[0], &self.pos, &self.target, filter, &mut visited)
+            let result = query
+                .move_along_surface(self.path[0], &self.pos, &self.target, filter)
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the polygon
-            if visited.contains(&self.path[i]) {
+            if result.visited.contains(&self.path[i]) {
                 furthest_valid_poly_idx = i;
             } else {
                 break;
@@ -296,13 +287,12 @@ impl PathCorridor {
 
         for i in self.path.len() - 1..0 {
             // Check if we can reach the target from this polygon
-            let mut visited = Vec::new();
-            let _result = query
-                .move_along_surface(self.path[i], &new_pos, &self.target, filter, &mut visited)
+            let result = query
+                .move_along_surface(self.path[i], &new_pos, &self.target, filter)
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the end polygon
-            if visited.contains(&self.path[self.path.len() - 1]) {
+            if result.visited.contains(&self.path[self.path.len() - 1]) {
                 furthest_valid_poly_idx = i;
                 break;
             }

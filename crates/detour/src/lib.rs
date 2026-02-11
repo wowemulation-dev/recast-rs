@@ -69,7 +69,7 @@ pub use nav_mesh::{
     decode_poly_ref, encode_poly_ref,
 };
 pub use nav_mesh_builder::{ExternalLinkRequest, NavMeshBuilder};
-pub use nav_mesh_query::{NavMeshQuery, Node, NodeState};
+pub use nav_mesh_query::{MoveAlongSurfaceResult, NavMeshQuery, Node, NodeState};
 pub use node_pool::{DT_NULL_IDX, DtNode, DtNodePool, DtNodeQueue, NodeFlags, NodeIndex};
 pub use path_queue::{DT_PATHQ_INVALID, DtPathQueue, DtPathQueueRef};
 pub use poly_query::{CollectPolysQuery, FindNearestPolyQuery, PolyQuery};
