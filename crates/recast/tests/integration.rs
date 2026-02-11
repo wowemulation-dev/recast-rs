@@ -74,11 +74,11 @@ fn nav_test_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("nav_test.obj");
 
     // Current Rust output (regression test)
-    // After fixing contour simplification squared distance
+    // After detail mesh restructure + height patch fix matching C++
     assert_eq!(poly_mesh.poly_count(), 530);
     assert_eq!(poly_mesh.vert_count(), 1190);
-    assert_eq!(detail_mesh.vert_count(), 1190);
-    assert_eq!(detail_mesh.tri_count(), 1063);
+    assert_eq!(detail_mesh.vert_count(), 2207); // C++ 2228 (0.99x)
+    assert_eq!(detail_mesh.tri_count(), 1164); // C++ 1172 (0.99x)
 }
 
 #[test]
@@ -113,11 +113,11 @@ fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
     // Current Rust output (regression test)
-    // After fixing contour simplification squared distance
+    // After detail mesh restructure + height patch fix matching C++
     assert_eq!(poly_mesh.poly_count(), 213);
     assert_eq!(poly_mesh.vert_count(), 450);
-    assert_eq!(detail_mesh.vert_count(), 450);
-    assert_eq!(detail_mesh.tri_count(), 419);
+    assert_eq!(detail_mesh.vert_count(), 865); // C++ 868 (1.00x)
+    assert_eq!(detail_mesh.tri_count(), 444); // C++ 434 (1.02x)
 }
 
 #[test]
@@ -143,8 +143,8 @@ fn bridge_mesh_loading() {
 #[test]
 fn bridge_grid_size() {
     let (_, _, _, config) = build_mesh("bridge.obj");
-    // Note: Rust produces grid_width=17 vs C++ grid_width=16 (off-by-one in grid calculation)
-    assert_eq!(config.width, 17);
+    // Grid size now matches C++ rcCalcGridSize using round-to-nearest
+    assert_eq!(config.width, 16);
     assert_eq!(config.height, 137);
 }
 
@@ -153,16 +153,15 @@ fn bridge_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("bridge.obj");
 
     // Current Rust output (regression test)
-    // After fixing normal.y direction check, adding erosion, fixing erosion con[4] usage
-    // Bridge now matches C++ exactly
+    // After detail mesh restructure and grid fix
     assert_eq!(poly_mesh.poly_count(), 8);
     assert_eq!(poly_mesh.vert_count(), 18);
-    assert_eq!(detail_mesh.vert_count(), 18);
+    assert_eq!(detail_mesh.vert_count(), 32);
     assert_eq!(detail_mesh.tri_count(), 16);
 }
 
 #[test]
-#[ignore = "bridge matches C++ polygon count; grid_width off-by-one remains"]
+#[ignore = "bridge matches C++ polygon count"]
 fn bridge_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("bridge.obj");
 

@@ -143,9 +143,9 @@ fn dungeon_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing contour simplification squared distance
+    // After detail mesh restructure + height patch fix
     assert!((snapped.x - 12.1450).abs() < 0.01);
-    assert!((snapped.y - 10.3973).abs() < 0.01);
+    assert!((snapped.y - 10.3109).abs() < 0.01);
     assert!((snapped.z - (-40.5750)).abs() < 0.01);
 }
 

@@ -270,12 +270,27 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     println!();
 
     // Stage 7: PolyMeshDetail
+    // Scale parameters to world space (matching C++ call site and RecastBuilder::build_mesh)
+    let detail_sample_dist = if config.detail_sample_dist < 0.9 {
+        0.0
+    } else {
+        config.cs * config.detail_sample_dist
+    };
+    let detail_sample_max_error = config.ch * config.detail_sample_max_error;
     println!("--- Stage 7: Detail Mesh ---");
+    println!(
+        "  detail_sample_dist: {:.3} (raw={:.1})",
+        detail_sample_dist, config.detail_sample_dist
+    );
+    println!(
+        "  detail_sample_max_error: {:.3} (raw={:.1})",
+        detail_sample_max_error, config.detail_sample_max_error
+    );
     let detail_mesh = PolyMeshDetail::build_from_poly_mesh(
         &poly_mesh,
         &chf,
-        config.detail_sample_dist,
-        config.detail_sample_max_error,
+        detail_sample_dist,
+        detail_sample_max_error,
     )
     .expect("failed to build detail mesh");
 
