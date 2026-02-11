@@ -272,17 +272,16 @@ fn rasterize_tri(
     }
 
     // Calculate footprint in grid coordinates
-    let mut x0 = ((tri_min[0] - heightfield.bmin.x) * inverse_cell_size) as i32;
-    let mut x1 = ((tri_max[0] - heightfield.bmin.x) * inverse_cell_size) as i32;
-    let mut z0 = ((tri_min[2] - heightfield.bmin.z) * inverse_cell_size) as i32;
-    let mut z1 = ((tri_max[2] - heightfield.bmin.z) * inverse_cell_size) as i32;
+    let w = heightfield.width;
+    let h = heightfield.height;
+    let by = heightfield.bmax.y - heightfield.bmin.y;
 
-    // Clamp to heightfield bounds
-    x0 = x0.max(0);
-    x1 = x1.min(heightfield.width - 1);
-    // Use -1 rather than 0 to cut the polygon properly at the start of the tile
-    z0 = z0.max(-1);
-    z1 = z1.min(heightfield.height - 1);
+    let z0 = ((tri_min[2] - heightfield.bmin.z) * inverse_cell_size) as i32;
+    let z1 = ((tri_max[2] - heightfield.bmin.z) * inverse_cell_size) as i32;
+
+    // Clamp z: use -1 rather than 0 to cut the polygon properly at the start of the tile
+    let z0 = z0.clamp(-1, h - 1);
+    let z1 = z1.clamp(0, h - 1);
 
     // Build initial triangle vertex list
     let in_verts = vec![
@@ -305,10 +304,24 @@ fn rasterize_tri(
         // Swap for next iteration
         p1 = out_verts1.clone();
 
-        if in_row.len() < 9 || z < 0 {
-            // Need at least 3 vertices (9 floats)
+        let nv_row = in_row.len() / 3;
+        if nv_row < 3 || z < 0 {
             continue;
         }
+
+        // Find X-axis bounds of the row polygon (matches C++)
+        let mut min_x = in_row[0];
+        let mut max_x = in_row[0];
+        for vert in 1..nv_row {
+            min_x = min_x.min(in_row[vert * 3]);
+            max_x = max_x.max(in_row[vert * 3]);
+        }
+
+        let x0 = ((min_x - heightfield.bmin.x) * inverse_cell_size) as i32;
+        let x1 = ((max_x - heightfield.bmin.x) * inverse_cell_size) as i32;
+        // Use -1 to cut the polygon properly at the start of the tile
+        let x0 = x0.clamp(-1, w - 1);
+        let x1 = x1.clamp(0, w - 1);
 
         // Initialize row polygon for X clipping
         let mut p2 = in_row.clone();
@@ -322,32 +335,44 @@ fn rasterize_tri(
             // Swap for next iteration
             p2 = out_verts1.clone();
 
-            if out_verts2.len() < 9 {
-                // Need at least 3 vertices (9 floats)
-                continue;
-            }
-
-            // Find min/max Y in the clipped polygon
             let n = out_verts2.len() / 3;
             if n < 3 {
                 continue;
             }
 
-            let mut min_y = out_verts2[1];
-            let mut max_y = out_verts2[1];
+            // Skip the pre-clip cell (matches C++ `if (x < 0) continue;`)
+            if x < 0 {
+                continue;
+            }
+
+            // Find min/max Y in the clipped polygon
+            let mut span_min_f = out_verts2[1];
+            let mut span_max_f = out_verts2[1];
 
             for i in 1..n {
                 let y = out_verts2[i * 3 + 1];
-                min_y = min_y.min(y);
-                max_y = max_y.max(y);
+                span_min_f = span_min_f.min(y);
+                span_max_f = span_max_f.max(y);
+            }
+            span_min_f -= heightfield.bmin.y;
+            span_max_f -= heightfield.bmin.y;
+
+            // Skip spans outside the heightfield bounding box
+            if span_max_f < 0.0 || span_min_f > by {
+                continue;
             }
 
-            // Convert to heightfield coordinates
-            let span_min = ((min_y - heightfield.bmin.y) * inverse_cell_height).floor() as i16;
-            let span_max = ((max_y - heightfield.bmin.y) * inverse_cell_height).ceil() as i16;
+            // Clamp to heightfield bounding box
+            span_min_f = span_min_f.clamp(0.0, by);
+            span_max_f = span_max_f.clamp(0.0, by);
 
-            // Clamp to valid range
-            let span_min = span_min.max(0);
+            // Snap to heightfield height grid (matches C++ clamping)
+            let span_min = (span_min_f * inverse_cell_height)
+                .floor()
+                .clamp(0.0, 8191.0) as i16;
+            let span_max = (span_max_f * inverse_cell_height)
+                .ceil()
+                .clamp((span_min + 1) as f32, 8191.0) as i16;
 
             // Add span
             add_span_internal(
