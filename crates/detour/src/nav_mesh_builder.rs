@@ -8,6 +8,7 @@ use super::{
     BVNode, DT_EXT_LINK, MeshTile, NavMeshCreateParams, NavMeshParams, OffMeshConnection, Poly,
     PolyDetail, PolyFlags, PolyType, TileHeader,
 };
+use crate::detour_common::dt_opposite_tile;
 use crate::error::DetourError;
 use recast::{MESH_NULL_IDX, PolyMesh, PolyMeshDetail};
 
@@ -160,8 +161,18 @@ impl NavMeshBuilder {
 
                     // Check if this is an external link marker (0x8000 | direction)
                     if (neighbor & DT_EXT_LINK) != 0 {
-                        // This edge connects to an adjacent tile - store the marker as-is
-                        poly.neighbors[j] = neighbor;
+                        // Remap Recast border direction to Detour tile-link direction.
+                        // Recast PolyMesh encodes which boundary an edge lies on (0-3),
+                        // while Detour uses an 8-direction system with even indices
+                        // for cardinals. This matches C++ dtCreateNavMeshData.
+                        let recast_dir = neighbor & 0xf;
+                        poly.neighbors[j] = match recast_dir {
+                            0 => DT_EXT_LINK | 4, // x=0   border → West
+                            1 => DT_EXT_LINK | 2, // z=max border → North
+                            2 => DT_EXT_LINK | 0, // x=max border → East
+                            3 => DT_EXT_LINK | 6, // z=0   border → South
+                            _ => MESH_NULL_IDX,   // non-portal border, no neighbor
+                        };
                     } else {
                         // Regular internal neighbor or null
                         poly.neighbors[j] = neighbor;
@@ -542,7 +553,7 @@ impl NavMeshBuilder {
         requests.append(&mut forward_requests);
 
         // Collect reverse direction requests (from tile2 to tile1)
-        let opposite_dir = Self::opposite_tile_dir(direction as i32);
+        let opposite_dir = dt_opposite_tile(direction as i32);
         let mut reverse_requests = Self::collect_ext_link_requests(
             nav_mesh,
             tx2,
@@ -630,7 +641,7 @@ impl NavMeshBuilder {
                 target_tx,
                 target_ty,
                 target_layer,
-                Self::opposite_tile_dir(dir),
+                dt_opposite_tile(dir),
             )?;
 
             // Create link requests for each connecting polygon
@@ -809,17 +820,6 @@ impl NavMeshBuilder {
         // Check for overlap at endpoints
         let thr = py * py * 4.0;
         dmin * dmin <= thr || dmax * dmax <= thr
-    }
-
-    /// Get opposite tile direction
-    fn opposite_tile_dir(dir: i32) -> i32 {
-        match dir {
-            0 => 4, // East -> West
-            2 => 6, // North -> South
-            4 => 0, // West -> East
-            6 => 2, // South -> North
-            _ => dir,
-        }
     }
 
     /// Creates NavMeshCreateParams from PolyMesh and PolyMeshDetail
