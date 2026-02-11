@@ -89,24 +89,9 @@ impl RecastConfig {
         self.bmin = bmin;
         self.bmax = bmax;
 
-        // Calculate the number of cells needed
-        // We need to ensure the grid covers the entire area including the max bounds
-        let width_f = (bmax.x - bmin.x) / self.cs;
-        let height_f = (bmax.z - bmin.z) / self.cs;
-
-        // If the division is exact, we need one more cell to include the max bound
-        // Otherwise, ceil() will give us the right number
-        self.width = if width_f.fract() == 0.0 {
-            width_f as i32 + 1
-        } else {
-            width_f.ceil() as i32
-        };
-
-        self.height = if height_f.fract() == 0.0 {
-            height_f as i32 + 1
-        } else {
-            height_f.ceil() as i32
-        };
+        // Match C++ rcCalcGridSize: round-to-nearest via (int)(x + 0.5f)
+        self.width = ((bmax.x - bmin.x) / self.cs + 0.5) as i32;
+        self.height = ((bmax.z - bmin.z) / self.cs + 0.5) as i32;
     }
 
     /// Validates the configuration parameters
