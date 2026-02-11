@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Common utilities and types for Recast navigation mesh generation"
+readme = "../../README.md"
 keywords = ["navmesh", "recast", "utilities", "math", "geometry"]
 categories = ["game-development", "algorithms"]
 

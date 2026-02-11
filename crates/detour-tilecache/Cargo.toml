@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Dynamic obstacle management and tile caching for navigation meshes"
+readme = "../../README.md"
 keywords = ["tilecache", "detour", "navmesh", "dynamic", "obstacles"]
 categories = ["game-development", "algorithms"]
 

@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Command-line tool for Recast navigation mesh generation"
+publish = false
 keywords = ["cli", "recast", "navmesh", "tool", "command-line"]
 categories = ["command-line-utilities", "game-development"]
 
