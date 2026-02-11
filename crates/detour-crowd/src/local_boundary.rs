@@ -87,11 +87,11 @@ impl DtLocalBoundary {
             let mut verts = Vec::new();
             for &v_idx in &poly.verts[..poly.vert_count as usize] {
                 let vertex_idx = v_idx as usize;
-                if vertex_idx * 3 + 2 < tile.verts.len() {
+                if vertex_idx * 3 + 2 < tile.verts().len() {
                     verts.push([
-                        tile.verts[vertex_idx * 3],
-                        tile.verts[vertex_idx * 3 + 1],
-                        tile.verts[vertex_idx * 3 + 2],
+                        tile.verts()[vertex_idx * 3],
+                        tile.verts()[vertex_idx * 3 + 1],
+                        tile.verts()[vertex_idx * 3 + 2],
                     ]);
                 }
             }
@@ -226,7 +226,7 @@ impl DtLocalBoundary {
 
         // Internal link - check if the linked polygon is valid
         let linked_poly_idx = (neighbor & 0x7FFF) as usize;
-        if linked_poly_idx >= tile.polys.len() {
+        if linked_poly_idx >= tile.polys().len() {
             return Ok(true); // Invalid link, treat as boundary
         }
 

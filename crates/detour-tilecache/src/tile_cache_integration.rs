@@ -54,9 +54,9 @@ impl TileCacheNavMeshIntegration {
         // Remove the old tile from the navigation mesh if it exists
         let tile_ref = self.get_tile_ref_for_position(
             nav_mesh,
-            tile_entry.header.x,
-            tile_entry.header.y,
-            tile_entry.header.layer,
+            tile_entry.header.x(),
+            tile_entry.header.y(),
+            tile_entry.header.layer(),
         );
 
         if let Some(existing_ref) = tile_ref {
@@ -105,9 +105,9 @@ impl TileCacheNavMeshIntegration {
         // Remove the old tile from the navigation mesh if it exists
         let tile_ref = self.get_tile_ref_for_position(
             nav_mesh,
-            tile_entry.header.x,
-            tile_entry.header.y,
-            tile_entry.header.layer,
+            tile_entry.header.x(),
+            tile_entry.header.y(),
+            tile_entry.header.layer(),
         );
 
         if let Some(existing_ref) = tile_ref {

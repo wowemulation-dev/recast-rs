@@ -19,35 +19,35 @@ const TILECACHE_VERSION: u32 = 1;
 )]
 pub struct TileCacheLayerHeader {
     /// Magic number for validation
-    pub magic: u32,
+    pub(crate) magic: u32,
     /// Version of the tile cache format
-    pub version: u32,
+    pub(crate) version: u32,
     /// Tile position X
-    pub tx: i32,
+    pub(crate) tx: i32,
     /// Tile position Y
-    pub ty: i32,
+    pub(crate) ty: i32,
     /// Tile layer
-    pub tlayer: i32,
+    pub(crate) tlayer: i32,
     /// Bounding box minimum
-    pub bmin: [f32; 3],
+    pub(crate) bmin: [f32; 3],
     /// Bounding box maximum
-    pub bmax: [f32; 3],
+    pub(crate) bmax: [f32; 3],
     /// Height of the layer (in cells)
-    pub hmin: u16,
+    pub(crate) hmin: u16,
     /// Height of the layer (in cells)
-    pub hmax: u16,
+    pub(crate) hmax: u16,
     /// Width of the layer (in cells)
-    pub width: u8,
+    pub(crate) width: u8,
     /// Height of the layer (in cells)
-    pub height: u8,
+    pub(crate) height: u8,
     /// Minimum region id
-    pub minx: u8,
+    pub(crate) minx: u8,
     /// Maximum region id
-    pub maxx: u8,
+    pub(crate) maxx: u8,
     /// Minimum region id
-    pub miny: u8,
+    pub(crate) miny: u8,
     /// Maximum region id
-    pub maxy: u8,
+    pub(crate) maxy: u8,
 }
 
 impl Default for TileCacheLayerHeader {
@@ -229,6 +229,81 @@ impl TileCacheLayerHeader {
 
         header.validate()?;
         Ok(header)
+    }
+
+    /// Returns the magic number.
+    pub fn magic(&self) -> u32 {
+        self.magic
+    }
+
+    /// Returns the format version.
+    pub fn version(&self) -> u32 {
+        self.version
+    }
+
+    /// Returns the tile X position.
+    pub fn tx(&self) -> i32 {
+        self.tx
+    }
+
+    /// Returns the tile Y position.
+    pub fn ty(&self) -> i32 {
+        self.ty
+    }
+
+    /// Returns the tile layer index.
+    pub fn tlayer(&self) -> i32 {
+        self.tlayer
+    }
+
+    /// Returns the bounding box minimum.
+    pub fn bmin(&self) -> [f32; 3] {
+        self.bmin
+    }
+
+    /// Returns the bounding box maximum.
+    pub fn bmax(&self) -> [f32; 3] {
+        self.bmax
+    }
+
+    /// Returns the minimum height (in cells).
+    pub fn hmin(&self) -> u16 {
+        self.hmin
+    }
+
+    /// Returns the maximum height (in cells).
+    pub fn hmax(&self) -> u16 {
+        self.hmax
+    }
+
+    /// Returns the layer width (in cells).
+    pub fn width(&self) -> u8 {
+        self.width
+    }
+
+    /// Returns the layer height (in cells).
+    pub fn height(&self) -> u8 {
+        self.height
+    }
+
+    /// Returns the minimum X region bound.
+    pub fn minx(&self) -> u8 {
+        self.minx
+    }
+
+    /// Returns the maximum X region bound.
+    pub fn maxx(&self) -> u8 {
+        self.maxx
+    }
+
+    /// Returns the minimum Y region bound.
+    pub fn miny(&self) -> u8 {
+        self.miny
+    }
+
+    /// Returns the maximum Y region bound.
+    pub fn maxy(&self) -> u8 {
+        self.maxy
     }
 }
 

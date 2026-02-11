@@ -313,7 +313,7 @@ impl TileCache {
 
         // Parse the tile header from compressed data
         let header = self.parse_tile_header(&compressed_data)?;
-        let header_key = (header.x, header.y, header.layer);
+        let header_key = (header.x(), header.y(), header.layer());
 
         // Check if a tile already exists at this location
         if self.pos_lookup.contains_key(&header_key) {
@@ -359,9 +359,9 @@ impl TileCache {
 
         // Remove from lookup
         self.pos_lookup.remove(&(
-            tile_entry.header.x,
-            tile_entry.header.y,
-            tile_entry.header.layer,
+            tile_entry.header.x(),
+            tile_entry.header.y(),
+            tile_entry.header.layer(),
         ));
 
         // Reset the tile entry and add it to the free list
@@ -911,7 +911,7 @@ impl TileCache {
             tile_layer.header.ty,
             tile_layer.header.tlayer,
         );
-        header.data_size = compressed_data.len(); // Store compressed size
+        header.set_data_size(compressed_data.len()); // Store compressed size
 
         Ok(header)
     }

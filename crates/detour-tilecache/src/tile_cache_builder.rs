@@ -335,11 +335,11 @@ impl TileCacheBuilder {
     ) -> Result<MeshTile, TileCacheError> {
         // Create tile header
         let mut tile_header = TileHeader::new(header.tx, header.ty, header.tlayer);
-        tile_header.vert_count = pmesh.vert_count() as i32;
-        tile_header.poly_count = pmesh.poly_count() as i32;
-        tile_header.detail_mesh_count = dmesh.poly_count() as i32;
-        tile_header.detail_vert_count = dmesh.vert_count() as i32;
-        tile_header.detail_tri_count = dmesh.tri_count() as i32;
+        tile_header.set_vert_count(pmesh.vert_count() as i32);
+        tile_header.set_poly_count(pmesh.poly_count() as i32);
+        tile_header.set_detail_mesh_count(dmesh.poly_count() as i32);
+        tile_header.set_detail_vert_count(dmesh.vert_count() as i32);
+        tile_header.set_detail_tri_count(dmesh.tri_count() as i32);
 
         // Copy vertices (convert from i32 to f32)
         let mut verts = Vec::with_capacity(pmesh.vert_count() * 3);
@@ -406,21 +406,14 @@ impl TileCacheBuilder {
         }
 
         // Create the mesh tile
-        let tile = MeshTile {
-            salt: 1, // Will be set by NavMesh when added
-            header: Some(tile_header),
+        let tile = MeshTile::from_tile_data(
+            tile_header,
             polys,
             verts,
-            links: Vec::new(),
             detail_meshes,
             detail_verts,
             detail_tris,
-            bvh_root: None, // Will be built when added to NavMesh
-            bvh_nodes: Vec::new(),
-            off_mesh_connections: Vec::new(),
-            flags: 0,
-            next: None,
-        };
+        );
 
         Ok(tile)
     }
