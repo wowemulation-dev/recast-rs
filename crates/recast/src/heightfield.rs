@@ -57,22 +57,22 @@ impl Span {
 #[derive(Debug)]
 pub struct Heightfield {
     /// Width of the heightfield along the x-axis
-    pub width: i32,
+    pub(crate) width: i32,
     /// Height (depth) of the heightfield along the z-axis
-    pub height: i32,
+    pub(crate) height: i32,
 
     /// The minimum bounds of the heightfield's AABB
-    pub bmin: Vec3,
+    pub(crate) bmin: Vec3,
     /// The maximum bounds of the heightfield's AABB
-    pub bmax: Vec3,
+    pub(crate) bmax: Vec3,
 
     /// Cell size (horizontal resolution)
-    pub cs: f32,
+    pub(crate) cs: f32,
     /// Cell height (vertical resolution)
-    pub ch: f32,
+    pub(crate) ch: f32,
 
     /// Heightfield grid of span columns
-    pub spans: HashMap<(i32, i32), Option<Rc<RefCell<Span>>>>,
+    pub(crate) spans: HashMap<(i32, i32), Option<Rc<RefCell<Span>>>>,
 }
 
 impl Heightfield {
@@ -96,6 +96,41 @@ impl Heightfield {
             ch,
             spans,
         }
+    }
+
+    /// Returns the width of the heightfield along the x-axis.
+    pub fn width(&self) -> i32 {
+        self.width
+    }
+
+    /// Returns the height (depth) of the heightfield along the z-axis.
+    pub fn height(&self) -> i32 {
+        self.height
+    }
+
+    /// Returns the minimum bounds of the heightfield's AABB.
+    pub fn bmin(&self) -> Vec3 {
+        self.bmin
+    }
+
+    /// Returns the maximum bounds of the heightfield's AABB.
+    pub fn bmax(&self) -> Vec3 {
+        self.bmax
+    }
+
+    /// Returns the cell size (horizontal resolution).
+    pub fn cs(&self) -> f32 {
+        self.cs
+    }
+
+    /// Returns the cell height (vertical resolution).
+    pub fn ch(&self) -> f32 {
+        self.ch
+    }
+
+    /// Returns a reference to the span columns.
+    pub fn spans(&self) -> &HashMap<(i32, i32), Option<Rc<RefCell<Span>>>> {
+        &self.spans
     }
 
     /// Add a span to the heightfield

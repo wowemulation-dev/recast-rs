@@ -189,13 +189,13 @@ impl VoxelQuery {
             start.z + t_max * tz,
         );
 
-        let rel_start_x = entry.x - heightfield.bmin.x;
-        let rel_start_z = entry.z - heightfield.bmin.z;
+        let rel_start_x = entry.x - heightfield.bmin().x;
+        let rel_start_z = entry.z - heightfield.bmin().z;
 
-        let sx = (rel_start_x / heightfield.cs).floor() as i32;
-        let sz = (rel_start_z / heightfield.cs).floor() as i32;
-        let ex = ((exit.x - heightfield.bmin.x) / heightfield.cs).floor() as i32;
-        let ez = ((exit.z - heightfield.bmin.z) / heightfield.cs).floor() as i32;
+        let sx = (rel_start_x / heightfield.cs()).floor() as i32;
+        let sz = (rel_start_z / heightfield.cs()).floor() as i32;
+        let ex = ((exit.x - heightfield.bmin().x) / heightfield.cs()).floor() as i32;
+        let ez = ((exit.z - heightfield.bmin().z) / heightfield.cs()).floor() as i32;
 
         let dx = ex - sx;
         let dz = ez - sz;
@@ -203,21 +203,12 @@ impl VoxelQuery {
         let step_x = if dx < 0 { -1 } else { 1 };
         let step_z = if dz < 0 { -1 } else { 1 };
 
-        let x_rem = (heightfield.cs + (rel_start_x % heightfield.cs)) % heightfield.cs;
-        let z_rem = (heightfield.cs + (rel_start_z % heightfield.cs)) % heightfield.cs;
+        let cs = heightfield.cs();
+        let x_rem = (cs + (rel_start_x % cs)) % cs;
+        let z_rem = (cs + (rel_start_z % cs)) % cs;
 
-        let x_offset = if tx < 0.0 {
-            x_rem
-        } else {
-            heightfield.cs - x_rem
-        }
-        .abs();
-        let z_offset = if tz < 0.0 {
-            z_rem
-        } else {
-            heightfield.cs - z_rem
-        }
-        .abs();
+        let x_offset = if tx < 0.0 { x_rem } else { cs - x_rem }.abs();
+        let z_offset = if tz < 0.0 { z_rem } else { cs - z_rem }.abs();
 
         let tx_abs = tx.abs();
         let tz_abs = tz.abs();
@@ -234,12 +225,12 @@ impl VoxelQuery {
         };
 
         let t_delta_x = if tx_abs > 0.0 {
-            heightfield.cs / tx_abs
+            cs / tx_abs
         } else {
             f32::INFINITY
         };
         let t_delta_z = if tz_abs > 0.0 {
-            heightfield.cs / tz_abs
+            cs / tz_abs
         } else {
             f32::INFINITY
         };
@@ -251,17 +242,17 @@ impl VoxelQuery {
         loop {
             // Check if current cell is within heightfield bounds
             if current_x >= 0
-                && current_x < heightfield.width
+                && current_x < heightfield.width()
                 && current_z >= 0
-                && current_z < heightfield.height
+                && current_z < heightfield.height()
             {
-                let y1 = start.y + ty * (t_min + t) - heightfield.bmin.y;
-                let y2 = start.y + ty * (t_min + t_max_x.min(t_max_z)) - heightfield.bmin.y;
-                let y_min = (y1.min(y2) / heightfield.ch).floor();
-                let y_max = (y1.max(y2) / heightfield.ch).ceil();
+                let y1 = start.y + ty * (t_min + t) - heightfield.bmin().y;
+                let y2 = start.y + ty * (t_min + t_max_x.min(t_max_z)) - heightfield.bmin().y;
+                let y_min = (y1.min(y2) / heightfield.ch()).floor();
+                let y_max = (y1.max(y2) / heightfield.ch()).ceil();
 
                 // Check spans in this cell
-                if let Some(Some(span_rc)) = heightfield.spans.get(&(current_x, current_z)) {
+                if let Some(Some(span_rc)) = heightfield.spans().get(&(current_x, current_z)) {
                     let mut current_span = Some(span_rc.clone());
                     while let Some(span) = current_span {
                         let span_ref = span.borrow();

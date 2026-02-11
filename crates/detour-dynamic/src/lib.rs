@@ -29,17 +29,15 @@
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create configuration
-//! let config = DynamicNavMeshConfig {
-//!     world_min: Vec3::new(-20.0, -1.0, -20.0),
-//!     world_max: Vec3::new(20.0, 5.0, 20.0),
-//!     cell_size: 0.3,
-//!     cell_height: 0.2,
-//!     walkable_height: 2.0,
-//!     walkable_radius: 0.6,
-//!     walkable_climb: 0.9,
-//!     walkable_slope_angle: 45.0,
-//!     ..Default::default()
-//! };
+//! let mut config = DynamicNavMeshConfig::default();
+//! config.world_min = Vec3::new(-20.0, -1.0, -20.0);
+//! config.world_max = Vec3::new(20.0, 5.0, 20.0);
+//! config.cell_size = 0.3;
+//! config.cell_height = 0.2;
+//! config.walkable_height = 2.0;
+//! config.walkable_radius = 0.6;
+//! config.walkable_climb = 0.9;
+//! config.walkable_slope_angle = 45.0;
 //!
 //! // Create dynamic navmesh with tile grid
 //! let mut dynamic_navmesh = DynamicNavMesh::with_tile_grid(config, 3, 3)?;

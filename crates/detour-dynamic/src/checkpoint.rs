@@ -29,18 +29,18 @@ impl DynamicTileCheckpoint {
     /// Deep clones a heightfield including all span data
     fn clone_heightfield(source: &Heightfield) -> Heightfield {
         let mut clone = Heightfield::new(
-            source.width,
-            source.height,
-            source.bmin,
-            source.bmax,
-            source.cs,
-            source.ch,
+            source.width(),
+            source.height(),
+            source.bmin(),
+            source.bmax(),
+            source.cs(),
+            source.ch(),
         );
 
         // Clone all spans
-        for z in 0..source.height {
-            for x in 0..source.width {
-                if let Some(Some(span_rc)) = source.spans.get(&(x, z)) {
+        for z in 0..source.height() {
+            for x in 0..source.width() {
+                if let Some(Some(span_rc)) = source.spans().get(&(x, z)) {
                     Self::clone_span_chain(&mut clone, x, z, span_rc.clone());
                 }
             }
@@ -76,8 +76,8 @@ impl DynamicTileCheckpoint {
         size += std::mem::size_of::<Heightfield>();
 
         // Estimate span memory (this is approximate)
-        size += self.heightfield.spans.len() * std::mem::size_of::<(i32, i32)>();
-        size += self.heightfield.spans.len() * 64; // Approximate span memory
+        size += self.heightfield.spans().len() * std::mem::size_of::<(i32, i32)>();
+        size += self.heightfield.spans().len() * 64; // Approximate span memory
 
         // Add collider set memory
         size += self.colliders.len() * std::mem::size_of::<u64>();
@@ -201,8 +201,8 @@ mod tests {
         let checkpoint = DynamicTileCheckpoint::new(&hf, colliders.clone());
 
         assert_eq!(checkpoint.colliders, colliders);
-        assert_eq!(checkpoint.heightfield.width, hf.width);
-        assert_eq!(checkpoint.heightfield.height, hf.height);
+        assert_eq!(checkpoint.heightfield.width(), hf.width());
+        assert_eq!(checkpoint.heightfield.height(), hf.height());
     }
 
     #[test]

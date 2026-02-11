@@ -52,12 +52,12 @@ impl VoxelTile {
         VoxelTile {
             tile_x,
             tile_z,
-            width: heightfield.width,
-            depth: heightfield.height,
-            bounds_min: heightfield.bmin,
-            bounds_max: heightfield.bmax,
-            cell_size: heightfield.cs,
-            cell_height: heightfield.ch,
+            width: heightfield.width(),
+            depth: heightfield.height(),
+            bounds_min: heightfield.bmin(),
+            bounds_max: heightfield.bmax(),
+            cell_size: heightfield.cs(),
+            cell_height: heightfield.ch(),
             border_size: 0, // Border size not stored in Heightfield
             span_data,
         }
@@ -69,13 +69,13 @@ impl VoxelTile {
 
     fn serialize_spans(heightfield: &Heightfield) -> Vec<u8> {
         // Count spans per cell
-        let mut counts = vec![0u16; (heightfield.width * heightfield.height) as usize];
+        let mut counts = vec![0u16; (heightfield.width() * heightfield.height()) as usize];
         let mut total_count = 0usize;
 
-        for z in 0..heightfield.height {
-            for x in 0..heightfield.width {
-                let index = (z * heightfield.width + x) as usize;
-                if let Some(span_rc) = heightfield.spans.get(&(x, z)).and_then(|s| s.as_ref()) {
+        for z in 0..heightfield.height() {
+            for x in 0..heightfield.width() {
+                let index = (z * heightfield.width() + x) as usize;
+                if let Some(span_rc) = heightfield.spans().get(&(x, z)).and_then(|s| s.as_ref()) {
                     let mut current_span = Some(span_rc.clone());
                     while let Some(span) = current_span {
                         counts[index] += 1;
@@ -91,15 +91,15 @@ impl VoxelTile {
             total_count * SERIALIZED_SPAN_BYTES + counts.len() * SERIALIZED_SPAN_COUNT_BYTES;
         let mut data = Vec::with_capacity(data_size);
 
-        for z in 0..heightfield.height {
-            for x in 0..heightfield.width {
-                let index = (z * heightfield.width + x) as usize;
+        for z in 0..heightfield.height() {
+            for x in 0..heightfield.width() {
+                let index = (z * heightfield.width() + x) as usize;
 
                 // Write span count
                 data.extend_from_slice(&counts[index].to_be_bytes());
 
                 // Write spans
-                if let Some(span_rc) = heightfield.spans.get(&(x, z)).and_then(|s| s.as_ref()) {
+                if let Some(span_rc) = heightfield.spans().get(&(x, z)).and_then(|s| s.as_ref()) {
                     let mut current_span = Some(span_rc.clone());
                     while let Some(span) = current_span {
                         let span_ref = span.borrow();
