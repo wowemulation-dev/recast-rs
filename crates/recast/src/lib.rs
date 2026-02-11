@@ -113,11 +113,19 @@ impl RecastBuilder {
         )?;
 
         // Build the detailed polygon mesh
+        // Scale parameters to world space (matches C++ rcBuildPolyMeshDetail call site)
+        let detail_sample_dist = if self.config.detail_sample_dist < 0.9 {
+            0.0
+        } else {
+            self.config.cs * self.config.detail_sample_dist
+        };
+        let detail_sample_max_error = self.config.ch * self.config.detail_sample_max_error;
+
         let poly_mesh_detail = PolyMeshDetail::build_from_poly_mesh(
             &poly_mesh,
             &compact_heightfield,
-            self.config.detail_sample_dist,
-            self.config.detail_sample_max_error,
+            detail_sample_dist,
+            detail_sample_max_error,
         )?;
 
         Ok((poly_mesh, poly_mesh_detail))
@@ -346,12 +354,19 @@ impl RecastBuilder {
             self.config.max_vertices_per_polygon as usize,
         )?;
 
-        // Build the detailed polygon mesh
+        // Build the detailed polygon mesh (same scaling as build_mesh)
+        let detail_sample_dist = if self.config.detail_sample_dist < 0.9 {
+            0.0
+        } else {
+            self.config.cs * self.config.detail_sample_dist
+        };
+        let detail_sample_max_error = self.config.ch * self.config.detail_sample_max_error;
+
         let poly_mesh_detail = PolyMeshDetail::build_from_poly_mesh(
             &poly_mesh,
             &compact_heightfield,
-            self.config.detail_sample_dist,
-            self.config.detail_sample_max_error,
+            detail_sample_dist,
+            detail_sample_max_error,
         )?;
 
         Ok((poly_mesh, poly_mesh_detail))
