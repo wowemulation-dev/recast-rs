@@ -170,7 +170,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
             ];
 
             // Find the nearest polygon for this intermediate position
-            let half_extents = self.query.get_query_extent();
+            let half_extents = self.query.get_query_extent().to_array();
             if let Ok((poly_ref, _)) =
                 self.query
                     .find_nearest_poly(&intermediate_pos, &half_extents, &self.filter)
@@ -231,7 +231,7 @@ impl<'a> SlicedPathfindingQuery<'a> {
             self.start_pos
         } else {
             // Get position of last polygon in path
-            self.query.get_poly_center(segment_start_ref)?
+            self.query.get_poly_center(segment_start_ref)?.to_array()
         };
 
         // Execute pathfinding for this segment

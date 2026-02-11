@@ -194,13 +194,13 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Sets the query extent
-    pub fn set_query_extent(&mut self, extent: [f32; 3]) {
-        self.query_extent = extent;
+    pub fn set_query_extent(&mut self, extent: Vec3) {
+        self.query_extent = extent.to_array();
     }
 
     /// Gets the query extent
-    pub fn get_query_extent(&self) -> [f32; 3] {
-        self.query_extent
+    pub fn get_query_extent(&self) -> Vec3 {
+        Vec3::from(self.query_extent)
     }
 
     /// Sets the random seed for random point generation
@@ -567,7 +567,7 @@ impl<'a> NavMeshQuery<'a> {
             }
 
             // Get edge midpoint positions (C++ compatibility: use shared edge midpoint)
-            let current_center = self.get_poly_center(current_poly)?;
+            let current_center = self.get_poly_center(current_poly)?.to_array();
             let neighbor_center = match self.get_portal_points(current_poly, neighbor_ref) {
                 Ok((left, right)) => {
                     // Use midpoint of shared edge between polygons
@@ -579,7 +579,7 @@ impl<'a> NavMeshQuery<'a> {
                 }
                 Err(_) => {
                     // Fallback to polygon center if portal points not available
-                    self.get_poly_center(neighbor_ref)?
+                    self.get_poly_center(neighbor_ref)?.to_array()
                 }
             };
 
@@ -602,7 +602,7 @@ impl<'a> NavMeshQuery<'a> {
                     if neighbor_ref == goal_poly {
                         0.0
                     } else {
-                        let poly_center = self.get_poly_center(neighbor_ref)?;
+                        let poly_center = self.get_poly_center(neighbor_ref)?.to_array();
                         self.heuristic(&poly_center, end_pos)
                     }
                 } else {
@@ -761,7 +761,7 @@ impl<'a> NavMeshQuery<'a> {
                 };
 
                 // Get position on current polygon for cost calculation
-                let current_pos = self.get_poly_center(current_poly)?;
+                let current_pos = self.get_poly_center(current_poly)?.to_array();
 
                 // Cost for traversing the off-mesh connection
                 let cost = self.get_off_mesh_connection_cost(
@@ -928,7 +928,7 @@ impl<'a> NavMeshQuery<'a> {
     }
 
     /// Gets the center of a polygon
-    pub fn get_poly_center(&self, poly_ref: PolyRef) -> Result<[f32; 3], DetourError> {
+    pub fn get_poly_center(&self, poly_ref: PolyRef) -> Result<Vec3, DetourError> {
         // Get the tile and poly
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
@@ -952,7 +952,7 @@ impl<'a> NavMeshQuery<'a> {
             center[2] /= count as f32;
         }
 
-        Ok(center)
+        Ok(Vec3::from(center))
     }
 
     /// Finds the closest point on a polygon
@@ -2793,7 +2793,7 @@ impl<'a> NavMeshQuery<'a> {
                 } else {
                     // Fall back to polygon center if random point is outside radius
                     match self.get_poly_center(random_poly) {
-                        Ok(center) => Ok((random_poly, center)),
+                        Ok(center) => Ok((random_poly, center.to_array())),
                         Err(e) => Err(e),
                     }
                 }
@@ -2801,7 +2801,7 @@ impl<'a> NavMeshQuery<'a> {
             Err(_) => {
                 // Fallback: get polygon center
                 match self.get_poly_center(random_poly) {
-                    Ok(center) => Ok((random_poly, center)),
+                    Ok(center) => Ok((random_poly, center.to_array())),
                     Err(e) => Err(e),
                 }
             }
@@ -2830,7 +2830,7 @@ impl<'a> NavMeshQuery<'a> {
             Err(_) => {
                 // Fallback: get polygon center
                 match self.get_poly_center(random_poly) {
-                    Ok(center) => Ok((random_poly, center)),
+                    Ok(center) => Ok((random_poly, center.to_array())),
                     Err(e) => Err(e),
                 }
             }
@@ -3561,7 +3561,7 @@ impl<'a> NavMeshQuery<'a> {
 
                 // If not in open list or this path is better
                 if neighbor_node.state == NodeState::New || tentative_g < neighbor_node.g {
-                    let neighbor_pos = self.get_poly_center(neighbor_ref)?;
+                    let neighbor_pos = self.get_poly_center(neighbor_ref)?.to_array();
                     let h = self.heuristic(&neighbor_pos, &self.sliced_state.end_pos);
 
                     let neighbor_node = &mut self.node_pool[neighbor_idx];
@@ -4258,7 +4258,7 @@ mod tests {
         let query = NavMeshQuery::new(&nav_mesh);
 
         // Check query extent default values
-        assert_eq!(query.get_query_extent(), [2.0, 4.0, 2.0]);
+        assert_eq!(query.get_query_extent(), Vec3::new(2.0, 4.0, 2.0));
     }
 
     #[test]
@@ -4278,7 +4278,7 @@ mod tests {
         let mut query = NavMeshQuery::new(&nav_mesh);
 
         // Set query extent
-        let extent = [10.0, 20.0, 10.0];
+        let extent = Vec3::new(10.0, 20.0, 10.0);
         query.set_query_extent(extent);
 
         // Check query extent
