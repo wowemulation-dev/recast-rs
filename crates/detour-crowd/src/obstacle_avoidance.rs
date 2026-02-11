@@ -47,6 +47,7 @@ impl Default for DtObstacleSegment {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct DtObstacleAvoidanceParams {
     pub vel_bias: f32,       // Velocity bias
     pub weight_des_vel: f32, // Weight for desired velocity

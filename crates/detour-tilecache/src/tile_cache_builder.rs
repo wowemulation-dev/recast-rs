@@ -27,25 +27,19 @@ impl TileCacheBuilder {
     /// Creates a new tile cache builder
     pub fn new(config: TileCacheBuilderConfig) -> Self {
         // Convert TileCacheBuilderConfig to RecastConfig
-        let recast_config = RecastConfig {
-            width: 0,  // Will be set per tile
-            height: 0, // Will be set per tile
-            cs: config.cs,
-            ch: config.ch,
-            bmin: Vec3::ZERO,           // Will be set per tile
-            bmax: Vec3::ZERO,           // Will be set per tile
-            walkable_slope_angle: 45.0, // Default, could be added to config
-            walkable_height: config.walkable_height,
-            walkable_climb: config.walkable_climb,
-            walkable_radius: config.walkable_radius,
-            max_edge_len: config.max_edge_len as i32,
-            max_simplification_error: config.max_simplification_error,
-            min_region_area: config.min_region_area,
-            merge_region_area: config.merge_region_area,
-            max_vertices_per_polygon: config.max_verts_per_poly,
-            detail_sample_dist: 6.0,      // Default detail sampling
-            detail_sample_max_error: 1.0, // Default detail error
-            border_size: 0,               // Default, no border
+        let recast_config = {
+            let mut rc = RecastConfig::default();
+            rc.cs = config.cs;
+            rc.ch = config.ch;
+            rc.walkable_height = config.walkable_height;
+            rc.walkable_climb = config.walkable_climb;
+            rc.walkable_radius = config.walkable_radius;
+            rc.max_edge_len = config.max_edge_len as i32;
+            rc.max_simplification_error = config.max_simplification_error;
+            rc.min_region_area = config.min_region_area;
+            rc.merge_region_area = config.merge_region_area;
+            rc.max_vertices_per_polygon = config.max_verts_per_poly;
+            rc
         };
 
         Self {

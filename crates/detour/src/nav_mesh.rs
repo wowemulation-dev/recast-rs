@@ -103,10 +103,12 @@ pub struct Link {
     /// Reference to the connected polygon
     pub(crate) reference: PolyRef,
     /// Index of the neighbor polygon
+    #[allow(dead_code)]
     pub(crate) neighbor_index: u8,
     /// Edge index of the connection
     pub(crate) edge_index: u8,
     /// Direction flags for the connection
+    #[allow(dead_code)]
     pub(crate) side: u8,
     /// Boundary flag (0 = internal, 1 = tile boundary)
     pub(crate) boundary_flag: u8,

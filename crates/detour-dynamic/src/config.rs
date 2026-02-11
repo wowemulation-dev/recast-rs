@@ -1,6 +1,7 @@
 use glam::Vec3;
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct DynamicNavMeshConfig {
     pub use_tiles: bool,
     pub tile_size_x: i32,

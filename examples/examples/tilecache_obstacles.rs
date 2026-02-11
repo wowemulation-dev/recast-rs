@@ -13,13 +13,12 @@ use detour_tilecache::{TileCache, TileCacheParams};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create tile cache parameters matching the navmesh config
-    let params = TileCacheParams {
-        origin: [0.0, 0.0, 0.0],
-        cs: 0.3,
-        ch: 0.2,
-        width: 100,
-        height: 100,
-        max_obstacles: 32,
+    let params = {
+        let mut p = TileCacheParams::default();
+        p.width = 100;
+        p.height = 100;
+        p.max_obstacles = 32;
+        p
     };
 
     let mut tile_cache = TileCache::new(params)?;

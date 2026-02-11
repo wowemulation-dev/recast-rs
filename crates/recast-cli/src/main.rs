@@ -203,22 +203,20 @@ fn build_mesh(
     println!("Mesh bounds: min={:?}, max={:?}", bmin, bmax);
 
     // Create Recast configuration
-    let mut config = RecastConfig {
-        cs,
-        ch,
-        walkable_slope_angle,
-        walkable_height,
-        walkable_climb,
-        walkable_radius,
-        max_edge_len,
-        max_simplification_error,
-        min_region_area,
-        merge_region_area,
-        max_vertices_per_polygon,
-        detail_sample_dist,
-        detail_sample_max_error,
-        ..Default::default()
-    };
+    let mut config = RecastConfig::default();
+    config.cs = cs;
+    config.ch = ch;
+    config.walkable_slope_angle = walkable_slope_angle;
+    config.walkable_height = walkable_height;
+    config.walkable_climb = walkable_climb;
+    config.walkable_radius = walkable_radius;
+    config.max_edge_len = max_edge_len;
+    config.max_simplification_error = max_simplification_error;
+    config.min_region_area = min_region_area;
+    config.merge_region_area = merge_region_area;
+    config.max_vertices_per_polygon = max_vertices_per_polygon;
+    config.detail_sample_dist = detail_sample_dist;
+    config.detail_sample_max_error = detail_sample_max_error;
 
     // Calculate grid size
     config.calculate_grid_size(bmin, bmax);
@@ -239,13 +237,12 @@ fn build_mesh(
     );
 
     // Convert to Detour format
-    let params = NavMeshParams {
-        origin: [bmin.x, bmin.y, bmin.z],
-        tile_width: (bmax.x - bmin.x),
-        tile_height: (bmax.z - bmin.z),
-        max_tiles: 1,
-        max_polys_per_tile: poly_mesh.poly_count() as i32,
-    };
+    let mut params = NavMeshParams::default();
+    params.origin = [bmin.x, bmin.y, bmin.z];
+    params.tile_width = bmax.x - bmin.x;
+    params.tile_height = bmax.z - bmin.z;
+    params.max_tiles = 1;
+    params.max_polys_per_tile = poly_mesh.poly_count() as i32;
 
     let nav_mesh =
         NavMesh::build_from_recast(params, &poly_mesh, &poly_mesh_detail, NavMeshFlags::empty())

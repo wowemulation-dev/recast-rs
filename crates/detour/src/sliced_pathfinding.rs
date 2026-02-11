@@ -30,6 +30,7 @@ pub enum SlicedPathState {
 
 /// Configuration for sliced pathfinding
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SlicedPathConfig {
     /// Maximum number of polygons to process in a single slice
     pub max_slice_size: usize,

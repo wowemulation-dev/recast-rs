@@ -16,22 +16,20 @@ fn build_navmesh() -> NavMesh {
     let path = format!("{TEST_DATA}/nav_test.obj");
     let mesh = TriMesh::from_obj(&path).expect("failed to load test mesh");
     let (bmin, bmax) = mesh.calculate_bounds();
-    let mut config = RecastConfig {
-        cs: 0.3,
-        ch: 0.2,
-        walkable_slope_angle: 45.0,
-        walkable_height: 2,
-        walkable_climb: 1,
-        walkable_radius: 1,
-        max_edge_len: 12,
-        max_simplification_error: 1.3,
-        min_region_area: 8,
-        merge_region_area: 20,
-        max_vertices_per_polygon: 6,
-        detail_sample_dist: 6.0,
-        detail_sample_max_error: 1.0,
-        ..Default::default()
-    };
+    let mut config = RecastConfig::default();
+    config.cs = 0.3;
+    config.ch = 0.2;
+    config.walkable_slope_angle = 45.0;
+    config.walkable_height = 2;
+    config.walkable_climb = 1;
+    config.walkable_radius = 1;
+    config.max_edge_len = 12;
+    config.max_simplification_error = 1.3;
+    config.min_region_area = 8;
+    config.merge_region_area = 20;
+    config.max_vertices_per_polygon = 6;
+    config.detail_sample_dist = 6.0;
+    config.detail_sample_max_error = 1.0;
     config.calculate_grid_size(bmin, bmax);
 
     let builder = RecastBuilder::new(config);
@@ -39,12 +37,14 @@ fn build_navmesh() -> NavMesh {
         .build_mesh(&mesh.vertices, &mesh.indices)
         .expect("failed to build mesh");
 
-    let params = NavMeshParams {
-        origin: [bmin.x, bmin.y, bmin.z],
-        tile_width: bmax.x - bmin.x,
-        tile_height: bmax.z - bmin.z,
-        max_tiles: 1,
-        max_polys_per_tile: poly_mesh.poly_count() as i32,
+    let params = {
+        let mut p = NavMeshParams::default();
+        p.origin = [bmin.x, bmin.y, bmin.z];
+        p.tile_width = bmax.x - bmin.x;
+        p.tile_height = bmax.z - bmin.z;
+        p.max_tiles = 1;
+        p.max_polys_per_tile = poly_mesh.poly_count() as i32;
+        p
     };
 
     NavMesh::build_from_recast(params, &poly_mesh, &detail_mesh, NavMeshFlags::empty())
@@ -63,12 +63,13 @@ fn setup_crowd(nav_mesh: &NavMesh, num_agents: usize, enable_rvo: bool) -> Crowd
     let filter = QueryFilter::default();
     let extent = [5.0, 10.0, 5.0];
 
-    let params = AgentParams {
-        radius: 0.6,
-        height: 2.0,
-        max_acceleration: 8.0,
-        max_speed: 3.5,
-        ..Default::default()
+    let params = {
+        let mut p = AgentParams::default();
+        p.radius = 0.6;
+        p.height = 2.0;
+        p.max_acceleration = 8.0;
+        p.max_speed = 3.5;
+        p
     };
 
     // Place agents in a grid pattern and give each a target

@@ -407,6 +407,7 @@ impl TileCacheLayer {
 
 /// Tile cache builder configuration
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct TileCacheBuilderConfig {
     /// Cell size
     pub cs: f32,

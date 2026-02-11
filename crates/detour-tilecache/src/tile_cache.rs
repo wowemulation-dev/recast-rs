@@ -49,6 +49,7 @@ pub struct TileCache {
 
 /// Tile cache parameters
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 #[cfg_attr(
     feature = "serialization",
     derive(serde::Serialize, serde::Deserialize)
@@ -66,6 +67,19 @@ pub struct TileCacheParams {
     pub height: i32,
     /// Maximum number of obstacles
     pub max_obstacles: i32,
+}
+
+impl Default for TileCacheParams {
+    fn default() -> Self {
+        Self {
+            origin: [0.0, 0.0, 0.0],
+            cs: 0.3,
+            ch: 0.2,
+            width: 0,
+            height: 0,
+            max_obstacles: 0,
+        }
+    }
 }
 
 /// Tile cache entry

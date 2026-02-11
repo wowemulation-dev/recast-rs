@@ -18,47 +18,41 @@ mod tests {
 
     /// Helper to create a simple square navmesh for crowd testing
     fn create_test_navmesh(size: f32) -> Result<NavMesh> {
-        let params = NavMeshParams {
-            origin: [0.0, 0.0, 0.0],
-            tile_width: size,
-            tile_height: size,
-            max_tiles: 1,
-            max_polys_per_tile: 1,
+        let params = {
+            let mut p = NavMeshParams::default();
+            p.tile_width = size;
+            p.tile_height = size;
+            p.max_tiles = 1;
+            p.max_polys_per_tile = 1;
+            p
         };
 
         let vertices = vec![
             0.0, 0.0, 0.0, size, 0.0, 0.0, size, 0.0, size, 0.0, 0.0, size,
         ];
 
-        let create_params = NavMeshCreateParams {
-            nav_mesh_params: params.clone(),
-            verts: vertices.clone(),
-            vert_count: 4,
-            polys: vec![0, 1, 2, 3, 0xffff, 0xffff],
-            poly_flags: vec![PolyFlags::WALK],
-            poly_areas: vec![0],
-            poly_count: 1,
-            nvp: 6,
-            detail_meshes: vec![0, 4, 0, 2],
-            detail_verts: vertices,
-            detail_vert_count: 4,
-            detail_tris: vec![0, 1, 2, 0, 0, 2, 3, 0],
-            detail_tri_count: 2,
-            off_mesh_con_verts: Vec::new(),
-            off_mesh_con_rad: Vec::new(),
-            off_mesh_con_dir: Vec::new(),
-            off_mesh_con_areas: Vec::new(),
-            off_mesh_con_flags: Vec::new(),
-            off_mesh_con_user_id: Vec::new(),
-            off_mesh_con_count: 0,
-            bmin: [0.0, 0.0, 0.0],
-            bmax: [size, 1.0, size],
-            walkable_height: 2.0,
-            walkable_radius: 0.6,
-            walkable_climb: 0.9,
-            cs: 0.3,
-            ch: 0.2,
-            build_bv_tree: true,
+        let create_params = {
+            let mut cp = NavMeshCreateParams::default();
+            cp.nav_mesh_params = params.clone();
+            cp.verts = vertices.clone();
+            cp.vert_count = 4;
+            cp.polys = vec![0, 1, 2, 3, 0xffff, 0xffff];
+            cp.poly_flags = vec![PolyFlags::WALK];
+            cp.poly_areas = vec![0];
+            cp.poly_count = 1;
+            cp.nvp = 6;
+            cp.detail_meshes = vec![0, 4, 0, 2];
+            cp.detail_verts = vertices;
+            cp.detail_vert_count = 4;
+            cp.detail_tris = vec![0, 1, 2, 0, 0, 2, 3, 0];
+            cp.detail_tri_count = 2;
+            cp.bmax = [size, 1.0, size];
+            cp.walkable_height = 2.0;
+            cp.walkable_radius = 0.6;
+            cp.walkable_climb = 0.9;
+            cp.cs = 0.3;
+            cp.ch = 0.2;
+            cp
         };
 
         let mut nav_mesh = NavMesh::new(params)?;

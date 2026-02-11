@@ -10,6 +10,7 @@ use crate::error::CrowdError;
 
 /// Configuration parameters for RVO
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct RVOConfig {
     /// Time horizon for collision avoidance
     pub time_horizon: f32,

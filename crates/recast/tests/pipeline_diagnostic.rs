@@ -12,22 +12,21 @@ use recast_common::TriMesh;
 const TEST_DATA: &str = "../../test-data";
 
 fn test_config() -> RecastConfig {
-    RecastConfig {
-        cs: 0.3,
-        ch: 0.2,
-        walkable_slope_angle: 45.0,
-        walkable_height: 2,
-        walkable_climb: 1,
-        walkable_radius: 1,
-        max_edge_len: 12,
-        max_simplification_error: 1.3,
-        min_region_area: 8,
-        merge_region_area: 20,
-        max_vertices_per_polygon: 6,
-        detail_sample_dist: 6.0,
-        detail_sample_max_error: 1.0,
-        ..Default::default()
-    }
+    let mut config = RecastConfig::default();
+    config.cs = 0.3;
+    config.ch = 0.2;
+    config.walkable_slope_angle = 45.0;
+    config.walkable_height = 2;
+    config.walkable_climb = 1;
+    config.walkable_radius = 1;
+    config.max_edge_len = 12;
+    config.max_simplification_error = 1.3;
+    config.min_region_area = 8;
+    config.merge_region_area = 20;
+    config.max_vertices_per_polygon = 6;
+    config.detail_sample_dist = 6.0;
+    config.detail_sample_max_error = 1.0;
+    config
 }
 
 fn run_pipeline_diagnostic(obj_name: &str) {

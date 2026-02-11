@@ -50,6 +50,7 @@ pub enum FormationState {
 
 /// Formation configuration parameters
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct FormationConfig {
     /// Type of formation
     pub formation_type: FormationType,

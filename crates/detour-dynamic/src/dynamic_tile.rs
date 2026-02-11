@@ -758,36 +758,29 @@ impl DynamicTile {
         let bmin = [self.bounds_min.x, self.bounds_min.y, self.bounds_min.z];
         let bmax = [self.bounds_max.x, self.bounds_max.y, self.bounds_max.z];
 
-        let params = NavMeshCreateParams {
-            nav_mesh_params: nav_mesh_params.clone(),
-            verts: verts.clone(),
-            vert_count: (verts.len() / 3) as i32,
-            polys,
-            poly_flags,
-            poly_areas,
-            poly_count: poly_count as i32,
-            nvp: poly_mesh.max_verts_per_poly() as i32,
-            detail_meshes,
-            detail_verts,
-            detail_vert_count,
-            detail_tris,
-            detail_tri_count,
-            // No off-mesh connections for now
-            off_mesh_con_verts: Vec::new(),
-            off_mesh_con_rad: Vec::new(),
-            off_mesh_con_flags: Vec::new(),
-            off_mesh_con_areas: Vec::new(),
-            off_mesh_con_dir: Vec::new(),
-            off_mesh_con_user_id: Vec::new(),
-            off_mesh_con_count: 0,
-            bmin,
-            bmax,
-            walkable_height: self.config.walkable_height,
-            walkable_radius: self.config.walkable_radius,
-            walkable_climb: self.config.walkable_climb,
-            cs: self.config.cell_size,
-            ch: self.config.cell_height,
-            build_bv_tree: true,
+        let params = {
+            let mut cp = NavMeshCreateParams::default();
+            cp.nav_mesh_params = nav_mesh_params.clone();
+            cp.verts = verts.clone();
+            cp.vert_count = (verts.len() / 3) as i32;
+            cp.polys = polys;
+            cp.poly_flags = poly_flags;
+            cp.poly_areas = poly_areas;
+            cp.poly_count = poly_count as i32;
+            cp.nvp = poly_mesh.max_verts_per_poly() as i32;
+            cp.detail_meshes = detail_meshes;
+            cp.detail_verts = detail_verts;
+            cp.detail_vert_count = detail_vert_count;
+            cp.detail_tris = detail_tris;
+            cp.detail_tri_count = detail_tri_count;
+            cp.bmin = bmin;
+            cp.bmax = bmax;
+            cp.walkable_height = self.config.walkable_height;
+            cp.walkable_radius = self.config.walkable_radius;
+            cp.walkable_climb = self.config.walkable_climb;
+            cp.cs = self.config.cell_size;
+            cp.ch = self.config.cell_height;
+            cp
         };
 
         // Build the mesh data
