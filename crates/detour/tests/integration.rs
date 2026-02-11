@@ -219,7 +219,7 @@ fn nav_test_pathfinding_matches_cpp() {
     assert!(path.len() > 1, "path should traverse multiple polygons");
 
     let straight = query
-        .find_straight_path(&start_arr, &end_arr, &path)
+        .find_straight_path(Vec3::from(start_arr), Vec3::from(end_arr), &path)
         .unwrap();
 
     // C++ produces multiple waypoints for this query

@@ -133,7 +133,12 @@ impl PathCorridor {
 
             for i in current_idx + 2..self.path.len() {
                 let result = query
-                    .move_along_surface(self.path[current_idx], &self.pos, &self.target, filter)
+                    .move_along_surface(
+                        self.path[current_idx],
+                        Vec3::from(self.pos),
+                        Vec3::from(self.target),
+                        filter,
+                    )
                     .map_err(|_| CrowdError::CorridorFailed)?;
 
                 // If we can reach the target directly, we're done
@@ -183,7 +188,12 @@ impl PathCorridor {
 
         // Find the new position by moving along the surface
         let result = query
-            .move_along_surface(self.path[0], &self.pos, &new_pos, filter)
+            .move_along_surface(
+                self.path[0],
+                Vec3::from(self.pos),
+                Vec3::from(new_pos),
+                filter,
+            )
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         // Update the position
@@ -252,7 +262,12 @@ impl PathCorridor {
         for i in 1..self.path.len() {
             // Try to move along the surface to each polygon
             let result = query
-                .move_along_surface(self.path[0], &self.pos, &self.target, filter)
+                .move_along_surface(
+                    self.path[0],
+                    Vec3::from(self.pos),
+                    Vec3::from(self.target),
+                    filter,
+                )
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the polygon
@@ -301,7 +316,12 @@ impl PathCorridor {
         for i in self.path.len() - 1..0 {
             // Check if we can reach the target from this polygon
             let result = query
-                .move_along_surface(self.path[i], &new_pos, &self.target, filter)
+                .move_along_surface(
+                    self.path[i],
+                    Vec3::from(new_pos),
+                    Vec3::from(self.target),
+                    filter,
+                )
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             // Check if we can reach the end polygon
@@ -360,7 +380,7 @@ impl PathCorridor {
 
         // Use the straight path functionality to find corners
         let straight_path = navquery
-            .find_straight_path(&self.pos, &self.target, &self.path)
+            .find_straight_path(Vec3::from(self.pos), Vec3::from(self.target), &self.path)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         let corner_count = straight_path.waypoints.len().min(max_corners);
@@ -399,7 +419,13 @@ impl PathCorridor {
         ];
         let max_dist = distance(&self.pos, next);
 
-        let result = navquery.raycast(self.path[0], &self.pos, &dir, max_dist, filter);
+        let result = navquery.raycast(
+            self.path[0],
+            Vec3::from(self.pos),
+            Vec3::from(dir),
+            max_dist,
+            filter,
+        );
 
         if let Ok((_hit_ref, _hit_pos, t)) = result {
             if t > 0.99 * max_dist {

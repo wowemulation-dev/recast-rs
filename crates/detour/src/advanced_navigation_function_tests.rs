@@ -34,7 +34,7 @@ mod move_along_surface_tests {
             actual_start_pos[2] + 0.1,
         ];
         let result =
-            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
+            query.move_along_surface(start_ref, actual_start_pos, Vec3::from(end_pos), &filter)?;
 
         // Should successfully move to target position within same polygon
         assert!(
@@ -75,7 +75,7 @@ mod move_along_surface_tests {
         let end_pos = [0.75, 0.0, 0.75];
 
         let result =
-            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
+            query.move_along_surface(start_ref, actual_start_pos, Vec3::from(end_pos), &filter)?;
 
         // Should visit at least one polygon (might visit more depending on path)
         assert!(
@@ -122,7 +122,7 @@ mod move_along_surface_tests {
         let end_pos = [10.0, 0.0, 10.0];
 
         let result =
-            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
+            query.move_along_surface(start_ref, actual_start_pos, Vec3::from(end_pos), &filter)?;
 
         // Should stop at mesh boundary, not reach target
         let result_dist = ((result.position[0] - end_pos[0]).powi(2)
@@ -151,7 +151,12 @@ mod move_along_surface_tests {
 
         // Use invalid polygon reference
         let invalid_ref = PolyRef::new(0);
-        let result = query.move_along_surface(invalid_ref, &start_pos, &end_pos, &filter);
+        let result = query.move_along_surface(
+            invalid_ref,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
+            &filter,
+        );
 
         assert!(
             result.is_err(),
@@ -172,9 +177,9 @@ mod move_along_surface_tests {
         let (start_ref, actual_start_pos) =
             query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
-        let actual_arr = actual_start_pos.to_array();
         // Move to same position
-        let result = query.move_along_surface(start_ref, &actual_arr, &actual_arr, &filter)?;
+        let result =
+            query.move_along_surface(start_ref, actual_start_pos, actual_start_pos, &filter)?;
 
         // Should return same position
         for i in 0..3 {
@@ -207,7 +212,7 @@ mod move_along_surface_tests {
         let end_pos = [25.0, 0.0, 25.0];
 
         let result =
-            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
+            query.move_along_surface(start_ref, actual_start_pos, Vec3::from(end_pos), &filter)?;
 
         // Should move some distance towards target
         let moved_dist = ((result.position[0] - actual_start_pos[0]).powi(2)
@@ -256,7 +261,7 @@ mod move_along_surface_tests {
         ];
 
         let result =
-            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
+            query.move_along_surface(start_ref, actual_start_pos, Vec3::from(end_pos), &filter)?;
 
         // Result should contain visited polygon refs
         assert!(
@@ -867,7 +872,7 @@ mod edge_case_tests {
             start_pos[2] + tiny_offset,
         ];
 
-        let result = query.move_along_surface(start_ref, &start_pos.to_array(), &end_pos, &filter);
+        let result = query.move_along_surface(start_ref, start_pos, Vec3::from(end_pos), &filter);
 
         assert!(
             result.is_ok(),

@@ -35,17 +35,22 @@ mod tests {
                 let start_pos_arr = start_pos.to_array();
 
                 // Test 1: Zero-length raycast (C++ compatibility)
-                let dir = [1.0, 0.0, 0.0];
+                let dir = Vec3::new(1.0, 0.0, 0.0);
                 let (end_ref, end_pos, t) =
-                    query.raycast(start_ref, &start_pos_arr, &dir, 0.0, &filter)?;
+                    query.raycast(start_ref, Vec3::from(start_pos_arr), dir, 0.0, &filter)?;
                 assert_eq!(end_ref, start_ref);
-                assert_eq!(end_pos, start_pos_arr);
+                assert_eq!(end_pos, Vec3::from(start_pos_arr));
                 assert_eq!(t, 0.0);
 
                 // Test 2: Short raycast within same polygon
                 let short_dist = 0.1; // Very short distance
-                let (end_ref2, _end_pos2, t2) =
-                    query.raycast(start_ref, &start_pos_arr, &dir, short_dist, &filter)?;
+                let (end_ref2, _end_pos2, t2) = query.raycast(
+                    start_ref,
+                    Vec3::from(start_pos_arr),
+                    dir,
+                    short_dist,
+                    &filter,
+                )?;
                 assert!(end_ref2.is_valid());
                 assert!(t2 >= 0.0 && t2 <= 1.0);
 
@@ -74,10 +79,15 @@ mod tests {
         let start_pos_arr = start_pos.to_array();
 
         // Cast ray toward mesh boundary (should hit wall)
-        let boundary_dir = [1.0, 0.0, 0.0];
+        let boundary_dir = Vec3::new(1.0, 0.0, 0.0);
         let long_dist = 2.0; // Longer than minimal mesh size (0.6 units)
-        let (_end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos_arr, &boundary_dir, long_dist, &filter)?;
+        let (_end_ref, _end_pos, t) = query.raycast(
+            start_ref,
+            Vec3::from(start_pos_arr),
+            boundary_dir,
+            long_dist,
+            &filter,
+        )?;
 
         // Should hit a wall before reaching max distance
         assert!(t < 1.0, "Ray should hit wall before max distance");
@@ -109,10 +119,10 @@ mod tests {
         let start_pos_arr = start_pos.to_array();
 
         // Cast ray in diagonal direction within mesh bounds
-        let dir = [1.0, 0.0, 1.0]; // Diagonal direction
+        let dir = Vec3::new(1.0, 0.0, 1.0); // Diagonal direction
         let dist = 0.5; // Stay within complex mesh bounds (0.9 units)
         let (ray_end_ref, ray_end_pos, t) =
-            query.raycast(start_ref, &start_pos_arr, &dir, dist, &filter)?;
+            query.raycast(start_ref, Vec3::from(start_pos_arr), dir, dist, &filter)?;
 
         // Should successfully traverse polygons
         assert!(ray_end_ref.is_valid());
@@ -127,8 +137,8 @@ mod tests {
 
         let result = query.raycast_enhanced(
             start_ref,
-            &start_pos_arr,
-            &ray_end_pos,
+            Vec3::from(start_pos_arr),
+            ray_end_pos,
             &filter,
             &options,
             None,
@@ -154,10 +164,10 @@ mod tests {
 
         // Test with invalid start reference
         let invalid_ref = crate::PolyRef::new(999999);
-        let pos = [0.0, 0.0, 0.0];
-        let dir = [1.0, 0.0, 0.0];
+        let pos = Vec3::new(0.0, 0.0, 0.0);
+        let dir = Vec3::new(1.0, 0.0, 0.0);
 
-        let result = query.raycast(invalid_ref, &pos, &dir, 10.0, &filter);
+        let result = query.raycast(invalid_ref, pos, dir, 10.0, &filter);
         assert!(
             result.is_err(),
             "Should fail with invalid polygon reference"
@@ -172,15 +182,25 @@ mod tests {
         let start_pos_arr = start_pos.to_array();
 
         let tiny_dist = f32::EPSILON * 10.0;
-        let (end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos_arr, &dir, tiny_dist, &filter)?;
+        let (end_ref, _end_pos, t) = query.raycast(
+            start_ref,
+            Vec3::from(start_pos_arr),
+            dir,
+            tiny_dist,
+            &filter,
+        )?;
         assert!(end_ref.is_valid());
         assert!(t >= 0.0);
 
         // Test with very large distance
         let huge_dist = 50.0; // Large but reasonable for large mesh (30x30 units)
-        let (end_ref2, _end_pos2, t2) =
-            query.raycast(start_ref, &start_pos_arr, &dir, huge_dist, &filter)?;
+        let (end_ref2, _end_pos2, t2) = query.raycast(
+            start_ref,
+            Vec3::from(start_pos_arr),
+            dir,
+            huge_dist,
+            &filter,
+        )?;
         assert!(end_ref2.is_valid());
         assert!(t2 >= 0.0);
         // Note: C++ implementation may return t close to 1.0 or FLT_MAX when ray reaches end
@@ -204,22 +224,22 @@ mod tests {
 
         // Test rays that are nearly parallel to polygon edges
         let near_parallel_dirs = [
-            [1.0, 0.0, f32::EPSILON],       // Nearly parallel to X axis
-            [f32::EPSILON, 0.0, 1.0],       // Nearly parallel to Z axis
-            [1.0, 0.0, f32::EPSILON * 2.0], // Slight angle
+            Vec3::new(1.0, 0.0, f32::EPSILON), // Nearly parallel to X axis
+            Vec3::new(f32::EPSILON, 0.0, 1.0), // Nearly parallel to Z axis
+            Vec3::new(1.0, 0.0, f32::EPSILON * 2.0), // Slight angle
         ];
 
         for dir in &near_parallel_dirs {
             let (end_ref, _end_pos, t) =
-                query.raycast(start_ref, &start_pos_arr, dir, 0.5, &filter)?;
+                query.raycast(start_ref, Vec3::from(start_pos_arr), *dir, 0.5, &filter)?;
             assert!(end_ref.is_valid());
             assert!(t >= 0.0);
             assert!(t.is_finite(), "t value should be finite for parallel rays");
         }
 
         // Test rays with very small direction vectors
-        let tiny_dir = [f32::EPSILON, 0.0, f32::EPSILON];
-        let result = query.raycast(start_ref, &start_pos_arr, &tiny_dir, 0.1, &filter);
+        let tiny_dir = Vec3::new(f32::EPSILON, 0.0, f32::EPSILON);
+        let result = query.raycast(start_ref, Vec3::from(start_pos_arr), tiny_dir, 0.1, &filter);
         // Should either succeed with valid results or fail gracefully
         if let Ok((end_ref, _end_pos, t)) = result {
             assert!(end_ref.is_valid());
@@ -262,9 +282,14 @@ mod tests {
 
         let start_pos_arr = start_pos.to_array();
 
-        let dir = [1.0, 0.0, 0.0];
-        let (end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos_arr, &dir, 0.5, &permissive_filter)?;
+        let dir = Vec3::new(1.0, 0.0, 0.0);
+        let (end_ref, _end_pos, t) = query.raycast(
+            start_ref,
+            Vec3::from(start_pos_arr),
+            dir,
+            0.5,
+            &permissive_filter,
+        )?;
         assert!(end_ref.is_valid());
         assert!(t >= 0.0);
 
@@ -291,15 +316,15 @@ mod tests {
         let end_pos_arr = end_pos.to_array();
 
         // Cast ray diagonally across the grid
-        let dir = [
+        let dir = Vec3::new(
             end_pos_arr[0] - start_pos_arr[0],
             end_pos_arr[1] - start_pos_arr[1],
             end_pos_arr[2] - start_pos_arr[2],
-        ];
-        let dist = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
+        );
+        let dist = dir.length();
 
         let (ray_end_ref, ray_end_pos, t) =
-            query.raycast(start_ref, &start_pos_arr, &dir, dist, &filter)?;
+            query.raycast(start_ref, Vec3::from(start_pos_arr), dir, dist, &filter)?;
 
         // Should successfully traverse multiple polygons
         assert!(ray_end_ref.is_valid());
@@ -313,8 +338,8 @@ mod tests {
         };
         let result = query.raycast_enhanced(
             start_ref,
-            &start_pos_arr,
-            &ray_end_pos,
+            Vec3::from(start_pos_arr),
+            ray_end_pos,
             &filter,
             &options,
             None,
@@ -346,16 +371,21 @@ mod tests {
 
         // Cast rays in all cardinal directions to test boundary detection
         let test_cases = [
-            ([1.0, 0.0, 0.0], "East"),
-            ([-1.0, 0.0, 0.0], "West"),
-            ([0.0, 0.0, 1.0], "North"),
-            ([0.0, 0.0, -1.0], "South"),
+            (Vec3::new(1.0, 0.0, 0.0), "East"),
+            (Vec3::new(-1.0, 0.0, 0.0), "West"),
+            (Vec3::new(0.0, 0.0, 1.0), "North"),
+            (Vec3::new(0.0, 0.0, -1.0), "South"),
         ];
 
         for (dir, direction_name) in &test_cases {
             let long_dist = 0.25; // Distance that will hit boundary of minimal mesh (0.6 units)
-            let (_end_ref, end_pos, t) =
-                query.raycast(start_ref, &start_pos_arr, dir, long_dist, &filter)?;
+            let (_end_ref, end_pos, t) = query.raycast(
+                start_ref,
+                Vec3::from(start_pos_arr),
+                *dir,
+                long_dist,
+                &filter,
+            )?;
 
             // Should hit boundary before max distance OR reach end position
             // C++ allows both t < 1.0 (boundary hit) or t ≈ 1.0 (ray completes)
@@ -414,11 +444,16 @@ mod tests {
 
         // Cast very long ray that would stress the algorithm
         let extreme_dist = 50.0; // Large but reasonable for large mesh
-        let dir = [1.0, 0.0, 1.0];
+        let dir = Vec3::new(1.0, 0.0, 1.0);
 
         let start_time = std::time::Instant::now();
-        let (end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos_arr, &dir, extreme_dist, &filter)?;
+        let (end_ref, _end_pos, t) = query.raycast(
+            start_ref,
+            Vec3::from(start_pos_arr),
+            dir,
+            extreme_dist,
+            &filter,
+        )?;
         let elapsed = start_time.elapsed();
 
         // Should complete in reasonable time (not infinite loop)

@@ -40,20 +40,19 @@ mod concurrent_read_tests {
                             &filter,
                         )?;
 
-                        let actual_arr = actual_start_pos.to_array();
                         // Perform many operations
                         for i in 0..operations_per_thread {
                             let offset = (thread_id as f32 * 0.1) + (i as f32 * 0.01);
-                            let end_pos = [
+                            let end_pos = Vec3::new(
                                 actual_start_pos[0] + offset,
                                 actual_start_pos[1],
                                 actual_start_pos[2] + offset,
-                            ];
+                            );
 
                             let result = query.move_along_surface(
                                 start_ref,
-                                &actual_arr,
-                                &end_pos,
+                                actual_start_pos,
+                                end_pos,
                                 &filter,
                             )?;
 
@@ -174,21 +173,20 @@ mod concurrent_read_tests {
                             &filter,
                         )?;
 
-                        let actual_arr = actual_start_pos.to_array();
                         // Mix different types of read operations
                         for i in 0..50 {
                             match (thread_id + i) % 3 {
                                 0 => {
                                     // moveAlongSurface
-                                    let end_pos = [
+                                    let end_pos = Vec3::new(
                                         actual_start_pos[0] + (i as f32 * 0.1),
                                         actual_start_pos[1],
                                         actual_start_pos[2] + (i as f32 * 0.1),
-                                    ];
+                                    );
                                     query.move_along_surface(
                                         start_ref,
-                                        &actual_arr,
-                                        &end_pos,
+                                        actual_start_pos,
+                                        end_pos,
                                         &filter,
                                     )?;
                                 }
@@ -197,7 +195,7 @@ mod concurrent_read_tests {
                                     let radius = 1.0 + (i as f32 * 0.1);
                                     query.find_local_neighbourhood(
                                         start_ref,
-                                        &actual_arr,
+                                        &actual_start_pos.to_array(),
                                         radius,
                                         &filter,
                                         10,
@@ -406,26 +404,25 @@ mod concurrent_write_tests {
                                 &filter,
                             )?;
 
-                            let actual_arr = actual_start_pos.to_array();
                             // Perform read operations
                             match i % 2 {
                                 0 => {
-                                    let end_pos = [
+                                    let end_pos = Vec3::new(
                                         actual_start_pos[0] + 0.1,
                                         actual_start_pos[1],
                                         actual_start_pos[2] + 0.1,
-                                    ];
+                                    );
                                     query.move_along_surface(
                                         start_ref,
-                                        &actual_arr,
-                                        &end_pos,
+                                        actual_start_pos,
+                                        end_pos,
                                         &filter,
                                     )?;
                                 }
                                 1 => {
                                     query.find_local_neighbourhood(
                                         start_ref,
-                                        &actual_arr,
+                                        &actual_start_pos.to_array(),
                                         0.5,
                                         &filter,
                                         5,

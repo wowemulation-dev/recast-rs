@@ -110,7 +110,13 @@ fn bench_raycast(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             for dir in &directions {
-                let _ = query.raycast(start_ref, &start_pos, dir, 100.0, &filter);
+                let _ = query.raycast(
+                    start_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(*dir),
+                    100.0,
+                    &filter,
+                );
             }
         });
     });
@@ -160,7 +166,12 @@ fn bench_move_along_surface(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             for target in &targets {
-                let _ = query.move_along_surface(start_ref, &start_pos, target, &filter);
+                let _ = query.move_along_surface(
+                    start_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(*target),
+                    &filter,
+                );
             }
         });
     });

@@ -44,14 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // A* search: find a corridor of polygons from start to end
     let poly_path = query.find_path(start_ref, end_ref, closest_start, closest_end, &filter)?;
-    let closest_start_arr = closest_start.to_array();
-    let closest_end_arr = closest_end.to_array();
-
     println!("Polygon path: {} polygons", poly_path.len());
 
     // Funnel algorithm: convert polygon corridor to world-space waypoints
-    let straight_path =
-        query.find_straight_path(&closest_start_arr, &closest_end_arr, &poly_path)?;
+    let straight_path = query.find_straight_path(closest_start, closest_end, &poly_path)?;
 
     println!("Straight path: {} waypoints", straight_path.waypoints.len());
     println!();

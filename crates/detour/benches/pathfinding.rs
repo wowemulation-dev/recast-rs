@@ -119,7 +119,7 @@ fn bench_find_straight_path(c: &mut Criterion) {
         let query = NavMeshQuery::new(&nav_mesh);
         b.iter(|| {
             query
-                .find_straight_path(&start_pos, &end_pos, &poly_path)
+                .find_straight_path(Vec3::from(start_pos), Vec3::from(end_pos), &poly_path)
                 .unwrap()
         });
     });

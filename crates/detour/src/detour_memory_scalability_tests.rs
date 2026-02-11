@@ -226,7 +226,11 @@ mod tests {
 
                 // Test straight path generation
                 if !path.is_empty() {
-                    let straight_path = query.find_straight_path(&start_pos, &end_pos, &path)?;
+                    let straight_path = query.find_straight_path(
+                        Vec3::from(start_pos),
+                        Vec3::from(end_pos),
+                        &path,
+                    )?;
                     assert!(
                         !straight_path.waypoints.is_empty(),
                         "Should generate straight path"
@@ -614,7 +618,11 @@ mod tests {
                             Ok(path) => {
                                 // Generate straight path if path exists
                                 if !path.is_empty() && path.len() < 1000 {
-                                    let _ = query.find_straight_path(&pos1, &pos2, &path);
+                                    let _ = query.find_straight_path(
+                                        Vec3::from(pos1),
+                                        Vec3::from(pos2),
+                                        &path,
+                                    );
                                 }
                             }
                             Err(_) => {

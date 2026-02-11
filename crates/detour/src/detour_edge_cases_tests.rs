@@ -87,9 +87,9 @@ mod tests {
         assert_eq!(path[0], poly_ref, "Path should contain the polygon");
 
         // Raycast within single polygon
-        let start = [0.2, 0.0, 0.2];
-        let end = [0.4, 0.0, 0.4];
-        let (hit_ref, _, t) = query.raycast(poly_ref, &start, &end, 1.0, &filter)?;
+        let start = Vec3::new(0.2, 0.0, 0.2);
+        let end = Vec3::new(0.4, 0.0, 0.4);
+        let (hit_ref, _, t) = query.raycast(poly_ref, start, end, 1.0, &filter)?;
         assert_eq!(hit_ref, poly_ref, "Should stay in same polygon");
         // Allow small floating point differences
         assert!(
@@ -231,9 +231,8 @@ mod tests {
         let (poly_ref, pos) =
             query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
-        let pos_arr = pos.to_array();
         // Test zero-length raycast
-        let (hit_ref, hit_pos, t) = query.raycast(poly_ref, &pos_arr, &pos_arr, 0.0, &filter)?;
+        let (hit_ref, hit_pos, t) = query.raycast(poly_ref, pos, pos, 0.0, &filter)?;
         assert_eq!(
             hit_ref, poly_ref,
             "Zero-length ray should stay in same polygon"
@@ -241,14 +240,14 @@ mod tests {
         assert_eq!(t, 0.0, "Zero-length ray should have t=0");
 
         // Test ray parallel to polygon edge
-        let start = [0.1, 0.0, 0.0];
-        let end = [0.5, 0.0, 0.0]; // Along bottom edge
-        let result = query.raycast(poly_ref, &start, &end, 1.0, &filter);
+        let start = Vec3::new(0.1, 0.0, 0.0);
+        let end = Vec3::new(0.5, 0.0, 0.0); // Along bottom edge
+        let result = query.raycast(poly_ref, start, end, 1.0, &filter);
         assert!(result.is_ok(), "Parallel ray should be handled");
 
         // Test ray with negative direction components
-        let backward_end = [-0.1, 0.0, -0.1];
-        let result = query.raycast(poly_ref, &center, &backward_end, 1.0, &filter);
+        let backward_end = Vec3::new(-0.1, 0.0, -0.1);
+        let result = query.raycast(poly_ref, Vec3::from(center), backward_end, 1.0, &filter);
         assert!(result.is_ok(), "Backward ray should be handled");
 
         Ok(())

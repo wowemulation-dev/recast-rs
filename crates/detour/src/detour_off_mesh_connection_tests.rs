@@ -291,8 +291,11 @@ mod tests {
                 // Get straight path
                 let actual_start_arr = actual_start.to_array();
                 let actual_end_arr = actual_end.to_array();
-                let straight_path =
-                    query.find_straight_path(&actual_start_arr, &actual_end_arr, &path)?;
+                let straight_path = query.find_straight_path(
+                    Vec3::from(actual_start_arr),
+                    Vec3::from(actual_end_arr),
+                    &path,
+                )?;
 
                 // Straight path should include off-mesh connection points
                 assert!(

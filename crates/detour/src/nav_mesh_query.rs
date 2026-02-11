@@ -1232,13 +1232,15 @@ impl<'a> NavMeshQuery<'a> {
     pub fn move_along_surface(
         &self,
         start_ref: PolyRef,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         filter: &QueryFilter,
     ) -> Result<MoveAlongSurfaceResult, DetourError> {
         use recast_common::{dist_point_segment_sqr_2d_with_t, point_in_polygon_2d};
         use std::collections::VecDeque;
 
+        let start_pos = start_pos.to_array();
+        let end_pos = end_pos.to_array();
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
@@ -1267,7 +1269,7 @@ impl<'a> NavMeshQuery<'a> {
         nodes.push(start_node);
         stack.push_back(0); // Index of start node
 
-        let mut best_pos = *start_pos;
+        let mut best_pos = start_pos;
         let mut best_dist = f32::MAX;
         let mut best_node_idx = 0;
 
@@ -1306,9 +1308,9 @@ impl<'a> NavMeshQuery<'a> {
             }
 
             // If target is inside the poly, we found it
-            if point_in_polygon_2d(end_pos, &verts, cur_poly.vert_count as usize) {
+            if point_in_polygon_2d(&end_pos, &verts, cur_poly.vert_count as usize) {
                 best_node_idx = cur_node_idx;
-                best_pos = *end_pos;
+                best_pos = end_pos;
                 break;
             }
 
@@ -1343,7 +1345,7 @@ impl<'a> NavMeshQuery<'a> {
                 // If wall edge, check distance
                 if neighbors.is_empty() {
                     // Wall edge, calc distance
-                    let (dist_sqr, t) = dist_point_segment_sqr_2d_with_t(end_pos, vj, vi);
+                    let (dist_sqr, t) = dist_point_segment_sqr_2d_with_t(&end_pos, vj, vi);
                     if dist_sqr < best_dist {
                         // Update nearest distance
                         best_pos = [
@@ -1413,11 +1415,13 @@ impl<'a> NavMeshQuery<'a> {
     pub fn raycast(
         &self,
         start_ref: PolyRef,
-        start_pos: &[f32; 3],
-        dir: &[f32; 3],
+        start_pos: Vec3,
+        dir: Vec3,
         max_dist: f32,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3], f32), DetourError> {
+    ) -> Result<(PolyRef, Vec3, f32), DetourError> {
+        let start_pos = start_pos.to_array();
+        let dir = dir.to_array();
         // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
@@ -1425,7 +1429,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // Handle zero-length raycast (C++ compatibility)
         if max_dist <= 0.0 {
-            return Ok((start_ref, *start_pos, 0.0));
+            return Ok((start_ref, Vec3::from(start_pos), 0.0));
         }
 
         // Calculate end position
@@ -1436,8 +1440,8 @@ impl<'a> NavMeshQuery<'a> {
         ];
 
         let mut cur_ref = start_ref;
-        let mut cur_pos = *start_pos;
-        let mut _last_pos = *start_pos;
+        let mut cur_pos = start_pos;
+        let mut _last_pos = start_pos;
 
         const MAX_ITERATIONS: usize = 256;
 
@@ -1551,12 +1555,12 @@ impl<'a> NavMeshQuery<'a> {
                 // If next_t is 1.0, it means we didn't find any edge intersection,
                 // so the ray travels the full distance within this polygon
                 if next_t >= 1.0 {
-                    return Ok((cur_ref, end_pos, max_dist));
+                    return Ok((cur_ref, Vec3::from(end_pos), max_dist));
                 }
 
                 // Calculate the hit distance based on next_t
                 let hit_dist = max_dist * next_t;
-                return Ok((cur_ref, next_pos, hit_dist));
+                return Ok((cur_ref, Vec3::from(next_pos), hit_dist));
             }
 
             // Move to the next polygon
@@ -1566,7 +1570,7 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         // Reached the end position
-        Ok((cur_ref, end_pos, max_dist))
+        Ok((cur_ref, Vec3::from(end_pos), max_dist))
     }
 
     /// Checks off-mesh connections for raycast traversal
@@ -1709,12 +1713,14 @@ impl<'a> NavMeshQuery<'a> {
     pub fn raycast_enhanced(
         &self,
         start_ref: PolyRef,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         filter: &QueryFilter,
         options: &RaycastOptions,
         prev_ref: Option<PolyRef>,
     ) -> Result<RaycastResult, DetourError> {
+        let start_pos = start_pos.to_array();
+        let end_pos = end_pos.to_array();
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
@@ -1735,13 +1741,13 @@ impl<'a> NavMeshQuery<'a> {
 
         // Handle zero-length ray
         if max_dist <= 0.0 {
-            let result = RaycastResult::new(start_ref, Vec3::from(*start_pos), hit);
+            let result = RaycastResult::new(start_ref, Vec3::from(start_pos), hit);
             return Ok(result);
         }
 
         // Track current position
         let mut cur_ref = start_ref;
-        let mut cur_pos = *start_pos;
+        let mut cur_pos = start_pos;
         let mut last_ref = prev_ref.unwrap_or(PolyRef::new(0));
 
         if options.include_path {
@@ -1763,7 +1769,7 @@ impl<'a> NavMeshQuery<'a> {
 
             // Find the edge to cross
             let mut next_ref = PolyRef::new(0);
-            let mut next_pos = *end_pos;
+            let mut next_pos = end_pos;
             let mut edge_t = 1.0;
             let mut edge_index = -1;
 
@@ -1787,7 +1793,7 @@ impl<'a> NavMeshQuery<'a> {
 
                 // Check if ray intersects this edge
                 if let Some((ray_t, seg_t)) =
-                    Self::intersect_ray_segment_2d(&cur_pos, end_pos, &vi, &vj)
+                    Self::intersect_ray_segment_2d(&cur_pos, &end_pos, &vi, &vj)
                 {
                     if ray_t > 0.0 && ray_t < edge_t {
                         // Check if this is a neighbor edge or a wall
@@ -1877,7 +1883,7 @@ impl<'a> NavMeshQuery<'a> {
             hit = hit.with_cost(path_cost);
         }
 
-        let result = RaycastResult::new(cur_ref, Vec3::from(*end_pos), hit);
+        let result = RaycastResult::new(cur_ref, Vec3::from(end_pos), hit);
         Ok(result)
     }
 
@@ -1944,10 +1950,12 @@ impl<'a> NavMeshQuery<'a> {
     #[allow(unused_assignments)]
     pub fn find_straight_path(
         &self,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         path: &[PolyRef],
     ) -> Result<Path, DetourError> {
+        let start_pos = start_pos.to_array();
+        let end_pos = end_pos.to_array();
         if path.is_empty() {
             return Err(DetourError::InvalidParam);
         }
@@ -1955,18 +1963,18 @@ impl<'a> NavMeshQuery<'a> {
         let mut result = Path::new();
 
         // Add the start position
-        result.waypoints.push(Vec3::from(*start_pos));
+        result.waypoints.push(Vec3::from(start_pos));
         result.poly_refs.push(path[0]);
 
         // If the path is just one polygon, add the end position and return
         if path.len() == 1 {
-            result.waypoints.push(Vec3::from(*end_pos));
+            result.waypoints.push(Vec3::from(end_pos));
             result.poly_refs.push(path[0]);
             return Ok(result);
         }
 
         // Use the funnel algorithm to find the straight path
-        let mut portal_apex = *start_pos;
+        let mut portal_apex = start_pos;
         let mut portal_left = portal_apex;
         let mut portal_right = portal_apex;
         let mut apex_index = 0;
@@ -2037,7 +2045,7 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         // Add the end position
-        result.waypoints.push(Vec3::from(*end_pos));
+        result.waypoints.push(Vec3::from(end_pos));
         result.poly_refs.push(path[path.len() - 1]);
 
         Ok(result)
@@ -2057,8 +2065,8 @@ impl<'a> NavMeshQuery<'a> {
     /// The straight path with waypoints and polygon references
     pub fn find_straight_path_with_options(
         &self,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         path: &[PolyRef],
         options: u32,
     ) -> Result<Path, DetourError> {
@@ -2534,8 +2542,15 @@ impl<'a> NavMeshQuery<'a> {
             let ray_dir = [angle.cos(), 0.0, angle.sin()];
 
             // Perform raycast to find wall intersection
-            match self.raycast(start_ref, center_pos, &ray_dir, radius, filter) {
-                Ok((_, hit_pos, t)) => {
+            match self.raycast(
+                start_ref,
+                Vec3::from(*center_pos),
+                Vec3::from(ray_dir),
+                radius,
+                filter,
+            ) {
+                Ok((_, hit_pos_v, t)) => {
+                    let hit_pos = hit_pos_v.to_array();
                     let hit_distance = t * radius;
 
                     if hit_distance < min_distance {
@@ -4557,7 +4572,7 @@ mod tests {
         let path = vec![PolyRef::new(1), connection_ref, PolyRef::new(2)];
 
         // Test that straight path generation doesn't crash with off-mesh connections
-        let result = query.find_straight_path(&[0.0, 0.0, 0.0], &[20.0, 0.0, 20.0], &path);
+        let result = query.find_straight_path(Vec3::ZERO, Vec3::new(20.0, 0.0, 20.0), &path);
 
         // The exact behavior depends on the implementation details,
         // but it should not crash and should return some result
@@ -5454,9 +5469,17 @@ mod tests {
                 let start_pos = nearest_pt.to_array();
                 let end_pos = nearest_pt.to_array(); // Same position to avoid complexity
 
-                let path_with_options =
-                    query.find_straight_path_with_options(&start_pos, &end_pos, &path_refs, 0)?;
-                let path_basic = query.find_straight_path(&start_pos, &end_pos, &path_refs)?;
+                let path_with_options = query.find_straight_path_with_options(
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &path_refs,
+                    0,
+                )?;
+                let path_basic = query.find_straight_path(
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &path_refs,
+                )?;
 
                 // Should return the same result
                 assert_eq!(
@@ -5512,10 +5535,19 @@ mod tests {
                 // Test straight path methods with empty path (should handle gracefully)
                 let empty_path = vec![];
                 let pos = [0.0, 0.0, 0.0];
-                assert!(query.find_straight_path(&pos, &pos, &empty_path).is_err());
                 assert!(
                     query
-                        .find_straight_path_with_options(&pos, &pos, &empty_path, 0)
+                        .find_straight_path(Vec3::from(pos), Vec3::from(pos), &empty_path)
+                        .is_err()
+                );
+                assert!(
+                    query
+                        .find_straight_path_with_options(
+                            Vec3::from(pos),
+                            Vec3::from(pos),
+                            &empty_path,
+                            0
+                        )
                         .is_err()
                 );
             }
