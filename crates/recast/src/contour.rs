@@ -221,17 +221,6 @@ pub struct ContourSet {
 }
 
 impl ContourSet {
-    /// Maps 4-direction index to 8-direction linked-list index.
-    fn map_4dir_to_8dir(dir: u8) -> u8 {
-        match dir {
-            0 => 7, // -X
-            1 => 5, // +Z
-            2 => 3, // +X
-            3 => 1, // -Z
-            _ => 0,
-        }
-    }
-
     /// Builds contours from a compact heightfield
     pub fn build_from_compact_heightfield(
         chf: &CompactHeightfield,
@@ -444,16 +433,14 @@ impl ContourSet {
 
                         // Check all 4 directions using C++ convention:
                         // dir 0 = -X, dir 1 = +Z, dir 2 = +X, dir 3 = -Z
-                        // This must match walk_contour's get_dir_offset_x/z and map_4dir_to_8dir.
                         for dir in 0..4u8 {
-                            let dir8 = Self::map_4dir_to_8dir(dir);
-
-                            let neighbor_region =
-                                if let Some(neighbor_idx) = chf.get_neighbor(span_idx, dir8) {
-                                    region_ids[neighbor_idx]
-                                } else {
-                                    0
-                                };
+                            let neighbor_region = if let Some(neighbor_idx) =
+                                chf.get_neighbor_connection(span_idx, dir as usize)
+                            {
+                                region_ids[neighbor_idx]
+                            } else {
+                                0
+                            };
 
                             if neighbor_region == region {
                                 // Mark as connected if same region
@@ -979,7 +966,7 @@ impl ContourSet {
 
                 let mut r = 0i32;
                 let _span = &chf.spans[cur_i];
-                if let Some(neighbor_idx) = chf.get_neighbor(cur_i, Self::map_4dir_to_8dir(dir)) {
+                if let Some(neighbor_idx) = chf.get_neighbor_connection(cur_i, dir as usize) {
                     r = region_ids[neighbor_idx] as i32;
                     if area != chf.spans[neighbor_idx].area {
                         is_area_border = true;
@@ -1007,9 +994,7 @@ impl ContourSet {
                 // Move to neighbor
                 let nx = cur_x + Self::get_dir_offset_x(dir as i32);
                 let ny = cur_y + Self::get_dir_offset_z(dir as i32);
-                let dir8 = Self::map_4dir_to_8dir(dir);
-
-                if let Some(neighbor_idx) = chf.get_neighbor(cur_i, dir8) {
+                if let Some(neighbor_idx) = chf.get_neighbor_connection(cur_i, dir as usize) {
                     cur_x = nx;
                     cur_y = ny;
                     cur_i = neighbor_idx;

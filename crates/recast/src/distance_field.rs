@@ -479,7 +479,7 @@ pub fn build_regions_monotone(
 
                             // Check -x direction
                             let mut previd = 0u16;
-                            if let Some(neighbor_idx) = chf.get_neighbor(i, 0) {
+                            if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 0) {
                                 if (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
                                     && chf.spans[neighbor_idx].area == span.area
                                 {
@@ -498,7 +498,7 @@ pub fn build_regions_monotone(
                             }
 
                             // Check -y direction
-                            if let Some(neighbor_idx) = chf.get_neighbor(i, 3) {
+                            if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 3) {
                                 if src_reg[neighbor_idx] != 0
                                     && (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
                                     && chf.spans[neighbor_idx].area == span.area
@@ -638,7 +638,7 @@ pub fn build_layer_regions(
 
                             // Check -x direction
                             let mut previd = 0u16;
-                            if let Some(neighbor_idx) = chf.get_neighbor(i, 0) {
+                            if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 0) {
                                 if (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
                                     && chf.spans[neighbor_idx].area == span.area
                                 {
@@ -657,7 +657,7 @@ pub fn build_layer_regions(
                             }
 
                             // Check -y direction
-                            if let Some(neighbor_idx) = chf.get_neighbor(i, 3) {
+                            if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 3) {
                                 if src_reg[neighbor_idx] != 0
                                     && (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
                                     && chf.spans[neighbor_idx].area == span.area
