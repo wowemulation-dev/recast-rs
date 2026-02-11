@@ -22,19 +22,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First, snap candidate positions to the navmesh so agents start on valid polygons
     let query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
     let candidate_positions = [
-        [0.0, 0.0, 0.0],
-        [5.0, 0.0, 0.0],
-        [0.0, 0.0, 5.0],
-        [5.0, 0.0, 5.0],
-        [2.5, 0.0, 2.5],
+        Vec3::new(0.0, 0.0, 0.0),
+        Vec3::new(5.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, 5.0),
+        Vec3::new(5.0, 0.0, 5.0),
+        Vec3::new(2.5, 0.0, 2.5),
     ];
 
     let mut snapped_positions = Vec::new();
     for pos in &candidate_positions {
-        let (_poly_ref, snapped) = query.find_nearest_poly(pos, &extent, &filter)?;
+        let (_poly_ref, snapped) = query.find_nearest_poly(*pos, extent, &filter)?;
         snapped_positions.push(snapped);
     }
 
@@ -58,11 +58,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Add 5 agents at snapped positions
     let mut agent_ids = Vec::new();
     for pos in &snapped_positions {
-        let id = crowd.add_agent(Vec3::from(*pos), params.clone())?;
+        let id = crowd.add_agent(*pos, params.clone())?;
         agent_ids.push(id);
         println!(
             "Added agent {} at ({:.2}, {:.2}, {:.2})",
-            id, pos[0], pos[1], pos[2]
+            id, pos.x, pos.y, pos.z
         );
     }
 
@@ -70,21 +70,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Active agents: {}", crowd.get_active_agent_count());
 
     // Set a shared target
-    let target_pos = [20.0, 0.0, 10.0];
-    let (target_ref, snapped_target) = query.find_nearest_poly(&target_pos, &extent, &filter)?;
+    let target_pos = Vec3::new(20.0, 0.0, 10.0);
+    let (target_ref, snapped_target) = query.find_nearest_poly(target_pos, extent, &filter)?;
 
     println!(
         "Target: ({:.1}, {:.1}, {:.1}) -> snapped to ({:.2}, {:.2}, {:.2})",
-        target_pos[0],
-        target_pos[1],
-        target_pos[2],
-        snapped_target[0],
-        snapped_target[1],
-        snapped_target[2]
+        target_pos.x,
+        target_pos.y,
+        target_pos.z,
+        snapped_target.x,
+        snapped_target.y,
+        snapped_target.z
     );
 
     for &agent_id in &agent_ids {
-        crowd.request_move_target(agent_id, target_ref, Vec3::from(snapped_target))?;
+        crowd.request_move_target(agent_id, target_ref, snapped_target)?;
     }
 
     // Run simulation: 100 frames at 60 FPS
@@ -121,9 +121,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for &agent_id in &agent_ids {
         if let Some(agent) = crowd.get_agent(agent_id) {
             let pos = agent.get_pos();
-            let dx = pos[0] - snapped_target[0];
-            let dy = pos[1] - snapped_target[1];
-            let dz = pos[2] - snapped_target[2];
+            let dx = pos[0] - snapped_target.x;
+            let dy = pos[1] - snapped_target.y;
+            let dz = pos[2] - snapped_target.z;
             let dist = (dx * dx + dy * dy + dz * dz).sqrt();
             println!("  Agent {}: {:.2}", agent_id, dist);
         }

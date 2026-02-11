@@ -8,6 +8,7 @@
 
 use crate::test_mesh_helpers::*;
 use crate::{NavMeshQuery, PolyFlags, PolyRef, QueryFilter};
+use glam::Vec3;
 use std::collections::HashSet;
 
 /// Test suite for moveAlongSurface function
@@ -24,7 +25,7 @@ mod move_along_surface_tests {
         let start_pos = get_test_position_complex();
         let extents = get_test_extents();
         let (start_ref, actual_start_pos) =
-            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         // Move within the same polygon
         let end_pos = [
@@ -32,7 +33,8 @@ mod move_along_surface_tests {
             actual_start_pos[1],
             actual_start_pos[2] + 0.1,
         ];
-        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
+        let result =
+            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
 
         // Should successfully move to target position within same polygon
         assert!(
@@ -67,12 +69,13 @@ mod move_along_surface_tests {
         let start_pos = [0.15, 0.0, 0.15]; // Near corner
         let extents = get_test_extents();
         let (start_ref, actual_start_pos) =
-            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         // Move to opposite corner, crossing multiple polygons
         let end_pos = [0.75, 0.0, 0.75];
 
-        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
+        let result =
+            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
 
         // Should visit at least one polygon (might visit more depending on path)
         assert!(
@@ -113,12 +116,13 @@ mod move_along_surface_tests {
         let start_pos = get_test_position_minimal();
         let extents = get_test_extents();
         let (start_ref, actual_start_pos) =
-            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         // Try to move far outside mesh bounds (should hit wall)
         let end_pos = [10.0, 0.0, 10.0];
 
-        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
+        let result =
+            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
 
         // Should stop at mesh boundary, not reach target
         let result_dist = ((result.position[0] - end_pos[0]).powi(2)
@@ -166,11 +170,11 @@ mod move_along_surface_tests {
         let start_pos = get_test_position_minimal();
         let extents = get_test_extents();
         let (start_ref, actual_start_pos) =
-            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
+        let actual_arr = actual_start_pos.to_array();
         // Move to same position
-        let result =
-            query.move_along_surface(start_ref, &actual_start_pos, &actual_start_pos, &filter)?;
+        let result = query.move_along_surface(start_ref, &actual_arr, &actual_arr, &filter)?;
 
         // Should return same position
         for i in 0..3 {
@@ -197,12 +201,13 @@ mod move_along_surface_tests {
         let start_pos = [5.0, 0.0, 5.0];
         let extents = get_test_extents();
         let (start_ref, actual_start_pos) =
-            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         // Try to move very far (should be constrained by search radius)
         let end_pos = [25.0, 0.0, 25.0];
 
-        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
+        let result =
+            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
 
         // Should move some distance towards target
         let moved_dist = ((result.position[0] - actual_start_pos[0]).powi(2)
@@ -242,7 +247,7 @@ mod move_along_surface_tests {
         let start_pos = get_test_position_minimal();
         let extents = get_test_extents();
         let (start_ref, actual_start_pos) =
-            query.find_nearest_poly(&start_pos, &extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         let end_pos = [
             actual_start_pos[0] + 0.1,
@@ -250,7 +255,8 @@ mod move_along_surface_tests {
             actual_start_pos[2] + 0.1,
         ];
 
-        let result = query.move_along_surface(start_ref, &actual_start_pos, &end_pos, &filter)?;
+        let result =
+            query.move_along_surface(start_ref, &actual_start_pos.to_array(), &end_pos, &filter)?;
 
         // Result should contain visited polygon refs
         assert!(
@@ -279,7 +285,8 @@ mod poly_flags_tests {
         // Find a polygon
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Get initial flags
         let initial_flags = nav_mesh.get_poly_flags(poly_ref)?;
@@ -342,7 +349,8 @@ mod poly_flags_tests {
         // Find multiple polygons
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Test different flag combinations
         let flag_tests = vec![
@@ -377,7 +385,8 @@ mod poly_flags_tests {
 
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         let test_flags = PolyFlags::SWIM | PolyFlags::DOOR;
         nav_mesh.set_poly_flags(poly_ref, test_flags)?;
@@ -408,7 +417,8 @@ mod poly_area_tests {
         // Find a polygon
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Get initial area
         let initial_area = nav_mesh.get_poly_area(poly_ref)?;
@@ -463,7 +473,8 @@ mod poly_area_tests {
 
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Test all possible area values (0-255)
         for area in 0u8..=255u8 {
@@ -483,7 +494,8 @@ mod poly_area_tests {
 
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         let test_area = 123u8;
         nav_mesh.set_poly_area(poly_ref, test_area)?;
@@ -505,7 +517,8 @@ mod poly_area_tests {
 
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (poly_ref, _) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Set area and flags
         let test_area = 99u8;
@@ -543,13 +556,19 @@ mod find_local_neighbourhood_tests {
         // Find starting polygon
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Find local neighbourhood with reasonable radius
         let radius = 0.5;
         let max_result = 10;
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         // Should find at least the starting polygon
         assert!(!polys.is_empty(), "Should find at least one polygon");
@@ -582,13 +601,19 @@ mod find_local_neighbourhood_tests {
 
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Very small radius should only find the start polygon
         let radius = 0.01;
         let max_result = 10;
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         assert_eq!(
             polys.len(),
@@ -608,13 +633,19 @@ mod find_local_neighbourhood_tests {
 
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Large radius should find multiple polygons
         let radius = 2.0;
         let max_result = 20;
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         assert!(
             polys.len() > 1,
@@ -641,13 +672,19 @@ mod find_local_neighbourhood_tests {
 
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Test with small max_result
         let radius = 2.0;
         let max_result = 3;
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         assert!(polys.len() <= max_result, "Should respect max_result limit");
         assert_eq!(polys.len(), parents.len(), "Arrays should be same length");
@@ -673,12 +710,15 @@ mod find_local_neighbourhood_tests {
 
         // Negative radius
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
-        let result = query.find_local_neighbourhood(start_ref, &center_pos, -1.0, &filter, 10);
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
+        let result =
+            query.find_local_neighbourhood(start_ref, &center_pos.to_array(), -1.0, &filter, 10);
         assert!(result.is_err(), "Should fail with negative radius");
 
         // Zero max_result
-        let result = query.find_local_neighbourhood(start_ref, &center_pos, 1.0, &filter, 0);
+        let result =
+            query.find_local_neighbourhood(start_ref, &center_pos.to_array(), 1.0, &filter, 0);
         assert!(result.is_err(), "Should fail with zero max_result");
 
         Ok(())
@@ -693,12 +733,18 @@ mod find_local_neighbourhood_tests {
 
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         let radius = 1.0;
         let max_result = 10;
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         if polys.len() > 1 {
             // Verify parent relationships make sense
@@ -733,12 +779,18 @@ mod find_local_neighbourhood_tests {
 
         let center = get_test_position_complex();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         let radius = 1.5;
         let max_result = 15;
-        let (polys, _) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, _) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         // Test the non-overlapping constraint mentioned in C++ documentation
         // All returned polygons should be non-overlapping when viewed in 2D
@@ -766,13 +818,19 @@ mod find_local_neighbourhood_tests {
 
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (start_ref, center_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, center_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Zero radius should only find the start polygon
         let radius = 0.0;
         let max_result = 10;
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &center_pos, radius, &filter, max_result)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &center_pos.to_array(),
+            radius,
+            &filter,
+            max_result,
+        )?;
 
         assert_eq!(polys.len(), 1, "Zero radius should only find start polygon");
         assert_eq!(polys[0], start_ref, "Should find start polygon");
@@ -798,7 +856,8 @@ mod edge_case_tests {
 
         let center = get_test_position_minimal();
         let extents = get_test_extents();
-        let (start_ref, start_pos) = query.find_nearest_poly(&center, &extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
 
         // Test with very small movements (floating point precision)
         let tiny_offset = 1e-7f32;
@@ -808,7 +867,7 @@ mod edge_case_tests {
             start_pos[2] + tiny_offset,
         ];
 
-        let result = query.move_along_surface(start_ref, &start_pos, &end_pos, &filter);
+        let result = query.move_along_surface(start_ref, &start_pos.to_array(), &end_pos, &filter);
 
         assert!(
             result.is_ok(),
@@ -828,11 +887,17 @@ mod edge_case_tests {
         // Test with very large coordinates (within mesh bounds)
         let start_pos = [25.0, 0.0, 25.0];
         let extents = [5.0, 5.0, 5.0];
-        let (start_ref, actual_start) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
+        let (start_ref, actual_start) =
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         // Test neighbourhood finding with large coordinates
-        let (polys, parents) =
-            query.find_local_neighbourhood(start_ref, &actual_start, 5.0, &filter, 10)?;
+        let (polys, parents) = query.find_local_neighbourhood(
+            start_ref,
+            &actual_start.to_array(),
+            5.0,
+            &filter,
+            10,
+        )?;
 
         assert!(!polys.is_empty(), "Should work with large coordinates");
         assert_eq!(polys.len(), parents.len(), "Arrays should match");

@@ -8,6 +8,7 @@ mod tests {
     use crate::nav_mesh_query::NavMeshQuery;
     use crate::test_mesh_helpers::*;
     use crate::{PolyFlags, QueryFilter};
+    use glam::Vec3;
 
     #[test]
     fn test_basic_raycast_scenarios() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,23 +27,25 @@ mod tests {
             center, half_extents
         );
 
-        let result = query.find_nearest_poly(&center, &half_extents, &filter);
+        let result = query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter);
         match result {
             Ok((start_ref, start_pos)) => {
                 println!("Found polygon {:?} at position {:?}", start_ref, start_pos);
 
+                let start_pos_arr = start_pos.to_array();
+
                 // Test 1: Zero-length raycast (C++ compatibility)
                 let dir = [1.0, 0.0, 0.0];
                 let (end_ref, end_pos, t) =
-                    query.raycast(start_ref, &start_pos, &dir, 0.0, &filter)?;
+                    query.raycast(start_ref, &start_pos_arr, &dir, 0.0, &filter)?;
                 assert_eq!(end_ref, start_ref);
-                assert_eq!(end_pos, start_pos);
+                assert_eq!(end_pos, start_pos_arr);
                 assert_eq!(t, 0.0);
 
                 // Test 2: Short raycast within same polygon
                 let short_dist = 0.1; // Very short distance
                 let (end_ref2, _end_pos2, t2) =
-                    query.raycast(start_ref, &start_pos, &dir, short_dist, &filter)?;
+                    query.raycast(start_ref, &start_pos_arr, &dir, short_dist, &filter)?;
                 assert!(end_ref2.is_valid());
                 assert!(t2 >= 0.0 && t2 <= 1.0);
 
@@ -65,13 +68,16 @@ mod tests {
         // Start from center of mesh
         let center = get_test_position_minimal();
         let half_extents = get_test_extents();
-        let (start_ref, start_pos) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
 
         // Cast ray toward mesh boundary (should hit wall)
         let boundary_dir = [1.0, 0.0, 0.0];
         let long_dist = 2.0; // Longer than minimal mesh size (0.6 units)
         let (_end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos, &boundary_dir, long_dist, &filter)?;
+            query.raycast(start_ref, &start_pos_arr, &boundary_dir, long_dist, &filter)?;
 
         // Should hit a wall before reaching max distance
         assert!(t < 1.0, "Ray should hit wall before max distance");
@@ -98,13 +104,15 @@ mod tests {
         let start_center = get_test_position_complex();
         let half_extents = get_test_extents();
         let (start_ref, start_pos) =
-            query.find_nearest_poly(&start_center, &half_extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_center), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
 
         // Cast ray in diagonal direction within mesh bounds
         let dir = [1.0, 0.0, 1.0]; // Diagonal direction
         let dist = 0.5; // Stay within complex mesh bounds (0.9 units)
         let (ray_end_ref, ray_end_pos, t) =
-            query.raycast(start_ref, &start_pos, &dir, dist, &filter)?;
+            query.raycast(start_ref, &start_pos_arr, &dir, dist, &filter)?;
 
         // Should successfully traverse polygons
         assert!(ray_end_ref.is_valid());
@@ -117,8 +125,14 @@ mod tests {
             include_cost: true,
         };
 
-        let result =
-            query.raycast_enhanced(start_ref, &start_pos, &ray_end_pos, &filter, &options, None)?;
+        let result = query.raycast_enhanced(
+            start_ref,
+            &start_pos_arr,
+            &ray_end_pos,
+            &filter,
+            &options,
+            None,
+        )?;
 
         // Should have path data
         if let Some(path) = &result.hit.path {
@@ -152,18 +166,21 @@ mod tests {
         // Test with very small distance
         let center = get_test_position_large();
         let half_extents = get_test_extents();
-        let (start_ref, start_pos) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
 
         let tiny_dist = f32::EPSILON * 10.0;
         let (end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos, &dir, tiny_dist, &filter)?;
+            query.raycast(start_ref, &start_pos_arr, &dir, tiny_dist, &filter)?;
         assert!(end_ref.is_valid());
         assert!(t >= 0.0);
 
         // Test with very large distance
         let huge_dist = 50.0; // Large but reasonable for large mesh (30x30 units)
         let (end_ref2, _end_pos2, t2) =
-            query.raycast(start_ref, &start_pos, &dir, huge_dist, &filter)?;
+            query.raycast(start_ref, &start_pos_arr, &dir, huge_dist, &filter)?;
         assert!(end_ref2.is_valid());
         assert!(t2 >= 0.0);
         // Note: C++ implementation may return t close to 1.0 or FLT_MAX when ray reaches end
@@ -180,7 +197,10 @@ mod tests {
 
         let center = get_test_position_minimal();
         let half_extents = get_test_extents();
-        let (start_ref, start_pos) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
 
         // Test rays that are nearly parallel to polygon edges
         let near_parallel_dirs = [
@@ -190,7 +210,8 @@ mod tests {
         ];
 
         for dir in &near_parallel_dirs {
-            let (end_ref, _end_pos, t) = query.raycast(start_ref, &start_pos, dir, 0.5, &filter)?;
+            let (end_ref, _end_pos, t) =
+                query.raycast(start_ref, &start_pos_arr, dir, 0.5, &filter)?;
             assert!(end_ref.is_valid());
             assert!(t >= 0.0);
             assert!(t.is_finite(), "t value should be finite for parallel rays");
@@ -198,7 +219,7 @@ mod tests {
 
         // Test rays with very small direction vectors
         let tiny_dir = [f32::EPSILON, 0.0, f32::EPSILON];
-        let result = query.raycast(start_ref, &start_pos, &tiny_dir, 0.1, &filter);
+        let result = query.raycast(start_ref, &start_pos_arr, &tiny_dir, 0.1, &filter);
         // Should either succeed with valid results or fail gracefully
         if let Ok((end_ref, _end_pos, t)) = result {
             assert!(end_ref.is_valid());
@@ -221,7 +242,11 @@ mod tests {
         let half_extents = get_test_extents();
 
         // Should not find any polygons with restrictive filter
-        let result = query.find_nearest_poly(&center, &half_extents, &restrictive_filter);
+        let result = query.find_nearest_poly(
+            Vec3::from(center),
+            Vec3::from(half_extents),
+            &restrictive_filter,
+        );
         assert!(
             result.is_err(),
             "Should fail to find polygons with restrictive filter"
@@ -229,12 +254,17 @@ mod tests {
 
         // Test with permissive filter
         let permissive_filter = QueryFilter::default();
-        let (start_ref, start_pos) =
-            query.find_nearest_poly(&center, &half_extents, &permissive_filter)?;
+        let (start_ref, start_pos) = query.find_nearest_poly(
+            Vec3::from(center),
+            Vec3::from(half_extents),
+            &permissive_filter,
+        )?;
+
+        let start_pos_arr = start_pos.to_array();
 
         let dir = [1.0, 0.0, 0.0];
         let (end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos, &dir, 0.5, &permissive_filter)?;
+            query.raycast(start_ref, &start_pos_arr, &dir, 0.5, &permissive_filter)?;
         assert!(end_ref.is_valid());
         assert!(t >= 0.0);
 
@@ -253,19 +283,23 @@ mod tests {
         let half_extents = get_test_extents();
 
         let (start_ref, start_pos) =
-            query.find_nearest_poly(&start_corner, &half_extents, &filter)?;
-        let (end_ref, end_pos) = query.find_nearest_poly(&end_corner, &half_extents, &filter)?;
+            query.find_nearest_poly(Vec3::from(start_corner), Vec3::from(half_extents), &filter)?;
+        let (end_ref, end_pos) =
+            query.find_nearest_poly(Vec3::from(end_corner), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
+        let end_pos_arr = end_pos.to_array();
 
         // Cast ray diagonally across the grid
         let dir = [
-            end_pos[0] - start_pos[0],
-            end_pos[1] - start_pos[1],
-            end_pos[2] - start_pos[2],
+            end_pos_arr[0] - start_pos_arr[0],
+            end_pos_arr[1] - start_pos_arr[1],
+            end_pos_arr[2] - start_pos_arr[2],
         ];
         let dist = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
 
         let (ray_end_ref, ray_end_pos, t) =
-            query.raycast(start_ref, &start_pos, &dir, dist, &filter)?;
+            query.raycast(start_ref, &start_pos_arr, &dir, dist, &filter)?;
 
         // Should successfully traverse multiple polygons
         assert!(ray_end_ref.is_valid());
@@ -277,8 +311,14 @@ mod tests {
             include_path: true,
             include_cost: false,
         };
-        let result =
-            query.raycast_enhanced(start_ref, &start_pos, &ray_end_pos, &filter, &options, None)?;
+        let result = query.raycast_enhanced(
+            start_ref,
+            &start_pos_arr,
+            &ray_end_pos,
+            &filter,
+            &options,
+            None,
+        )?;
 
         if let Some(path) = &result.hit.path {
             assert!(path.len() >= 1, "Should have at least starting polygon");
@@ -299,7 +339,10 @@ mod tests {
 
         let center = get_test_position_minimal();
         let half_extents = get_test_extents();
-        let (start_ref, start_pos) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
 
         // Cast rays in all cardinal directions to test boundary detection
         let test_cases = [
@@ -312,7 +355,7 @@ mod tests {
         for (dir, direction_name) in &test_cases {
             let long_dist = 0.25; // Distance that will hit boundary of minimal mesh (0.6 units)
             let (_end_ref, end_pos, t) =
-                query.raycast(start_ref, &start_pos, dir, long_dist, &filter)?;
+                query.raycast(start_ref, &start_pos_arr, dir, long_dist, &filter)?;
 
             // Should hit boundary before max distance OR reach end position
             // C++ allows both t < 1.0 (boundary hit) or t ≈ 1.0 (ray completes)
@@ -328,7 +371,7 @@ mod tests {
 
                 // For horizontal rays, Y should stay the same
                 assert!(
-                    (end_pos[1] - start_pos[1]).abs() < 0.01,
+                    (end_pos[1] - start_pos_arr[1]).abs() < 0.01,
                     "Y coordinate should stay same for {}",
                     direction_name
                 );
@@ -336,7 +379,7 @@ mod tests {
                 // For East/West rays, Z should stay the same
                 if *direction_name == "East" || *direction_name == "West" {
                     assert!(
-                        (end_pos[2] - start_pos[2]).abs() < 0.01,
+                        (end_pos[2] - start_pos_arr[2]).abs() < 0.01,
                         "Z coordinate should stay same for {}",
                         direction_name
                     );
@@ -345,7 +388,7 @@ mod tests {
                 // For North/South rays, X should stay the same
                 if *direction_name == "North" || *direction_name == "South" {
                     assert!(
-                        (end_pos[0] - start_pos[0]).abs() < 0.01,
+                        (end_pos[0] - start_pos_arr[0]).abs() < 0.01,
                         "X coordinate should stay same for {}",
                         direction_name
                     );
@@ -364,7 +407,10 @@ mod tests {
 
         let center = get_test_position_large();
         let half_extents = get_test_extents();
-        let (start_ref, start_pos) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (start_ref, start_pos) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
+
+        let start_pos_arr = start_pos.to_array();
 
         // Cast very long ray that would stress the algorithm
         let extreme_dist = 50.0; // Large but reasonable for large mesh
@@ -372,7 +418,7 @@ mod tests {
 
         let start_time = std::time::Instant::now();
         let (end_ref, _end_pos, t) =
-            query.raycast(start_ref, &start_pos, &dir, extreme_dist, &filter)?;
+            query.raycast(start_ref, &start_pos_arr, &dir, extreme_dist, &filter)?;
         let elapsed = start_time.elapsed();
 
         // Should complete in reasonable time (not infinite loop)

@@ -328,19 +328,17 @@ mod tests {
         // Set random targets for agents
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
-        let ext = [5.0, 5.0, 5.0];
+        let ext = Vec3::new(5.0, 5.0, 5.0);
 
         for i in 0..added_count.min(100) {
-            let target = [
+            let target = Vec3::new(
                 (i * 17 % 190) as f32 + 5.0,
                 0.0,
                 (i * 23 % 190) as f32 + 5.0,
-            ];
+            );
 
-            if let Ok((poly_ref, closest)) = query.find_nearest_poly(&target, &ext, &filter) {
-                crowd
-                    .request_move_target(i, poly_ref, Vec3::from(closest))
-                    .ok();
+            if let Ok((poly_ref, closest)) = query.find_nearest_poly(target, ext, &filter) {
+                crowd.request_move_target(i, poly_ref, closest).ok();
             }
         }
 
@@ -403,12 +401,12 @@ mod tests {
         // Set different targets for agents
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
-        let ext = [2.0, 2.0, 2.0];
+        let ext = Vec3::new(2.0, 2.0, 2.0);
 
         for (i, &id) in agent_ids.iter().enumerate() {
-            let target = [45.0 - (i as f32 * 2.0), 0.0, 45.0 - (i as f32 * 1.5)];
-            if let Ok((poly_ref, closest)) = query.find_nearest_poly(&target, &ext, &filter) {
-                crowd.request_move_target(id, poly_ref, Vec3::from(closest))?;
+            let target = Vec3::new(45.0 - (i as f32 * 2.0), 0.0, 45.0 - (i as f32 * 1.5));
+            if let Ok((poly_ref, closest)) = query.find_nearest_poly(target, ext, &filter) {
+                crowd.request_move_target(id, poly_ref, closest)?;
             }
         }
 
@@ -525,7 +523,7 @@ mod tests {
 
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
-        let ext = [5.0, 5.0, 5.0];
+        let ext = Vec3::new(5.0, 5.0, 5.0);
 
         // Rapid state changes
         let start = std::time::Instant::now();
@@ -538,17 +536,14 @@ mod tests {
             // Change random agent targets
             if iter % 5 == 0 {
                 for &id in agent_ids.iter().skip(iter % 10).step_by(10) {
-                    let target = [
+                    let target = Vec3::new(
                         (iter * 7 % 90) as f32 + 5.0,
                         0.0,
                         (iter * 11 % 90) as f32 + 5.0,
-                    ];
+                    );
 
-                    if let Ok((poly_ref, closest)) = query.find_nearest_poly(&target, &ext, &filter)
-                    {
-                        crowd
-                            .request_move_target(id, poly_ref, Vec3::from(closest))
-                            .ok();
+                    if let Ok((poly_ref, closest)) = query.find_nearest_poly(target, ext, &filter) {
+                        crowd.request_move_target(id, poly_ref, closest).ok();
                     }
                 }
             }
@@ -557,15 +552,10 @@ mod tests {
             if iter % 20 == 0 {
                 for &id in agent_ids.iter().skip(iter % 5).step_by(20) {
                     // Set a stationary target to effectively stop the agent
-                    let stop_pos = [
-                        45.0, 0.0, 45.0, // Center of the navmesh
-                    ];
-                    if let Ok((poly_ref, closest)) =
-                        query.find_nearest_poly(&stop_pos, &ext, &filter)
+                    let stop_pos = Vec3::new(45.0, 0.0, 45.0);
+                    if let Ok((poly_ref, closest)) = query.find_nearest_poly(stop_pos, ext, &filter)
                     {
-                        crowd
-                            .request_move_target(id, poly_ref, Vec3::from(closest))
-                            .ok();
+                        crowd.request_move_target(id, poly_ref, closest).ok();
                     }
                 }
             }

@@ -5,6 +5,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, PolyRef, QueryFilter};
+use glam::Vec3;
 use recast::{RecastBuilder, RecastConfig};
 use recast_common::TriMesh;
 
@@ -53,11 +54,12 @@ fn build_navmesh() -> NavMesh {
 fn find_start(nav_mesh: &NavMesh) -> (PolyRef, [f32; 3]) {
     let query = NavMeshQuery::new(nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
     // Position verified in integration tests (nav_test.obj)
-    query
-        .find_nearest_poly(&[0.0, 0.0, 0.0], &extent, &filter)
-        .expect("no start poly")
+    let (poly_ref, snapped) = query
+        .find_nearest_poly(Vec3::new(0.0, 0.0, 0.0), extent, &filter)
+        .expect("no start poly");
+    (poly_ref, snapped.to_array())
 }
 
 fn bench_find_nearest_poly(c: &mut Criterion) {
@@ -66,22 +68,22 @@ fn bench_find_nearest_poly(c: &mut Criterion) {
     let nav_mesh = build_navmesh();
 
     // Benchmark with positions spread across the mesh
-    let positions: Vec<[f32; 3]> = (0..20)
+    let positions: Vec<Vec3> = (0..20)
         .map(|i| {
             let t = i as f32 / 20.0;
             let x = -20.0 + t * 60.0;
             let z = -40.0 + t * 60.0;
-            [x, 0.0, z]
+            Vec3::new(x, 0.0, z)
         })
         .collect();
 
     group.bench_function("20_positions", |b| {
         let query = NavMeshQuery::new(&nav_mesh);
         let filter = QueryFilter::default();
-        let extent = [5.0, 10.0, 5.0];
+        let extent = Vec3::new(5.0, 10.0, 5.0);
         b.iter(|| {
             for pos in &positions {
-                let _ = query.find_nearest_poly(pos, &extent, &filter);
+                let _ = query.find_nearest_poly(*pos, extent, &filter);
             }
         });
     });

@@ -278,6 +278,7 @@ pub fn get_test_extents() -> [f32; 3] {
 mod tests {
     use super::*;
     use crate::{NavMeshQuery, QueryFilter};
+    use glam::Vec3;
 
     #[test]
     fn test_minimal_mesh_creation() -> Result<(), Box<dyn std::error::Error>> {
@@ -289,7 +290,7 @@ mod tests {
         let extents = get_test_extents();
 
         // Should find a polygon at the test position
-        let result = query.find_nearest_poly(&center, &extents, &filter);
+        let result = query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter);
         assert!(result.is_ok(), "Should find polygon in minimal mesh");
 
         let (poly_ref, _pos) = result?;
@@ -308,7 +309,7 @@ mod tests {
         let extents = get_test_extents();
 
         // Should find a polygon at the test position
-        let result = query.find_nearest_poly(&center, &extents, &filter);
+        let result = query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter);
         assert!(result.is_ok(), "Should find polygon in complex mesh");
 
         let (poly_ref, _pos) = result?;

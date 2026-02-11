@@ -607,29 +607,29 @@ impl PathCorridor {
         navquery: &mut NavMeshQuery,
         filter: &QueryFilter,
     ) -> Result<bool, CrowdError> {
-        let npos = &npos.to_array();
+        let npos_arr = npos.to_array();
         if self.path.is_empty() {
             return Ok(false);
         }
 
         // Find the nearest polygon to the new target position
-        let half_extents = [2.0, 4.0, 2.0];
+        let half_extents = Vec3::new(2.0, 4.0, 2.0);
         let (nearest_ref, nearest_point) = navquery
-            .find_nearest_poly(npos, &half_extents, filter)
+            .find_nearest_poly(npos, half_extents, filter)
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         if !nearest_ref.is_valid() {
             return Ok(false);
         }
 
-        self.target = nearest_point;
+        self.target = nearest_point.to_array();
 
         // Update the path if needed
         let last_poly = self.path[self.path.len() - 1];
         if last_poly != nearest_ref {
             // Try to extend the path to the new target
             let path_to_target = navquery
-                .find_path(last_poly, nearest_ref, &self.target, npos, filter)
+                .find_path(last_poly, nearest_ref, &self.target, &npos_arr, filter)
                 .map_err(|_| CrowdError::CorridorFailed)?;
 
             if !path_to_target.is_empty() {

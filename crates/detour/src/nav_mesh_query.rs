@@ -230,10 +230,12 @@ impl<'a> NavMeshQuery<'a> {
     /// Finds the polygon nearest to the specified center point
     pub fn find_nearest_poly(
         &self,
-        center: &[f32; 3],
-        half_extents: &[f32; 3],
+        center: Vec3,
+        half_extents: Vec3,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
+    ) -> Result<(PolyRef, Vec3), DetourError> {
+        let center = center.to_array();
+        let half_extents = half_extents.to_array();
         // Create search bounds
         let bmin = [
             center[0] - half_extents[0],
@@ -255,7 +257,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // Find the closest polygon
         for poly_ref in polys {
-            let (closest_pt, is_over_poly) = self.closest_point_on_poly(poly_ref, center)?;
+            let (closest_pt, is_over_poly) = self.closest_point_on_poly(poly_ref, &center)?;
 
             // Calculate distance
             let diff = [
@@ -293,7 +295,7 @@ impl<'a> NavMeshQuery<'a> {
             return Err(DetourError::PathNotFound);
         }
 
-        Ok((nearest_ref, nearest_point))
+        Ok((nearest_ref, Vec3::from(nearest_point)))
     }
 
     /// Finds the polygon nearest to the specified center point (with is_over_poly flag)
@@ -312,10 +314,12 @@ impl<'a> NavMeshQuery<'a> {
     /// * Whether the point's X/Z coordinate lies inside the polygon
     pub fn find_nearest_poly_extended(
         &self,
-        center: &[f32; 3],
-        half_extents: &[f32; 3],
+        center: Vec3,
+        half_extents: Vec3,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3], bool), DetourError> {
+    ) -> Result<(PolyRef, Vec3, bool), DetourError> {
+        let center = center.to_array();
+        let half_extents = half_extents.to_array();
         // Create search bounds
         let bmin = [
             center[0] - half_extents[0],
@@ -338,7 +342,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // Find the closest polygon
         for poly_ref in polys {
-            let (closest_pt, is_over_poly) = self.closest_point_on_poly(poly_ref, center)?;
+            let (closest_pt, is_over_poly) = self.closest_point_on_poly(poly_ref, &center)?;
 
             // Calculate distance
             let diff = [
@@ -377,7 +381,7 @@ impl<'a> NavMeshQuery<'a> {
             return Err(DetourError::PathNotFound);
         }
 
-        Ok((nearest_ref, nearest_point, nearest_is_over_poly))
+        Ok((nearest_ref, Vec3::from(nearest_point), nearest_is_over_poly))
     }
 
     /// Finds a path from start to end position
@@ -4632,7 +4636,8 @@ mod tests {
         // Get the polygon reference using find_nearest_poly to ensure correct salt
         let center = [5.0, 0.0, 5.0];
         let half_extents = [5.0, 5.0, 5.0];
-        let (poly_ref, _) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
 
         // Get wall segments (should have 4 since all edges are walls)
         let wall_segments = query.get_poly_wall_segments(poly_ref, &filter, 10)?;
@@ -4776,7 +4781,8 @@ mod tests {
         // Get polygon reference using find_nearest_poly to ensure correct salt
         let center = [5.0, 0.0, 5.0];
         let half_extents = [5.0, 5.0, 5.0];
-        let (poly_ref, _) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
 
         // Get wall segments - may vary depending on whether tiles auto-connect
         let wall_segments = query.get_poly_wall_segments(poly_ref, &filter, 10)?;
@@ -4914,7 +4920,7 @@ mod tests {
         if !poly_ref.is_valid() {
             let center = [5.0, 0.0, 5.0];
             let half_extents = [1.0, 1.0, 1.0];
-            match query.find_nearest_poly(&center, &half_extents, &filter) {
+            match query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter) {
                 Ok((found_ref, _pos)) => poly_ref = found_ref,
                 Err(_) => poly_ref = encode_poly_ref_with_salt(tile_salt, 1, 0),
             }
@@ -4961,7 +4967,8 @@ mod tests {
         let half_extents = [20.0, 10.0, 20.0]; // Large search area
 
         println!("Finding start polygon near {:?}", start_center);
-        let start_result = query.find_nearest_poly(&start_center, &half_extents, &filter);
+        let start_result =
+            query.find_nearest_poly(Vec3::from(start_center), Vec3::from(half_extents), &filter);
         let (start_ref, start_nearest) = match start_result {
             Ok(result) => {
                 println!("Found start polygon: {:?} at {:?}", result.0, result.1);
@@ -4974,7 +4981,8 @@ mod tests {
         };
 
         println!("Finding end polygon near {:?}", end_center);
-        let end_result = query.find_nearest_poly(&end_center, &half_extents, &filter);
+        let end_result =
+            query.find_nearest_poly(Vec3::from(end_center), Vec3::from(half_extents), &filter);
         let (end_ref, end_nearest) = match end_result {
             Ok(result) => {
                 println!("Found end polygon: {:?} at {:?}", result.0, result.1);
@@ -4985,8 +4993,8 @@ mod tests {
                 return Err(e);
             }
         };
-        let start_pos = start_nearest;
-        let end_pos = end_nearest;
+        let start_pos = start_nearest.to_array();
+        let end_pos = end_nearest.to_array();
 
         // Initialize sliced pathfinding
         println!(
@@ -5060,7 +5068,8 @@ mod tests {
         // Get a valid start reference using find_nearest_poly
         let start_center = [5.0, 0.0, 5.0];
         let half_extents = [2.0, 2.0, 2.0];
-        let (start_ref, _) = query.find_nearest_poly(&start_center, &half_extents, &filter)?;
+        let (start_ref, _) =
+            query.find_nearest_poly(Vec3::from(start_center), Vec3::from(half_extents), &filter)?;
         let invalid_end_ref = PolyRef::new(999); // Doesn't exist
         let start_pos = [5.0, 0.0, 5.0];
         let end_pos = [50.0, 0.0, 50.0];
@@ -5088,7 +5097,8 @@ mod tests {
         // Get polygon reference using find_nearest_poly to ensure correct salt
         let center = [5.0, 0.0, 5.0];
         let half_extents = [2.0, 2.0, 2.0];
-        let (poly_ref, _) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (poly_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
         let start_pos = [5.0, 0.0, 5.0];
         let end_pos = [8.0, 0.0, 8.0];
 
@@ -5307,12 +5317,13 @@ mod tests {
         let half_extents = [2.0, 2.0, 2.0];
 
         // Find nearest polygon
-        let (poly_ref, nearest_pt) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (poly_ref, nearest_pt) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
 
         // If we found a valid polygon
         if poly_ref.is_valid() {
             // Test get_poly_height with the nearest point (should be inside the polygon)
-            let height = query.get_poly_height(poly_ref, &nearest_pt)?;
+            let height = query.get_poly_height(poly_ref, &nearest_pt.to_array())?;
 
             // For simple nav mesh without detail mesh, height might be None
             // This is still a valid test - we're testing the API exists and works
@@ -5366,7 +5377,8 @@ mod tests {
         // Find a center polygon
         let center = [15.0, 0.0, 15.0];
         let half_extents = [5.0, 2.0, 5.0];
-        let (center_ref, _) = query.find_nearest_poly(&center, &half_extents, &filter)?;
+        let (center_ref, _) =
+            query.find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)?;
 
         // Test with custom random function
         let seed = std::cell::Cell::new(42u32);
@@ -5409,20 +5421,27 @@ mod tests {
         let half_extents = [20.0, 10.0, 20.0];
 
         // Test find_nearest_poly_extended (new overload with is_over_poly)
-        match query.find_nearest_poly_extended(&center, &half_extents, &filter) {
+        match query.find_nearest_poly_extended(
+            Vec3::from(center),
+            Vec3::from(half_extents),
+            &filter,
+        ) {
             Ok((nearest_ref, nearest_pt, _is_over_poly)) => {
                 assert!(nearest_ref.is_valid());
 
                 // Test basic find_nearest_poly returns same result
-                let (nearest_ref_basic, nearest_pt_basic) =
-                    query.find_nearest_poly(&center, &half_extents, &filter)?;
+                let (nearest_ref_basic, nearest_pt_basic) = query.find_nearest_poly(
+                    Vec3::from(center),
+                    Vec3::from(half_extents),
+                    &filter,
+                )?;
                 assert_eq!(nearest_ref, nearest_ref_basic);
                 assert_eq!(nearest_pt, nearest_pt_basic);
 
                 // Test find_straight_path_with_options (new overload with options)
                 let path_refs = vec![nearest_ref];
-                let start_pos = nearest_pt;
-                let end_pos = nearest_pt; // Same position to avoid complexity
+                let start_pos = nearest_pt.to_array();
+                let end_pos = nearest_pt.to_array(); // Same position to avoid complexity
 
                 let path_with_options =
                     query.find_straight_path_with_options(&start_pos, &end_pos, &path_refs, 0)?;
@@ -5466,12 +5485,16 @@ mod tests {
                 // These should fail gracefully but the APIs should exist
                 assert!(
                     query
-                        .find_nearest_poly(&center, &half_extents, &filter)
+                        .find_nearest_poly(Vec3::from(center), Vec3::from(half_extents), &filter)
                         .is_err()
                 );
                 assert!(
                     query
-                        .find_nearest_poly_extended(&center, &half_extents, &filter)
+                        .find_nearest_poly_extended(
+                            Vec3::from(center),
+                            Vec3::from(half_extents),
+                            &filter
+                        )
                         .is_err()
                 );
 

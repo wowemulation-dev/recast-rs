@@ -61,7 +61,7 @@ fn setup_crowd(nav_mesh: &NavMesh, num_agents: usize, enable_rvo: bool) -> Crowd
 
     let query = NavMeshQuery::new(nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
     let params = AgentParams {
         radius: 0.6,
@@ -77,17 +77,16 @@ fn setup_crowd(nav_mesh: &NavMesh, num_agents: usize, enable_rvo: bool) -> Crowd
         let col = i % 10;
         let x = 5.0 + col as f32 * 2.0;
         let z = -10.0 + row as f32 * 2.0;
-        let pos = [x, 0.0, z];
+        let pos = Vec3::new(x, 0.0, z);
 
-        if let Ok((_, snapped_pos)) = query.find_nearest_poly(&pos, &extent, &filter) {
-            if let Ok(agent_id) = crowd.add_agent(Vec3::from(snapped_pos), params.clone()) {
+        if let Ok((_, snapped_pos)) = query.find_nearest_poly(pos, extent, &filter) {
+            if let Ok(agent_id) = crowd.add_agent(snapped_pos, params.clone()) {
                 // Target: opposite side of the mesh
-                let target = [50.0 - x, 0.0, -z];
+                let target = Vec3::new(50.0 - x, 0.0, -z);
                 if let Ok((target_ref, snapped_target)) =
-                    query.find_nearest_poly(&target, &extent, &filter)
+                    query.find_nearest_poly(target, extent, &filter)
                 {
-                    let _ =
-                        crowd.request_move_target(agent_id, target_ref, Vec3::from(snapped_target));
+                    let _ = crowd.request_move_target(agent_id, target_ref, snapped_target);
                 }
             }
         }

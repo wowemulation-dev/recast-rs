@@ -8,6 +8,7 @@ mod tests {
     use crate::{
         NavMesh, NavMeshCreateParams, NavMeshParams, NavMeshQuery, PolyFlags, QueryFilter,
     };
+    use glam::Vec3;
 
     /// Helper to create a simple two-island mesh with an off-mesh connection
     fn create_two_island_mesh_with_connection() -> Result<NavMesh, Box<dyn std::error::Error>> {
@@ -134,8 +135,10 @@ mod tests {
         let extents = [0.5, 1.0, 0.5];
 
         // Find start and end polygons
-        let (start_ref, actual_start) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
-        let (end_ref, actual_end) = query.find_nearest_poly(&end_pos, &extents, &filter)?;
+        let (start_ref, actual_start) =
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
+        let (end_ref, actual_end) =
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &filter)?;
 
         assert!(
             start_ref.is_valid(),
@@ -145,7 +148,15 @@ mod tests {
         assert_ne!(start_ref, end_ref, "Islands should be different polygons");
 
         // Find path - should succeed if off-mesh connection works
-        let path = query.find_path(start_ref, end_ref, &actual_start, &actual_end, &filter)?;
+        let actual_start_arr = actual_start.to_array();
+        let actual_end_arr = actual_end.to_array();
+        let path = query.find_path(
+            start_ref,
+            end_ref,
+            &actual_start_arr,
+            &actual_end_arr,
+            &filter,
+        )?;
 
         // Path should include both polygons and the off-mesh connection
         assert!(
@@ -182,16 +193,19 @@ mod tests {
         let extents = [0.5, 1.0, 0.5];
 
         let (start_ref, start_actual) =
-            query.find_nearest_poly(&start_pos, &extents, &no_jump_filter)?;
-        let (end_ref, end_actual) = query.find_nearest_poly(&end_pos, &extents, &no_jump_filter)?;
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &no_jump_filter)?;
+        let (end_ref, end_actual) =
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &no_jump_filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Path should fail or be empty since we exclude jump connections
+            let start_actual_arr = start_actual.to_array();
+            let end_actual_arr = end_actual.to_array();
             let result = query.find_path(
                 start_ref,
                 end_ref,
-                &start_actual,
-                &end_actual,
+                &start_actual_arr,
+                &end_actual_arr,
                 &no_jump_filter,
             );
 
@@ -275,15 +289,26 @@ mod tests {
         let end_pos = [5.0, 0.0, 1.0];
         let extents = [0.5, 1.0, 0.5];
 
-        let (start_ref, actual_start) = query.find_nearest_poly(&start_pos, &extents, &filter)?;
-        let (end_ref, actual_end) = query.find_nearest_poly(&end_pos, &extents, &filter)?;
+        let (start_ref, actual_start) =
+            query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
+        let (end_ref, actual_end) =
+            query.find_nearest_poly(Vec3::from(end_pos), Vec3::from(extents), &filter)?;
 
         if start_ref.is_valid() && end_ref.is_valid() {
-            let path = query.find_path(start_ref, end_ref, &actual_start, &actual_end, &filter)?;
+            let actual_start_arr = actual_start.to_array();
+            let actual_end_arr = actual_end.to_array();
+            let path = query.find_path(
+                start_ref,
+                end_ref,
+                &actual_start_arr,
+                &actual_end_arr,
+                &filter,
+            )?;
 
             if !path.is_empty() && path.len() >= 2 {
                 // Get straight path
-                let straight_path = query.find_straight_path(&actual_start, &actual_end, &path)?;
+                let straight_path =
+                    query.find_straight_path(&actual_start_arr, &actual_end_arr, &path)?;
 
                 // Straight path should include off-mesh connection points
                 assert!(

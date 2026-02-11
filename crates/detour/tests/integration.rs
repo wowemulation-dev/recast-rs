@@ -7,6 +7,7 @@
 //! pass once pipeline bugs are fixed.
 
 use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
+use glam::Vec3;
 use recast::{RecastBuilder, RecastConfig};
 use recast_common::TriMesh;
 
@@ -52,7 +53,7 @@ fn build_navmesh(obj_name: &str) -> NavMesh {
         .expect("failed to build navmesh")
 }
 
-// ── NavMesh construction ──
+// -- NavMesh construction --
 
 #[test]
 fn nav_test_navmesh_builds() {
@@ -69,16 +70,16 @@ fn bridge_navmesh_builds() {
     let _nav_mesh = build_navmesh("bridge.obj");
 }
 
-// ── Spatial queries: find_nearest_poly ──
+// -- Spatial queries: find_nearest_poly --
 
 #[test]
 fn nav_test_find_nearest_poly_origin() {
     let nav_mesh = build_navmesh("nav_test.obj");
     let query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
-    let result = query.find_nearest_poly(&[0.0, 0.0, 0.0], &extent, &filter);
+    let result = query.find_nearest_poly(Vec3::new(0.0, 0.0, 0.0), extent, &filter);
     assert!(
         result.is_ok(),
         "find_nearest_poly should succeed near origin"
@@ -88,9 +89,9 @@ fn nav_test_find_nearest_poly_origin() {
     assert!(poly_ref.is_valid(), "returned poly_ref should be valid");
 
     // After fixing contour simplification squared distance
-    assert!((snapped[0] - 0.0000).abs() < 0.01);
-    assert!((snapped[1] - (-2.2695)).abs() < 0.01);
-    assert!((snapped[2] - (-2.2001)).abs() < 0.01);
+    assert!((snapped.x - 0.0000).abs() < 0.01);
+    assert!((snapped.y - (-2.2695)).abs() < 0.01);
+    assert!((snapped.z - (-2.2001)).abs() < 0.01);
 }
 
 #[test]
@@ -98,18 +99,18 @@ fn nav_test_find_nearest_poly_q1() {
     let nav_mesh = build_navmesh("nav_test.obj");
     let query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
     // Query at [5,0,0] is reliably within navmesh extent
     let (poly_ref, snapped) = query
-        .find_nearest_poly(&[5.0, 0.0, 0.0], &extent, &filter)
+        .find_nearest_poly(Vec3::new(5.0, 0.0, 0.0), extent, &filter)
         .unwrap();
     assert!(poly_ref.is_valid());
 
     // After fixing contour simplification squared distance
-    assert!((snapped[0] - 4.8514).abs() < 0.01);
-    assert!((snapped[1] - (-2.2695)).abs() < 0.01);
-    assert!((snapped[2] - (-2.3777)).abs() < 0.01);
+    assert!((snapped.x - 4.8514).abs() < 0.01);
+    assert!((snapped.y - (-2.2695)).abs() < 0.01);
+    assert!((snapped.z - (-2.3777)).abs() < 0.01);
 }
 
 #[test]
@@ -117,18 +118,18 @@ fn nav_test_find_nearest_poly_q3() {
     let nav_mesh = build_navmesh("nav_test.obj");
     let query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
     // Query at [16,0,-7] lands directly on the navmesh
     let (poly_ref, snapped) = query
-        .find_nearest_poly(&[16.0, 0.0, -7.0], &extent, &filter)
+        .find_nearest_poly(Vec3::new(16.0, 0.0, -7.0), extent, &filter)
         .unwrap();
     assert!(poly_ref.is_valid());
 
     // After fixing contour simplification squared distance
-    assert!((snapped[0] - 16.0).abs() < 0.01);
-    assert!((snapped[1] - (-2.2695)).abs() < 0.01);
-    assert!((snapped[2] - (-7.0)).abs() < 0.01);
+    assert!((snapped.x - 16.0).abs() < 0.01);
+    assert!((snapped.y - (-2.2695)).abs() < 0.01);
+    assert!((snapped.z - (-7.0)).abs() < 0.01);
 }
 
 #[test]
@@ -136,18 +137,18 @@ fn dungeon_find_nearest_poly_center() {
     let nav_mesh = build_navmesh("dungeon.obj");
     let query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
-    let result = query.find_nearest_poly(&[12.145, 20.087, -40.575], &extent, &filter);
+    let result = query.find_nearest_poly(Vec3::new(12.145, 20.087, -40.575), extent, &filter);
     assert!(result.is_ok());
 
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
     // After fixing contour simplification squared distance
-    assert!((snapped[0] - 12.1450).abs() < 0.01);
-    assert!((snapped[1] - 10.3973).abs() < 0.01);
-    assert!((snapped[2] - (-40.5750)).abs() < 0.01);
+    assert!((snapped.x - 12.1450).abs() < 0.01);
+    assert!((snapped.y - 10.3973).abs() < 0.01);
+    assert!((snapped.z - (-40.5750)).abs() < 0.01);
 }
 
 #[test]
@@ -155,37 +156,39 @@ fn bridge_find_nearest_poly_center() {
     let nav_mesh = build_navmesh("bridge.obj");
     let query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
-    let result = query.find_nearest_poly(&[-0.239, 1.806, -0.287], &extent, &filter);
+    let result = query.find_nearest_poly(Vec3::new(-0.239, 1.806, -0.287), extent, &filter);
     assert!(result.is_ok());
 
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
     // After fixing contour simplification squared distance
-    assert!((snapped[0] - (-0.2390)).abs() < 0.01);
-    assert!((snapped[1] - 4.5951).abs() < 0.01);
-    assert!((snapped[2] - (-0.2870)).abs() < 0.01);
+    assert!((snapped.x - (-0.2390)).abs() < 0.01);
+    assert!((snapped.y - 4.5951).abs() < 0.01);
+    assert!((snapped.z - (-0.2870)).abs() < 0.01);
 }
 
-// ── Pathfinding: current behavior ──
+// -- Pathfinding: current behavior --
 
 #[test]
 fn nav_test_find_path_returns_result() {
     let nav_mesh = build_navmesh("nav_test.obj");
     let mut query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
     let (start_ref, start_pos) = query
-        .find_nearest_poly(&[5.0, 0.0, 0.0], &extent, &filter)
+        .find_nearest_poly(Vec3::new(5.0, 0.0, 0.0), extent, &filter)
         .unwrap();
     let (end_ref, end_pos) = query
-        .find_nearest_poly(&[20.0, 0.0, 0.0], &extent, &filter)
+        .find_nearest_poly(Vec3::new(20.0, 0.0, 0.0), extent, &filter)
         .unwrap();
 
-    let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter);
+    let start_arr = start_pos.to_array();
+    let end_arr = end_pos.to_array();
+    let path = query.find_path(start_ref, end_ref, &start_arr, &end_arr, &filter);
 
     // Currently returns 1-polygon paths due to link setup issue
     assert!(path.is_ok());
@@ -199,24 +202,26 @@ fn nav_test_pathfinding_matches_cpp() {
     let nav_mesh = build_navmesh("nav_test.obj");
     let mut query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
+    let extent = Vec3::new(5.0, 10.0, 5.0);
 
     let (start_ref, start_pos) = query
-        .find_nearest_poly(&[5.0, 0.0, 0.0], &extent, &filter)
+        .find_nearest_poly(Vec3::new(5.0, 0.0, 0.0), extent, &filter)
         .unwrap();
     let (end_ref, end_pos) = query
-        .find_nearest_poly(&[20.0, 0.0, 0.0], &extent, &filter)
+        .find_nearest_poly(Vec3::new(20.0, 0.0, 0.0), extent, &filter)
         .unwrap();
 
+    let start_arr = start_pos.to_array();
+    let end_arr = end_pos.to_array();
     let path = query
-        .find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)
+        .find_path(start_ref, end_ref, &start_arr, &end_arr, &filter)
         .unwrap();
 
     // C++ produces a multi-polygon path
     assert!(path.len() > 1, "path should traverse multiple polygons");
 
     let straight = query
-        .find_straight_path(&start_pos, &end_pos, &path)
+        .find_straight_path(&start_arr, &end_arr, &path)
         .unwrap();
 
     // C++ produces multiple waypoints for this query

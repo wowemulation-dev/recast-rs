@@ -10,6 +10,7 @@
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, PolyRef, QueryFilter};
+use glam::Vec3;
 use recast::{RecastBuilder, RecastConfig};
 use recast_common::TriMesh;
 
@@ -58,10 +59,11 @@ fn build_navmesh(name: &str) -> NavMesh {
 fn snap_to_navmesh(nav_mesh: &NavMesh, pos: [f32; 3]) -> (PolyRef, [f32; 3]) {
     let query = NavMeshQuery::new(nav_mesh);
     let filter = QueryFilter::default();
-    let extent = [5.0, 10.0, 5.0];
-    query
-        .find_nearest_poly(&pos, &extent, &filter)
-        .expect("position not on navmesh")
+    let extent = Vec3::new(5.0, 10.0, 5.0);
+    let (poly_ref, snapped) = query
+        .find_nearest_poly(Vec3::from(pos), extent, &filter)
+        .expect("position not on navmesh");
+    (poly_ref, snapped.to_array())
 }
 
 fn bench_find_path(c: &mut Criterion) {

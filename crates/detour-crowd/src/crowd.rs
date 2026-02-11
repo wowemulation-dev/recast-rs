@@ -334,7 +334,6 @@ impl<'a> Crowd<'a> {
 
     /// Adds an agent to the crowd
     pub fn add_agent(&mut self, pos: Vec3, params: AgentParams) -> Result<usize, CrowdError> {
-        let pos = pos.to_array();
         // Find a free slot
         let mut slot = usize::MAX;
         for i in 0..self.max_agents {
@@ -349,19 +348,19 @@ impl<'a> Crowd<'a> {
         }
 
         // Find nearest polygon to position
-        let ext = [
+        let ext = Vec3::new(
             params.radius * 2.0,
             params.height * 0.5,
             params.radius * 2.0,
-        ];
+        );
 
         let filter = &self.filters[0]; // Use default filter
-        let (nearest_ref, nearest_pos) = match self.query.find_nearest_poly(&pos, &ext, filter) {
+        let (nearest_ref, nearest_pos) = match self.query.find_nearest_poly(pos, ext, filter) {
             Ok((reference, position)) => (reference, position),
             Err(_) => {
                 // Try with larger extents
-                let ext = [params.radius * 3.0, params.height, params.radius * 3.0];
-                match self.query.find_nearest_poly(&pos, &ext, filter) {
+                let ext = Vec3::new(params.radius * 3.0, params.height, params.radius * 3.0);
+                match self.query.find_nearest_poly(pos, ext, filter) {
                     Ok((reference, position)) => (reference, position),
                     Err(_) => return Err(CrowdError::InvalidParam),
                 }
@@ -376,13 +375,13 @@ impl<'a> Crowd<'a> {
 
         // Initialize the agent
         agent.state = AgentState::Active;
-        agent.pos = nearest_pos;
+        agent.pos = nearest_pos.to_array();
         agent.desired_vel = [0.0, 0.0, 0.0];
         agent.vel = [0.0, 0.0, 0.0];
         agent.active = true;
 
         // Init path corridor
-        agent.corridor.reset(nearest_ref, Vec3::from(nearest_pos));
+        agent.corridor.reset(nearest_ref, nearest_pos);
 
         // Handle RVO integration
         if params.use_rvo {
@@ -392,7 +391,7 @@ impl<'a> Crowd<'a> {
             }
 
             if let Some(rvo_sim) = &mut self.rvo_simulator {
-                let rvo_pos_2d = position_3d_to_2d(Vec3::from(nearest_pos));
+                let rvo_pos_2d = position_3d_to_2d(nearest_pos);
                 let rvo_agent_id = rvo_sim.add_agent_with_config(rvo_pos_2d, params.rvo_config);
                 agent.rvo_agent_id = Some(rvo_agent_id);
             }
@@ -401,7 +400,7 @@ impl<'a> Crowd<'a> {
         // Add the agent to the proximity grid
         let grid_agent = GridAgent {
             id: slot,
-            pos: nearest_pos,
+            pos: nearest_pos.to_array(),
             radius: params.radius,
         };
         let _ = self.proximity_grid.update_agent(grid_agent);
