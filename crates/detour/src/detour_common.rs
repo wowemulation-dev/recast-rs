@@ -45,90 +45,10 @@ pub fn dt_swap<T>(a: &mut T, b: &mut T) {
     std::mem::swap(a, b);
 }
 
-/// Derives the cross product of two vectors (v1 x v2)
-#[inline]
-pub fn dt_vcross(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3]) {
-    dest[0] = v1[1] * v2[2] - v1[2] * v2[1];
-    dest[1] = v1[2] * v2[0] - v1[0] * v2[2];
-    dest[2] = v1[0] * v2[1] - v1[1] * v2[0];
-}
-
 /// Derives the dot product of two vectors (v1 . v2)
 #[inline]
 pub fn dt_vdot(v1: &[f32; 3], v2: &[f32; 3]) -> f32 {
     v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]
-}
-
-/// Performs a scaled vector addition (v1 + (v2 * s))
-#[inline]
-pub fn dt_vmad(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3], s: f32) {
-    dest[0] = v1[0] + v2[0] * s;
-    dest[1] = v1[1] + v2[1] * s;
-    dest[2] = v1[2] + v2[2] * s;
-}
-
-/// Performs a linear interpolation between two vectors (v1 toward v2)
-#[inline]
-pub fn dt_vlerp(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3], t: f32) {
-    dest[0] = v1[0] + (v2[0] - v1[0]) * t;
-    dest[1] = v1[1] + (v2[1] - v1[1]) * t;
-    dest[2] = v1[2] + (v2[2] - v1[2]) * t;
-}
-
-/// Performs a vector addition (v1 + v2)
-#[inline]
-pub fn dt_vadd(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3]) {
-    dest[0] = v1[0] + v2[0];
-    dest[1] = v1[1] + v2[1];
-    dest[2] = v1[2] + v2[2];
-}
-
-/// Performs a vector subtraction (v1 - v2)
-#[inline]
-pub fn dt_vsub(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3]) {
-    dest[0] = v1[0] - v2[0];
-    dest[1] = v1[1] - v2[1];
-    dest[2] = v1[2] - v2[2];
-}
-
-/// Scales the vector by the specified value (v * t)
-#[inline]
-pub fn dt_vscale(dest: &mut [f32; 3], v: &[f32; 3], t: f32) {
-    dest[0] = v[0] * t;
-    dest[1] = v[1] * t;
-    dest[2] = v[2] * t;
-}
-
-/// Selects the minimum value of each element from the specified vectors
-#[inline]
-pub fn dt_vmin(mn: &mut [f32; 3], v: &[f32; 3]) {
-    mn[0] = dt_min(mn[0], v[0]);
-    mn[1] = dt_min(mn[1], v[1]);
-    mn[2] = dt_min(mn[2], v[2]);
-}
-
-/// Selects the maximum value of each element from the specified vectors
-#[inline]
-pub fn dt_vmax(mx: &mut [f32; 3], v: &[f32; 3]) {
-    mx[0] = dt_max(mx[0], v[0]);
-    mx[1] = dt_max(mx[1], v[1]);
-    mx[2] = dt_max(mx[2], v[2]);
-}
-
-/// Sets the vector elements to the specified values
-#[inline]
-pub fn dt_vset(dest: &mut [f32; 3], x: f32, y: f32, z: f32) {
-    dest[0] = x;
-    dest[1] = y;
-    dest[2] = z;
-}
-
-/// Performs a vector copy
-#[inline]
-pub fn dt_vcopy(dest: &mut [f32; 3], a: &[f32; 3]) {
-    dest[0] = a[0];
-    dest[1] = a[1];
-    dest[2] = a[2];
 }
 
 /// Derives the scalar length of the vector
@@ -175,15 +95,6 @@ pub fn dt_vdist_2d_sqr(v1: &[f32], v2: &[f32]) -> f32 {
     let dx = v2[0] - v1[0];
     let dz = v2[2] - v1[2];
     dx * dx + dz * dz
-}
-
-/// Normalizes the vector
-#[inline]
-pub fn dt_vnormalize(v: &mut [f32; 3]) {
-    let d = 1.0 / (dt_sqr(v[0]) + dt_sqr(v[1]) + dt_sqr(v[2])).sqrt();
-    v[0] *= d;
-    v[1] *= d;
-    v[2] *= d;
 }
 
 /// Performs a 'sloppy' colocation check of the specified points
@@ -259,28 +170,33 @@ pub fn dt_closest_pt_point_triangle(
     b: &[f32; 3],
     c: &[f32; 3],
 ) {
+    // Helper: subtract two vectors
+    let vsub = |v1: &[f32; 3], v2: &[f32; 3]| -> [f32; 3] {
+        [v1[0] - v2[0], v1[1] - v2[1], v1[2] - v2[2]]
+    };
+    // Helper: v1 + v2 * s
+    let vmad = |v1: &[f32; 3], v2: &[f32; 3], s: f32| -> [f32; 3] {
+        [v1[0] + v2[0] * s, v1[1] + v2[1] * s, v1[2] + v2[2] * s]
+    };
+
     // Check if P in vertex region outside A
-    let mut ab = [0.0f32; 3];
-    let mut ac = [0.0f32; 3];
-    let mut ap = [0.0f32; 3];
-    dt_vsub(&mut ab, b, a);
-    dt_vsub(&mut ac, c, a);
-    dt_vsub(&mut ap, p, a);
+    let ab = vsub(b, a);
+    let ac = vsub(c, a);
+    let ap = vsub(p, a);
 
     let d1 = dt_vdot(&ab, &ap);
     let d2 = dt_vdot(&ac, &ap);
     if d1 <= 0.0 && d2 <= 0.0 {
-        dt_vcopy(closest, a);
+        *closest = *a;
         return;
     }
 
     // Check if P in vertex region outside B
-    let mut bp = [0.0f32; 3];
-    dt_vsub(&mut bp, p, b);
+    let bp = vsub(p, b);
     let d3 = dt_vdot(&ab, &bp);
     let d4 = dt_vdot(&ac, &bp);
     if d3 >= 0.0 && d4 <= d3 {
-        dt_vcopy(closest, b);
+        *closest = *b;
         return;
     }
 
@@ -288,17 +204,16 @@ pub fn dt_closest_pt_point_triangle(
     let vc = d1 * d4 - d3 * d2;
     if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
         let v = d1 / (d1 - d3);
-        dt_vmad(closest, a, &ab, v);
+        *closest = vmad(a, &ab, v);
         return;
     }
 
     // Check if P in vertex region outside C
-    let mut cp = [0.0f32; 3];
-    dt_vsub(&mut cp, p, c);
+    let cp = vsub(p, c);
     let d5 = dt_vdot(&ab, &cp);
     let d6 = dt_vdot(&ac, &cp);
     if d6 >= 0.0 && d5 <= d6 {
-        dt_vcopy(closest, c);
+        *closest = *c;
         return;
     }
 
@@ -306,7 +221,7 @@ pub fn dt_closest_pt_point_triangle(
     let vb = d5 * d2 - d1 * d6;
     if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
         let w = d2 / (d2 - d6);
-        dt_vmad(closest, a, &ac, w);
+        *closest = vmad(a, &ac, w);
         return;
     }
 
@@ -314,9 +229,8 @@ pub fn dt_closest_pt_point_triangle(
     let va = d3 * d6 - d5 * d4;
     if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
         let w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-        let mut bc = [0.0f32; 3];
-        dt_vsub(&mut bc, c, b);
-        dt_vmad(closest, b, &bc, w);
+        let bc = vsub(c, b);
+        *closest = vmad(b, &bc, w);
         return;
     }
 
@@ -324,11 +238,8 @@ pub fn dt_closest_pt_point_triangle(
     let denom = 1.0 / (va + vb + vc);
     let v = vb * denom;
     let w = vc * denom;
-    // First compute a + ab * v
-    let mut temp = [0.0f32; 3];
-    dt_vmad(&mut temp, a, &ab, v);
-    // Then add ac * w to get the final result
-    dt_vmad(closest, &temp, &ac, w);
+    let temp = vmad(a, &ab, v);
+    *closest = vmad(&temp, &ac, w);
 }
 
 /// Derives the y-axis height of the closest point on the triangle from the specified reference point
@@ -417,25 +328,6 @@ pub fn dt_dist_pt_seg_sqr_2d(pt: &[f32], p: &[f32], q: &[f32]) -> (f32, f32) {
     recast_common::dist_point_segment_sqr_2d_with_t(pt, p, q)
 }
 
-/// Derives the centroid of a convex polygon
-pub fn dt_calc_poly_center(tc: &mut [f32; 3], idx: &[u16], nidx: usize, verts: &[f32]) {
-    tc[0] = 0.0;
-    tc[1] = 0.0;
-    tc[2] = 0.0;
-
-    for i in 0..nidx {
-        let v = &verts[(idx[i] as usize) * 3..];
-        tc[0] += v[0];
-        tc[1] += v[1];
-        tc[2] += v[2];
-    }
-
-    let scale = 1.0 / nidx as f32;
-    tc[0] *= scale;
-    tc[1] *= scale;
-    tc[2] *= scale;
-}
-
 /// Determines if the two convex polygons overlap on the xz-plane
 pub fn dt_overlap_poly_poly_2d(polya: &[f32], npolya: usize, polyb: &[f32], npolyb: usize) -> bool {
     const EPS: f32 = 1e-4;
@@ -487,54 +379,6 @@ fn project_poly_axis(axis: &[f32], poly: &[f32], npoly: usize) -> (f32, f32) {
 
 fn overlap_range(amin: f32, amax: f32, bmin: f32, bmax: f32, eps: f32) -> bool {
     (amin + eps) > bmax || (amax - eps) < bmin
-}
-
-/// Generates a random point inside a convex polygon
-pub fn dt_random_point_in_convex_poly(
-    pts: &[f32],
-    npts: usize,
-    areas: &mut [f32],
-    s: f32,
-    t: f32,
-    out: &mut [f32; 3],
-) {
-    // Calculate triangle areas
-    let mut acc = 0.0;
-    for i in 0..(npts - 2) {
-        let a = &pts[0..3];
-        let b = &pts[(i + 1) * 3..(i + 2) * 3];
-        let c = &pts[(i + 2) * 3..(i + 3) * 3];
-        areas[i] = dt_tri_area_2d(a, b, c).abs() * 0.5;
-        acc += areas[i];
-    }
-
-    // Find triangle
-    let mut tri = 0;
-    let mut u = s * acc;
-    let mut sum = 0.0;
-
-    for (i, area) in areas.iter().take(npts - 2).enumerate() {
-        sum += area;
-        if u <= sum {
-            tri = i;
-            u = (u - (sum - area)) / area;
-            break;
-        }
-    }
-
-    // Calculate point
-    let a = &pts[0..3];
-    let b = &pts[(tri + 1) * 3..(tri + 2) * 3];
-    let c = &pts[(tri + 2) * 3..(tri + 3) * 3];
-
-    let v = t.sqrt();
-    let a_weight = 1.0 - v;
-    let b_weight = v * (1.0 - u);
-    let c_weight = v * u;
-
-    out[0] = a[0] * a_weight + b[0] * b_weight + c[0] * c_weight;
-    out[1] = a[1] * a_weight + b[1] * b_weight + c[1] * c_weight;
-    out[2] = a[2] * a_weight + b[2] * b_weight + c[2] * c_weight;
 }
 
 /// Returns the next power of 2
@@ -619,29 +463,10 @@ mod tests {
     }
 
     #[test]
-    fn test_vector_operations() {
+    fn test_dot_product() {
         let v1 = [1.0, 2.0, 3.0];
         let v2 = [4.0, 5.0, 6.0];
-        let mut result = [0.0; 3];
-
-        // Test cross product
-        dt_vcross(&mut result, &v1, &v2);
-        assert_eq!(result, [-3.0, 6.0, -3.0]);
-
-        // Test dot product
         assert_eq!(dt_vdot(&v1, &v2), 32.0);
-
-        // Test vector addition
-        dt_vadd(&mut result, &v1, &v2);
-        assert_eq!(result, [5.0, 7.0, 9.0]);
-
-        // Test vector subtraction
-        dt_vsub(&mut result, &v2, &v1);
-        assert_eq!(result, [3.0, 3.0, 3.0]);
-
-        // Test vector scaling
-        dt_vscale(&mut result, &v1, 2.0);
-        assert_eq!(result, [2.0, 4.0, 6.0]);
     }
 
     #[test]
