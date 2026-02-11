@@ -135,7 +135,7 @@ fn bench_find_distance_to_wall(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             query
-                .find_distance_to_wall(start_ref, &start_pos, 50.0, &filter)
+                .find_distance_to_wall(start_ref, Vec3::from(start_pos), 50.0, &filter)
                 .unwrap()
         });
     });
@@ -191,7 +191,7 @@ fn bench_find_polys_around_circle(c: &mut Criterion) {
             let filter = QueryFilter::default();
             b.iter(|| {
                 query
-                    .find_polys_around_circle(start_ref, &start_pos, radius, &filter)
+                    .find_polys_around_circle(start_ref, Vec3::from(start_pos), radius, &filter)
                     .unwrap()
             });
         });

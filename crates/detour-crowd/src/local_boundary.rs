@@ -70,7 +70,12 @@ impl DtLocalBoundary {
             collision_query_range,
             collision_query_range,
         ];
-        let nearby_polys = navquery.query_polygons(pos, &half_extents, filter, MAX_LOCAL_POLYS)?;
+        let nearby_polys = navquery.query_polygons(
+            Vec3::from(*pos),
+            Vec3::from(half_extents),
+            filter,
+            MAX_LOCAL_POLYS,
+        )?;
 
         // Store the polygons for validation
         self.n_polys = nearby_polys.len().min(MAX_LOCAL_POLYS);

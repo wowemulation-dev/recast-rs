@@ -140,7 +140,14 @@ fn bench_sliced_find_path(c: &mut Criterion) {
         let filter = QueryFilter::default();
         b.iter(|| {
             query
-                .init_sliced_find_path(start_ref, end_ref, &start_pos, &end_pos, &filter, 0)
+                .init_sliced_find_path(
+                    start_ref,
+                    end_ref,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
+                    &filter,
+                    0,
+                )
                 .unwrap();
             loop {
                 let (_, state) = query.update_sliced_find_path(100).unwrap();

@@ -303,7 +303,14 @@ mod tests {
         let pos = [5.0, 0.0, 5.0];
 
         // Test sliced pathfinding init with invalid refs
-        let result = query.init_sliced_find_path(invalid_ref, valid_ref, &pos, &pos, &filter, 0);
+        let result = query.init_sliced_find_path(
+            invalid_ref,
+            valid_ref,
+            Vec3::from(pos),
+            Vec3::from(pos),
+            &filter,
+            0,
+        );
         assert!(result.is_err());
 
         // Test update without init

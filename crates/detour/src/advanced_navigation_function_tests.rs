@@ -567,13 +567,8 @@ mod find_local_neighbourhood_tests {
         // Find local neighbourhood with reasonable radius
         let radius = 0.5;
         let max_result = 10;
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         // Should find at least the starting polygon
         assert!(!polys.is_empty(), "Should find at least one polygon");
@@ -612,13 +607,8 @@ mod find_local_neighbourhood_tests {
         // Very small radius should only find the start polygon
         let radius = 0.01;
         let max_result = 10;
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         assert_eq!(
             polys.len(),
@@ -644,13 +634,8 @@ mod find_local_neighbourhood_tests {
         // Large radius should find multiple polygons
         let radius = 2.0;
         let max_result = 20;
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         assert!(
             polys.len() > 1,
@@ -683,13 +668,8 @@ mod find_local_neighbourhood_tests {
         // Test with small max_result
         let radius = 2.0;
         let max_result = 3;
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         assert!(polys.len() <= max_result, "Should respect max_result limit");
         assert_eq!(polys.len(), parents.len(), "Arrays should be same length");
@@ -707,7 +687,8 @@ mod find_local_neighbourhood_tests {
 
         // Invalid polygon reference
         let invalid_ref = PolyRef::new(0);
-        let result = query.find_local_neighbourhood(invalid_ref, &center, 1.0, &filter, 10);
+        let result =
+            query.find_local_neighbourhood(invalid_ref, Vec3::from(center), 1.0, &filter, 10);
         assert!(
             result.is_err(),
             "Should fail with invalid polygon reference"
@@ -717,13 +698,11 @@ mod find_local_neighbourhood_tests {
         let extents = get_test_extents();
         let (start_ref, center_pos) =
             query.find_nearest_poly(Vec3::from(center), Vec3::from(extents), &filter)?;
-        let result =
-            query.find_local_neighbourhood(start_ref, &center_pos.to_array(), -1.0, &filter, 10);
+        let result = query.find_local_neighbourhood(start_ref, center_pos, -1.0, &filter, 10);
         assert!(result.is_err(), "Should fail with negative radius");
 
         // Zero max_result
-        let result =
-            query.find_local_neighbourhood(start_ref, &center_pos.to_array(), 1.0, &filter, 0);
+        let result = query.find_local_neighbourhood(start_ref, center_pos, 1.0, &filter, 0);
         assert!(result.is_err(), "Should fail with zero max_result");
 
         Ok(())
@@ -743,13 +722,8 @@ mod find_local_neighbourhood_tests {
 
         let radius = 1.0;
         let max_result = 10;
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         if polys.len() > 1 {
             // Verify parent relationships make sense
@@ -789,13 +763,8 @@ mod find_local_neighbourhood_tests {
 
         let radius = 1.5;
         let max_result = 15;
-        let (polys, _) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, _) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         // Test the non-overlapping constraint mentioned in C++ documentation
         // All returned polygons should be non-overlapping when viewed in 2D
@@ -829,13 +798,8 @@ mod find_local_neighbourhood_tests {
         // Zero radius should only find the start polygon
         let radius = 0.0;
         let max_result = 10;
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &center_pos.to_array(),
-            radius,
-            &filter,
-            max_result,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, center_pos, radius, &filter, max_result)?;
 
         assert_eq!(polys.len(), 1, "Zero radius should only find start polygon");
         assert_eq!(polys[0], start_ref, "Should find start polygon");
@@ -896,13 +860,8 @@ mod edge_case_tests {
             query.find_nearest_poly(Vec3::from(start_pos), Vec3::from(extents), &filter)?;
 
         // Test neighbourhood finding with large coordinates
-        let (polys, parents) = query.find_local_neighbourhood(
-            start_ref,
-            &actual_start.to_array(),
-            5.0,
-            &filter,
-            10,
-        )?;
+        let (polys, parents) =
+            query.find_local_neighbourhood(start_ref, actual_start, 5.0, &filter, 10)?;
 
         assert!(!polys.is_empty(), "Should work with large coordinates");
         assert_eq!(polys.len(), parents.len(), "Arrays should match");

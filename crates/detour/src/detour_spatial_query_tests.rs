@@ -233,7 +233,8 @@ mod tests {
         if start_ref.is_valid() {
             // Search for polygons within radius
             let radius = 3.0;
-            let result = query.find_polys_around_circle(start_ref, &center, radius, &filter);
+            let result =
+                query.find_polys_around_circle(start_ref, Vec3::from(center), radius, &filter);
 
             match result {
                 Ok(polys) => {
@@ -260,7 +261,8 @@ mod tests {
             query.find_nearest_poly(Vec3::from(center), Vec3::new(0.5, 0.5, 0.5), &filter)?;
 
         if start_ref.is_valid() {
-            let result = query.find_polys_around_circle(start_ref, &center, 0.0, &filter);
+            let result =
+                query.find_polys_around_circle(start_ref, Vec3::from(center), 0.0, &filter);
 
             match result {
                 Ok(polys) => {
@@ -292,7 +294,8 @@ mod tests {
         if start_ref.is_valid() {
             // Use radius that covers entire mesh
             let radius = 100.0;
-            let result = query.find_polys_around_circle(start_ref, &center, radius, &filter);
+            let result =
+                query.find_polys_around_circle(start_ref, Vec3::from(center), radius, &filter);
 
             match result {
                 Ok(polys) => {

@@ -107,7 +107,6 @@ mod concurrent_read_tests {
                             &filter,
                         )?;
 
-                        let actual_arr = actual_center_pos.to_array();
                         // Perform operations with varying parameters
                         for i in 0..operations_per_thread {
                             let radius = 0.1 + (thread_id as f32 * 0.1) + (i as f32 * 0.02);
@@ -115,7 +114,7 @@ mod concurrent_read_tests {
 
                             let (polys, parents) = query.find_local_neighbourhood(
                                 start_ref,
-                                &actual_arr,
+                                actual_center_pos,
                                 radius,
                                 &filter,
                                 max_result,
@@ -195,7 +194,7 @@ mod concurrent_read_tests {
                                     let radius = 1.0 + (i as f32 * 0.1);
                                     query.find_local_neighbourhood(
                                         start_ref,
-                                        &actual_start_pos.to_array(),
+                                        actual_start_pos,
                                         radius,
                                         &filter,
                                         10,
@@ -422,7 +421,7 @@ mod concurrent_write_tests {
                                 1 => {
                                     query.find_local_neighbourhood(
                                         start_ref,
-                                        &actual_start_pos.to_array(),
+                                        actual_start_pos,
                                         0.5,
                                         &filter,
                                         5,

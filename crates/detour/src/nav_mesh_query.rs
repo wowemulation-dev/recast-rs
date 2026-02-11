@@ -2240,10 +2240,11 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_polys_around_circle(
         &self,
         center_ref: PolyRef,
-        center_pos: &[f32; 3],
+        center_pos: Vec3,
         radius: f32,
         filter: &QueryFilter,
     ) -> Result<Vec<PolyRef>, DetourError> {
+        let center_pos = center_pos.to_array();
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(center_ref) {
             return Err(DetourError::InvalidParam);
@@ -2359,7 +2360,9 @@ impl<'a> NavMeshQuery<'a> {
                             let left_arr = left_portal.to_array();
                             let right_arr = right_portal.to_array();
                             let dist_squared = self.distance_point_to_segment_2d_squared(
-                                center_pos, &left_arr, &right_arr,
+                                &center_pos,
+                                &left_arr,
+                                &right_arr,
                             );
                             dist_squared <= radius_squared
                         }
@@ -2519,17 +2522,18 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_distance_to_wall(
         &self,
         start_ref: PolyRef,
-        center_pos: &[f32; 3],
+        center_pos: Vec3,
         radius: f32,
         filter: &QueryFilter,
-    ) -> Result<(f32, [f32; 3], [f32; 3]), DetourError> {
+    ) -> Result<(f32, Vec3, Vec3), DetourError> {
+        let center_pos = center_pos.to_array();
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
 
         let mut min_distance = radius;
-        let mut wall_hit = *center_pos;
+        let mut wall_hit = center_pos;
         let mut wall_normal = [0.0, 0.0, 1.0];
 
         // Number of rays to cast for wall detection
@@ -2544,7 +2548,7 @@ impl<'a> NavMeshQuery<'a> {
             // Perform raycast to find wall intersection
             match self.raycast(
                 start_ref,
-                Vec3::from(*center_pos),
+                Vec3::from(center_pos),
                 Vec3::from(ray_dir),
                 radius,
                 filter,
@@ -2576,7 +2580,7 @@ impl<'a> NavMeshQuery<'a> {
         // If no walls found within radius, check polygon boundaries more carefully
         if min_distance >= radius {
             if let Ok(boundary_result) =
-                self.find_polygon_boundary_distance(start_ref, center_pos, radius, filter)
+                self.find_polygon_boundary_distance(start_ref, &center_pos, radius, filter)
             {
                 if boundary_result.0 < min_distance {
                     min_distance = boundary_result.0;
@@ -2586,7 +2590,7 @@ impl<'a> NavMeshQuery<'a> {
             }
         }
 
-        Ok((min_distance, wall_hit, wall_normal))
+        Ok((min_distance, Vec3::from(wall_hit), Vec3::from(wall_normal)))
     }
 
     /// Finds the distance to the nearest polygon boundary (more precise than raycast)
@@ -2685,8 +2689,8 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_random_point(
         &mut self,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
-        self.find_random_point_around(PolyRef::new(0), &[0.0, 0.0, 0.0], f32::MAX, filter)
+    ) -> Result<(PolyRef, Vec3), DetourError> {
+        self.find_random_point_around(PolyRef::new(0), Vec3::ZERO, f32::MAX, filter)
     }
 
     /// Finds a random point on the navigation mesh using custom random function
@@ -2703,17 +2707,11 @@ impl<'a> NavMeshQuery<'a> {
         &mut self,
         filter: &QueryFilter,
         frand: F,
-    ) -> Result<(PolyRef, [f32; 3]), DetourError>
+    ) -> Result<(PolyRef, Vec3), DetourError>
     where
         F: FnMut() -> f32,
     {
-        self.find_random_point_around_circle(
-            PolyRef::new(0),
-            &[0.0, 0.0, 0.0],
-            f32::MAX,
-            filter,
-            frand,
-        )
+        self.find_random_point_around_circle(PolyRef::new(0), Vec3::ZERO, f32::MAX, filter, frand)
     }
 
     /// Gets the height of the polygon at the provided position
@@ -2760,11 +2758,11 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_random_point_around_circle<F>(
         &mut self,
         center_ref: PolyRef,
-        center_pos: &[f32; 3],
+        center_pos: Vec3,
         radius: f32,
         filter: &QueryFilter,
         mut frand: F,
-    ) -> Result<(PolyRef, [f32; 3]), DetourError>
+    ) -> Result<(PolyRef, Vec3), DetourError>
     where
         F: FnMut() -> f32,
     {
@@ -2789,10 +2787,11 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_random_point_around(
         &mut self,
         center_ref: PolyRef,
-        center_pos: &[f32; 3],
+        center_pos: Vec3,
         radius: f32,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
+    ) -> Result<(PolyRef, Vec3), DetourError> {
+        let center_pos = center_pos.to_array();
         // If no center is provided (invalid ref), find random point on entire mesh
         if !center_ref.is_valid() || !self.nav_mesh.is_valid_poly_ref(center_ref) {
             return self.find_random_point_on_mesh(filter);
@@ -2800,7 +2799,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // Get all polygons within the circle area
         let polys_in_circle =
-            self.find_polys_around_circle(center_ref, center_pos, radius, filter)?;
+            self.find_polys_around_circle(center_ref, Vec3::from(center_pos), radius, filter)?;
 
         if polys_in_circle.is_empty() {
             return Err(DetourError::InvalidParam);
@@ -2819,11 +2818,11 @@ impl<'a> NavMeshQuery<'a> {
                 let distance = (dx * dx + dz * dz).sqrt();
 
                 if distance <= radius {
-                    Ok((random_poly, pos))
+                    Ok((random_poly, Vec3::from(pos)))
                 } else {
                     // Fall back to polygon center if random point is outside radius
                     match self.get_poly_center(random_poly) {
-                        Ok(center) => Ok((random_poly, center.to_array())),
+                        Ok(center) => Ok((random_poly, center)),
                         Err(e) => Err(e),
                     }
                 }
@@ -2831,7 +2830,7 @@ impl<'a> NavMeshQuery<'a> {
             Err(_) => {
                 // Fallback: get polygon center
                 match self.get_poly_center(random_poly) {
-                    Ok(center) => Ok((random_poly, center.to_array())),
+                    Ok(center) => Ok((random_poly, center)),
                     Err(e) => Err(e),
                 }
             }
@@ -2842,7 +2841,7 @@ impl<'a> NavMeshQuery<'a> {
     fn find_random_point_on_mesh(
         &mut self,
         filter: &QueryFilter,
-    ) -> Result<(PolyRef, [f32; 3]), DetourError> {
+    ) -> Result<(PolyRef, Vec3), DetourError> {
         // Get all valid polygons that pass the filter
         let valid_polys = self.get_all_valid_polygons(filter)?;
 
@@ -2856,11 +2855,11 @@ impl<'a> NavMeshQuery<'a> {
 
         // Generate random point within that polygon
         match self.get_random_point_in_polygon(random_poly) {
-            Ok(pos) => Ok((random_poly, pos)),
+            Ok(pos) => Ok((random_poly, Vec3::from(pos))),
             Err(_) => {
                 // Fallback: get polygon center
                 match self.get_poly_center(random_poly) {
-                    Ok(center) => Ok((random_poly, center.to_array())),
+                    Ok(center) => Ok((random_poly, center)),
                     Err(e) => Err(e),
                 }
             }
@@ -2971,11 +2970,12 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_local_neighbourhood(
         &self,
         start_ref: PolyRef,
-        center_pos: &[f32; 3],
+        center_pos: Vec3,
         radius: f32,
         filter: &QueryFilter,
         max_result: usize,
     ) -> Result<(Vec<PolyRef>, Vec<PolyRef>), DetourError> {
+        let center_pos = center_pos.to_array();
         // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || radius < 0.0 || max_result == 0 {
             return Err(DetourError::InvalidParam);
@@ -3045,7 +3045,7 @@ impl<'a> NavMeshQuery<'a> {
                     let vb = vb_v.to_array();
 
                     // Check if the circle (radius around center) touches this edge
-                    let closest_on_edge = self.closest_point_on_segment(&va, &vb, center_pos);
+                    let closest_on_edge = self.closest_point_on_segment(&va, &vb, &center_pos);
                     let dist_sqr = {
                         let dx = center_pos[0] - closest_on_edge[0];
                         let dy = center_pos[1] - closest_on_edge[1];
@@ -3230,11 +3230,13 @@ impl<'a> NavMeshQuery<'a> {
         &mut self,
         start_ref: PolyRef,
         end_ref: PolyRef,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         filter: &QueryFilter,
         options: u32,
     ) -> Result<(), DetourError> {
+        let start_pos = start_pos.to_array();
+        let end_pos = end_pos.to_array();
         // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || !self.nav_mesh.is_valid_poly_ref(end_ref)
         {
@@ -3250,8 +3252,8 @@ impl<'a> NavMeshQuery<'a> {
         };
         self.sliced_state.start_ref = start_ref;
         self.sliced_state.end_ref = end_ref;
-        self.sliced_state.start_pos = *start_pos;
-        self.sliced_state.end_pos = *end_pos;
+        self.sliced_state.start_pos = start_pos;
+        self.sliced_state.end_pos = end_pos;
         self.sliced_state.filter = filter.clone();
         self.sliced_state.current_path.clear();
         self.sliced_state.best_node_idx = 0;
@@ -3275,7 +3277,7 @@ impl<'a> NavMeshQuery<'a> {
         self.open_list.clear();
 
         // Initialize start node
-        let start_h = self.heuristic(start_pos, end_pos);
+        let start_h = self.heuristic(&start_pos, &end_pos);
         let start_node = &mut self.node_pool[0];
         start_node.poly = start_ref;
         start_node.state = NodeState::Open;
@@ -3321,8 +3323,8 @@ impl<'a> NavMeshQuery<'a> {
         &mut self,
         start_ref: PolyRef,
         end_ref: PolyRef,
-        start_pos: &[f32; 3],
-        end_pos: &[f32; 3],
+        start_pos: Vec3,
+        end_pos: Vec3,
         filter: &QueryFilter,
     ) -> Result<(), DetourError> {
         self.init_sliced_find_path(start_ref, end_ref, start_pos, end_pos, filter, 0)
@@ -3699,7 +3701,7 @@ impl<'a> NavMeshQuery<'a> {
     pub fn find_polys_around_shape(
         &mut self,
         start_ref: PolyRef,
-        verts: &[[f32; 3]],
+        verts: &[Vec3],
         filter: &QueryFilter,
     ) -> Result<Vec<(PolyRef, Option<PolyRef>, f32)>, DetourError> {
         use recast_common::intersect_segment_poly_2d;
@@ -3715,9 +3717,10 @@ impl<'a> NavMeshQuery<'a> {
         // Calculate the center of the shape
         let mut center = [0.0, 0.0, 0.0];
         for vert in verts {
-            center[0] += vert[0];
-            center[1] += vert[1];
-            center[2] += vert[2];
+            let v = vert.to_array();
+            center[0] += v[0];
+            center[1] += v[1];
+            center[2] += v[2];
         }
         let nverts = verts.len() as f32;
         center[0] /= nverts;
@@ -3727,9 +3730,10 @@ impl<'a> NavMeshQuery<'a> {
         // Flatten verts to a single array for intersect_segment_poly_2d
         let mut flat_verts = Vec::with_capacity(verts.len() * 3);
         for vert in verts {
-            flat_verts.push(vert[0]);
-            flat_verts.push(vert[1]);
-            flat_verts.push(vert[2]);
+            let v = vert.to_array();
+            flat_verts.push(v[0]);
+            flat_verts.push(v[1]);
+            flat_verts.push(v[2]);
         }
 
         // Initialize search
@@ -4013,8 +4017,8 @@ impl<'a> NavMeshQuery<'a> {
     /// This method matches the C++ API: dtNavMeshQuery::queryPolygons
     pub fn query_polygons(
         &self,
-        center: &[f32; 3],
-        half_extents: &[f32; 3],
+        center: Vec3,
+        half_extents: Vec3,
         filter: &QueryFilter,
         max_polys: usize,
     ) -> Result<Vec<PolyRef>, DetourError> {
@@ -4028,11 +4032,13 @@ impl<'a> NavMeshQuery<'a> {
     /// This method matches the C++ API: dtNavMeshQuery::queryPolygons with dtPolyQuery
     pub fn query_polygons_with_query(
         &self,
-        center: &[f32; 3],
-        half_extents: &[f32; 3],
+        center: Vec3,
+        half_extents: Vec3,
         filter: &QueryFilter,
         query: &mut dyn super::poly_query::PolyQuery,
     ) -> Result<(), DetourError> {
+        let center = center.to_array();
+        let half_extents = half_extents.to_array();
         // Calculate search bounds
         let bmin = [
             center[0] - half_extents[0],
@@ -4107,7 +4113,7 @@ impl<'a> NavMeshQuery<'a> {
         poly_ref: PolyRef,
         filter: &QueryFilter,
         max_segments: usize,
-    ) -> Result<Vec<[f32; 6]>, DetourError> {
+    ) -> Result<Vec<(Vec3, Vec3)>, DetourError> {
         if !poly_ref.is_valid() {
             return Err(DetourError::InvalidParam);
         }
@@ -4175,14 +4181,7 @@ impl<'a> NavMeshQuery<'a> {
 
             if is_wall {
                 // Add this edge as a wall segment
-                wall_segments.push([
-                    curr_vert[0],
-                    curr_vert[1],
-                    curr_vert[2],
-                    next_vert[0],
-                    next_vert[1],
-                    next_vert[2],
-                ]);
+                wall_segments.push((Vec3::from(curr_vert), Vec3::from(next_vert)));
             }
         }
 
@@ -4241,8 +4240,8 @@ impl<'a> NavMeshQuery<'a> {
     /// ```
     pub fn query_polygons_custom<Q: super::poly_query::PolyQuery>(
         &self,
-        center: &[f32; 3],
-        extents: &[f32; 3],
+        center: Vec3,
+        extents: Vec3,
         filter: &QueryFilter,
         query: &mut Q,
     ) -> Result<(), DetourError> {
@@ -4680,8 +4679,8 @@ mod tests {
         ];
 
         for (i, segment) in wall_segments.iter().enumerate() {
-            let start = [segment[0], segment[1], segment[2]];
-            let end = [segment[3], segment[4], segment[5]];
+            let start = segment.0.to_array();
+            let end = segment.1.to_array();
             let expected = expected_edges[i];
 
             // Allow for floating point precision
@@ -4817,16 +4816,10 @@ mod tests {
         assert!(wall_segments.len() >= 2);
         assert!(wall_segments.len() <= 4);
 
-        // Verify that each segment is properly formatted (6 values: start_xyz, end_xyz)
+        // Verify that each segment has non-zero length
         for segment in &wall_segments {
-            // Each segment should have exactly 6 coordinates
-            assert_eq!(segment.len(), 6);
             // Start and end points should be different
-            let start = [segment[0], segment[1], segment[2]];
-            let end = [segment[3], segment[4], segment[5]];
-            let dist_sqr = (end[0] - start[0]).powi(2)
-                + (end[1] - start[1]).powi(2)
-                + (end[2] - start[2]).powi(2);
+            let dist_sqr = segment.0.distance_squared(segment.1);
             assert!(dist_sqr > 0.001, "Wall segment should have non-zero length");
         }
 
@@ -4965,7 +4958,14 @@ mod tests {
         let end_pos = [8.0, 0.0, 8.0];
 
         // Initialize sliced pathfinding
-        query.init_sliced_find_path(poly_ref, poly_ref, &start_pos, &end_pos, &filter, 0)?;
+        query.init_sliced_find_path(
+            poly_ref,
+            poly_ref,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
+            &filter,
+            0,
+        )?;
 
         // Update until complete
         let (iterations, state) = query.update_sliced_find_path(100)?;
@@ -5027,7 +5027,14 @@ mod tests {
             "Initializing sliced pathfinding from {:?} to {:?}",
             start_ref, end_ref
         );
-        match query.init_sliced_find_path(start_ref, end_ref, &start_pos, &end_pos, &filter, 0) {
+        match query.init_sliced_find_path(
+            start_ref,
+            end_ref,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
+            &filter,
+            0,
+        ) {
             Ok(()) => println!("Sliced pathfinding initialized successfully"),
             Err(e) => {
                 println!("Failed to initialize sliced pathfinding: {:?}", e);
@@ -5104,8 +5111,8 @@ mod tests {
         let result = query.init_sliced_find_path(
             start_ref,
             invalid_end_ref,
-            &start_pos,
-            &end_pos,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
             &filter,
             0,
         );
@@ -5133,8 +5140,8 @@ mod tests {
         query.init_sliced_find_path(
             poly_ref,
             poly_ref,
-            &start_pos,
-            &end_pos,
+            Vec3::from(start_pos),
+            Vec3::from(end_pos),
             &filter,
             DT_FINDPATH_ANY_ANGLE,
         )?;
@@ -5156,7 +5163,8 @@ mod tests {
         let center = [5.0, 0.0, 5.0];
         let half_extents = [3.0, 2.0, 3.0];
 
-        let polys = query.query_polygons(&center, &half_extents, &filter, 10)?;
+        let polys =
+            query.query_polygons(Vec3::from(center), Vec3::from(half_extents), &filter, 10)?;
 
         // Should find at least one polygon
         assert!(!polys.is_empty());
@@ -5175,7 +5183,12 @@ mod tests {
         let center = [5.0, 0.0, 5.0];
         let half_extents = [3.0, 2.0, 3.0];
 
-        query.query_polygons_with_query(&center, &half_extents, &filter, &mut collect_query)?;
+        query.query_polygons_with_query(
+            Vec3::from(center),
+            Vec3::from(half_extents),
+            &filter,
+            &mut collect_query,
+        )?;
 
         // Should have collected at least one polygon
         assert!(collect_query.num_collected() > 0);
@@ -5195,7 +5208,12 @@ mod tests {
         let half_extents = [5.0, 2.0, 5.0];
         let mut nearest_query = FindNearestPolyQuery::new(&query, &center);
 
-        query.query_polygons_with_query(&center, &half_extents, &filter, &mut nearest_query)?;
+        query.query_polygons_with_query(
+            Vec3::from(center),
+            Vec3::from(half_extents),
+            &filter,
+            &mut nearest_query,
+        )?;
 
         // Should have found a nearest polygon
         assert!(nearest_query.nearest_ref().is_valid());
@@ -5419,7 +5437,7 @@ mod tests {
         let radius = 10.0;
         let (poly_ref, point) = query.find_random_point_around_circle(
             center_ref,
-            &center,
+            Vec3::from(center),
             radius,
             &filter,
             custom_rand,
@@ -5491,8 +5509,8 @@ mod tests {
                 query.init_sliced_find_path_default(
                     nearest_ref,
                     nearest_ref,
-                    &start_pos,
-                    &end_pos,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
                     &filter,
                 )?;
 
@@ -5501,8 +5519,8 @@ mod tests {
                 query2.init_sliced_find_path(
                     nearest_ref,
                     nearest_ref,
-                    &start_pos,
-                    &end_pos,
+                    Vec3::from(start_pos),
+                    Vec3::from(end_pos),
                     &filter,
                     0,
                 )?;

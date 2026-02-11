@@ -378,7 +378,14 @@ mod tests {
 
         if start_ref.is_valid() && end_ref.is_valid() {
             // Test with limited iterations using sliced pathfinding
-            query.init_sliced_find_path(start_ref, end_ref, &start_pos, &end_pos, &filter, 0)?;
+            query.init_sliced_find_path(
+                start_ref,
+                end_ref,
+                Vec3::from(start_pos),
+                Vec3::from(end_pos),
+                &filter,
+                0,
+            )?;
 
             let mut total_iters = 0;
             let max_iters_per_update = 100;
