@@ -101,17 +101,17 @@ pub(crate) fn tile_id_to_index(tile_id: u32) -> Option<usize> {
 )]
 pub struct Link {
     /// Reference to the connected polygon
-    pub reference: PolyRef,
+    pub(crate) reference: PolyRef,
     /// Index of the neighbor polygon
-    pub neighbor_index: u8,
+    pub(crate) neighbor_index: u8,
     /// Edge index of the connection
-    pub edge_index: u8,
+    pub(crate) edge_index: u8,
     /// Direction flags for the connection
-    pub side: u8,
+    pub(crate) side: u8,
     /// Boundary flag (0 = internal, 1 = tile boundary)
-    pub boundary_flag: u8,
+    pub(crate) boundary_flag: u8,
     /// Index of the next link in the linked list (None if last)
-    pub next: Option<u32>,
+    pub(crate) next: Option<u32>,
 }
 
 impl Link {
@@ -161,19 +161,19 @@ impl Link {
 )]
 pub struct Poly {
     /// First link index
-    pub first_link: Option<usize>,
+    pub(crate) first_link: Option<usize>,
     /// Vertices of the polygon (indices into the navigation mesh vertex array)
-    pub verts: [u16; MAX_VERTS_PER_POLY],
+    pub(crate) verts: [u16; MAX_VERTS_PER_POLY],
     /// Neighboring polygon references for each edge
-    pub neighbors: [u16; MAX_VERTS_PER_POLY],
+    pub(crate) neighbors: [u16; MAX_VERTS_PER_POLY],
     /// Flags for the polygon
-    pub flags: PolyFlags,
+    pub(crate) flags: PolyFlags,
     /// Number of vertices in the polygon
-    pub vert_count: u8,
+    pub(crate) vert_count: u8,
     /// Area ID of the polygon
-    pub area: u8,
+    pub(crate) area: u8,
     /// Polygon type
-    pub poly_type: PolyType,
+    pub(crate) poly_type: PolyType,
 }
 
 impl Poly {
@@ -188,6 +188,61 @@ impl Poly {
             area,
             poly_type,
         }
+    }
+
+    /// Creates a polygon from pre-built mesh data.
+    pub fn from_mesh_data(
+        verts: [u16; MAX_VERTS_PER_POLY],
+        neighbors: [u16; MAX_VERTS_PER_POLY],
+        vert_count: u8,
+        area: u8,
+        poly_type: PolyType,
+        flags: PolyFlags,
+    ) -> Self {
+        Self {
+            first_link: None,
+            verts,
+            neighbors,
+            flags,
+            vert_count,
+            area,
+            poly_type,
+        }
+    }
+
+    /// Returns the first link index.
+    pub fn first_link(&self) -> Option<usize> {
+        self.first_link
+    }
+
+    /// Returns the vertex indices array.
+    pub fn verts(&self) -> &[u16; MAX_VERTS_PER_POLY] {
+        &self.verts
+    }
+
+    /// Returns the neighbor references array.
+    pub fn neighbors(&self) -> &[u16; MAX_VERTS_PER_POLY] {
+        &self.neighbors
+    }
+
+    /// Returns the polygon flags.
+    pub fn flags(&self) -> PolyFlags {
+        self.flags
+    }
+
+    /// Returns the number of vertices in this polygon.
+    pub fn vert_count(&self) -> u8 {
+        self.vert_count
+    }
+
+    /// Returns the area ID.
+    pub fn area(&self) -> u8 {
+        self.area
+    }
+
+    /// Returns the polygon type.
+    pub fn poly_type(&self) -> PolyType {
+        self.poly_type
     }
 }
 

@@ -370,15 +370,14 @@ impl TileCacheBuilder {
                 }
             }
 
-            let poly = Poly {
-                first_link: None,
+            let poly = Poly::from_mesh_data(
                 verts,
                 neighbors,
-                flags: PolyFlags::WALK,
-                vert_count: vert_count as u8,
-                area: pmesh.areas()[i],
-                poly_type: PolyType::Ground,
-            };
+                vert_count as u8,
+                pmesh.areas()[i],
+                PolyType::Ground,
+                PolyFlags::WALK,
+            );
 
             polys.push(poly);
         }

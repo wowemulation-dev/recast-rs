@@ -98,17 +98,18 @@ pub enum FormationRole {
 #[derive(Debug, Clone)]
 pub struct FormationAgent {
     /// Agent ID in the crowd
-    pub agent_id: usize,
+    pub(crate) agent_id: usize,
     /// Role within the formation
-    pub role: FormationRole,
+    pub(crate) role: FormationRole,
     /// Target position relative to formation center
-    pub relative_position: [f32; 3],
+    pub(crate) relative_position: [f32; 3],
     /// Current formation position (world coordinates)
-    pub formation_position: [f32; 3],
+    pub(crate) formation_position: [f32; 3],
     /// Weight of this agent's influence on formation movement
-    pub influence_weight: f32,
+    pub(crate) influence_weight: f32,
     /// How long agent has been out of formation
-    pub out_of_formation_time: f32,
+    #[allow(dead_code)]
+    pub(crate) out_of_formation_time: f32,
 }
 
 impl FormationAgent {

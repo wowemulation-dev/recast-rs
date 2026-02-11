@@ -8,12 +8,12 @@ pub const DT_MAX_PATTERN_RINGS: usize = 4;
 
 #[derive(Debug, Clone)]
 pub struct DtObstacleCircle {
-    pub p: [f32; 3],    // Position of the obstacle
-    pub vel: [f32; 3],  // Velocity of the obstacle
-    pub dvel: [f32; 3], // Desired velocity of the obstacle
-    pub rad: f32,       // Radius of the obstacle
-    pub dp: [f32; 3],   // Use for side selection during sampling
-    pub np: [f32; 3],   // Use for side selection during sampling
+    pub(crate) p: [f32; 3],    // Position of the obstacle
+    pub(crate) vel: [f32; 3],  // Velocity of the obstacle
+    pub(crate) dvel: [f32; 3], // Desired velocity of the obstacle
+    pub(crate) rad: f32,       // Radius of the obstacle
+    pub(crate) dp: [f32; 3],   // Use for side selection during sampling
+    pub(crate) np: [f32; 3],   // Use for side selection during sampling
 }
 
 impl Default for DtObstacleCircle {
