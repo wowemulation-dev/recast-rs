@@ -847,21 +847,23 @@ impl ContourSet {
         if span.con[dir as usize] != RC_NOT_CONNECTED {
             let ax = x + dir_offset_x[dir as usize];
             let az = y + dir_offset_z[dir as usize];
-            let ai =
-                chf.cells[(ax + az * chf.width) as usize].index.unwrap() + span.con[dir as usize];
-            let as_ = &chf.spans[ai];
-            ch = ch.max(as_.y);
-            regs[1] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
+            if let Some(base_idx) = chf.cells[(ax + az * chf.width) as usize].index {
+                let ai = base_idx + span.con[dir as usize];
+                let as_ = &chf.spans[ai];
+                ch = ch.max(as_.y);
+                regs[1] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
 
-            // Check diagonal neighbor (from ai in dirp)
-            if as_.con[dirp] != RC_NOT_CONNECTED {
-                let ax2 = ax + dir_offset_x[dirp];
-                let az2 = az + dir_offset_z[dirp];
-                let ai2 =
-                    chf.cells[(ax2 + az2 * chf.width) as usize].index.unwrap() + as_.con[dirp];
-                let as2 = &chf.spans[ai2];
-                ch = ch.max(as2.y);
-                regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
+                // Check diagonal neighbor (from ai in dirp)
+                if as_.con[dirp] != RC_NOT_CONNECTED {
+                    let ax2 = ax + dir_offset_x[dirp];
+                    let az2 = az + dir_offset_z[dirp];
+                    if let Some(base_idx2) = chf.cells[(ax2 + az2 * chf.width) as usize].index {
+                        let ai2 = base_idx2 + as_.con[dirp];
+                        let as2 = &chf.spans[ai2];
+                        ch = ch.max(as2.y);
+                        regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
+                    }
+                }
             }
         }
 
@@ -869,20 +871,23 @@ impl ContourSet {
         if span.con[dirp] != RC_NOT_CONNECTED {
             let ax = x + dir_offset_x[dirp];
             let az = y + dir_offset_z[dirp];
-            let ai = chf.cells[(ax + az * chf.width) as usize].index.unwrap() + span.con[dirp];
-            let as_ = &chf.spans[ai];
-            ch = ch.max(as_.y);
-            regs[3] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
+            if let Some(base_idx) = chf.cells[(ax + az * chf.width) as usize].index {
+                let ai = base_idx + span.con[dirp];
+                let as_ = &chf.spans[ai];
+                ch = ch.max(as_.y);
+                regs[3] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
 
-            // Check diagonal neighbor (from ai in dir)
-            if as_.con[dir as usize] != RC_NOT_CONNECTED {
-                let ax2 = ax + dir_offset_x[dir as usize];
-                let az2 = az + dir_offset_z[dir as usize];
-                let ai2 = chf.cells[(ax2 + az2 * chf.width) as usize].index.unwrap()
-                    + as_.con[dir as usize];
-                let as2 = &chf.spans[ai2];
-                ch = ch.max(as2.y);
-                regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
+                // Check diagonal neighbor (from ai in dir)
+                if as_.con[dir as usize] != RC_NOT_CONNECTED {
+                    let ax2 = ax + dir_offset_x[dir as usize];
+                    let az2 = az + dir_offset_z[dir as usize];
+                    if let Some(base_idx2) = chf.cells[(ax2 + az2 * chf.width) as usize].index {
+                        let ai2 = base_idx2 + as_.con[dir as usize];
+                        let as2 = &chf.spans[ai2];
+                        ch = ch.max(as2.y);
+                        regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
+                    }
+                }
             }
         }
 

@@ -941,7 +941,7 @@ impl PolyMesh {
                     hreg.insert(0, r);
                     harea.insert(0, a);
                     add = true;
-                } else if *hole.last().unwrap() == ea {
+                } else if hole.last() == Some(&ea) {
                     // Matches end of hole.
                     hole.push(eb);
                     hreg.push(r);
