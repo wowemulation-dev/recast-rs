@@ -95,7 +95,7 @@ See roadmap section 2.4 for per-crate descriptions and publish order.
 
 - [x] Add `description` and `readme` fields to each crate's `Cargo.toml`
 - [x] Fix doc coverage: `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps`
-- [ ] Dry-run all crates in dependency order: recast-common, recast, detour, detour-crowd, detour-tilecache, detour-dynamic
+- [x] Dry-run all crates in dependency order: recast-common, recast, detour, detour-crowd, detour-tilecache, detour-dynamic
 - [ ] Publish, tag `v0.1.0`, update CHANGELOG.md
 
 ---
