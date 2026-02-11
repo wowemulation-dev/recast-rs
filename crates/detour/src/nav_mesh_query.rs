@@ -67,7 +67,7 @@ pub enum NodeState {
 #[derive(Debug, Clone)]
 pub struct MoveAlongSurfaceResult {
     /// The resulting position after moving along the surface
-    pub position: [f32; 3],
+    pub position: Vec3,
     /// Polygon references visited during the move
     pub visited: Vec<PolyRef>,
 }
@@ -1393,7 +1393,7 @@ impl<'a> NavMeshQuery<'a> {
             .collect();
 
         Ok(MoveAlongSurfaceResult {
-            position: best_pos,
+            position: Vec3::from(best_pos),
             visited,
         })
     }
@@ -1725,7 +1725,7 @@ impl<'a> NavMeshQuery<'a> {
 
         // Handle zero-length ray
         if max_dist <= 0.0 {
-            let result = RaycastResult::new(start_ref, *start_pos, hit);
+            let result = RaycastResult::new(start_ref, Vec3::from(*start_pos), hit);
             return Ok(result);
         }
 
@@ -1811,7 +1811,8 @@ impl<'a> NavMeshQuery<'a> {
                             let edge_dz = vj[2] - vi[2];
                             let edge_len = (edge_dx * edge_dx + edge_dz * edge_dz).sqrt();
                             if edge_len > 1e-6 {
-                                hit.hit_normal = [edge_dz / edge_len, 0.0, -edge_dx / edge_len];
+                                hit.hit_normal =
+                                    Vec3::new(edge_dz / edge_len, 0.0, -edge_dx / edge_len);
                             }
                             // Mark as wall hit
                             next_ref = PolyRef::new(0);
@@ -1840,7 +1841,7 @@ impl<'a> NavMeshQuery<'a> {
                     hit = hit.with_cost(path_cost);
                 }
 
-                let result = RaycastResult::new(cur_ref, next_pos, hit);
+                let result = RaycastResult::new(cur_ref, Vec3::from(next_pos), hit);
                 return Ok(result);
             }
 
@@ -1866,7 +1867,7 @@ impl<'a> NavMeshQuery<'a> {
             hit = hit.with_cost(path_cost);
         }
 
-        let result = RaycastResult::new(cur_ref, *end_pos, hit);
+        let result = RaycastResult::new(cur_ref, Vec3::from(*end_pos), hit);
         Ok(result)
     }
 
@@ -1944,12 +1945,12 @@ impl<'a> NavMeshQuery<'a> {
         let mut result = Path::new();
 
         // Add the start position
-        result.waypoints.push(*start_pos);
+        result.waypoints.push(Vec3::from(*start_pos));
         result.poly_refs.push(path[0]);
 
         // If the path is just one polygon, add the end position and return
         if path.len() == 1 {
-            result.waypoints.push(*end_pos);
+            result.waypoints.push(Vec3::from(*end_pos));
             result.poly_refs.push(path[0]);
             return Ok(result);
         }
@@ -1985,7 +1986,7 @@ impl<'a> NavMeshQuery<'a> {
                     right_index = i + 1;
                 } else {
                     // Append apex vertex
-                    result.waypoints.push(portal_left);
+                    result.waypoints.push(Vec3::from(portal_left));
                     result.poly_refs.push(path[left_index]);
 
                     // Restart funnel
@@ -2008,7 +2009,7 @@ impl<'a> NavMeshQuery<'a> {
                     left_index = i + 1;
                 } else {
                     // Append apex vertex
-                    result.waypoints.push(portal_right);
+                    result.waypoints.push(Vec3::from(portal_right));
                     result.poly_refs.push(path[right_index]);
 
                     // Restart funnel
@@ -2024,7 +2025,7 @@ impl<'a> NavMeshQuery<'a> {
         }
 
         // Add the end position
-        result.waypoints.push(*end_pos);
+        result.waypoints.push(Vec3::from(*end_pos));
         result.poly_refs.push(path[path.len() - 1]);
 
         Ok(result)
@@ -4549,10 +4550,10 @@ mod tests {
             Ok(straight_path) => {
                 // Should have at least start and end points
                 assert!(straight_path.waypoints.len() >= 2);
-                assert_eq!(straight_path.waypoints[0], [0.0, 0.0, 0.0]);
+                assert_eq!(straight_path.waypoints[0], Vec3::ZERO);
                 assert_eq!(
                     straight_path.waypoints[straight_path.waypoints.len() - 1],
-                    [20.0, 0.0, 20.0]
+                    Vec3::new(20.0, 0.0, 20.0)
                 );
             }
             Err(_) => {

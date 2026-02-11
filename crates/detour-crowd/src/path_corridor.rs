@@ -181,7 +181,7 @@ impl PathCorridor {
             .map_err(|_| CrowdError::CorridorFailed)?;
 
         // Update the position
-        self.pos = result.position;
+        self.pos = result.position.to_array();
 
         // Adjust the path
         if result.visited.len() > 1 {
@@ -360,7 +360,7 @@ impl PathCorridor {
         let corner_count = straight_path.waypoints.len().min(max_corners);
 
         for i in 0..corner_count {
-            corner_verts.push(straight_path.waypoints[i]);
+            corner_verts.push(straight_path.waypoints[i].to_array());
             corner_flags.push(0); // Default flag
             if i < straight_path.poly_refs.len() {
                 corner_polys.push(straight_path.poly_refs[i]);
