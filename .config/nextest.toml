@@ -1,0 +1,30 @@
+# Nextest configuration for recast-rs workspace
+# https://nexte.st/book/configuration.html
+
+[profile.default]
+# Reuse test artifacts for faster feedback
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+[profile.ci]
+# CI profile with stricter timeouts and fail-fast behavior
+slow-timeout = { period = "30s", terminate-after = 2 }
+fail-fast = true
+
+[[profile.ci.overrides]]
+# Give integration tests more time
+filter = 'test(~integration)'
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+[profile.release]
+# Profile for release-mode testing (faster execution, longer compile)
+slow-timeout = { period = "30s", terminate-after = 2 }
+
+[profile.local]
+# Local development profile - more forgiving timeouts
+slow-timeout = { period = "120s", terminate-after = 5 }
+fail-fast = false
+
+[[profile.local.overrides]]
+# Give extra time for heavy tests (e.g., multi-tile, crowd simulation)
+filter = 'test(~multi_tile|~crowd|~scalability)'
+slow-timeout = { period = "300s", terminate-after = 5 }

@@ -195,6 +195,35 @@ cargo bench
 cargo build --release
 ```
 
+### Performance Profiling
+
+```bash
+# Generate flamegraph for a binary
+cargo flamegraph --bin recast-cli -- build mesh.obj output.bin
+
+# Generate flamegraph for tests
+cargo flamegraph-test --test integration_test
+
+# Generate flamegraph for benchmarks
+cargo flamegraph-bench --bench pathfinding
+```
+
+### Nextest Testing
+
+```bash
+# Run tests with nextest (faster parallel execution)
+cargo nextest-all
+
+# Run tests in release mode (faster test execution)
+cargo nextest-release
+
+# Run library tests only
+cargo nextest-lib
+
+# Run tests with custom profile
+cargo nextest run --profile local --workspace
+```
+
 ### Feature Flags
 
 - `serialization` - Save/load navigation meshes

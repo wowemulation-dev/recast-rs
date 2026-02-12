@@ -241,18 +241,18 @@ jobs:
 
       # Test with default features
       - name: Test default features
-        run: cargo nextest run ${{ steps.test-scope.outputs.test_args }}
+        run: cargo nextest run --profile ci ${{ steps.test-scope.outputs.test_args }}
 
       # Test with no default features (only when testing all or specific library crates changed)
       - name: Test no default features (library crates)
         if: steps.test-scope.outputs.test_all == 'true' || contains(needs.changed-files.outputs.crates_changed, 'recast-common') || contains(needs.changed-files.outputs.crates_changed, 'recast') || contains(needs.changed-files.outputs.crates_changed, 'detour')
         run: |
-          cargo nextest run --no-default-features -p recast-common || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --no-default-features -p recast || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --no-default-features -p detour || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --no-default-features -p detour-crowd || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --no-default-features -p detour-tilecache || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --no-default-features -p detour-dynamic || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+          cargo nextest run --profile ci --no-default-features -p recast-common || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+          cargo nextest run --profile ci --no-default-features -p recast || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+          cargo nextest run --profile ci --no-default-features -p detour || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+          cargo nextest run --profile ci --no-default-features -p detour-crowd || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+          cargo nextest run --profile ci --no-default-features -p detour-tilecache || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+          cargo nextest run --profile ci --no-default-features -p detour-dynamic || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
 
   # WASM compilation check - only run if WASM-compatible crates changed
   wasm:

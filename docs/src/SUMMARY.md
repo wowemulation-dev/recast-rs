@@ -26,6 +26,7 @@
 # Development
 
 - [Building](development/building.md)
+- [Performance Profiling](development/profiling.md)
 - [Contributing](development/contributing.md)
 - [Port Assessment](development/assessment.md)
 - [Resolution Roadmap](development/roadmap.md)

@@ -18,5 +18,11 @@ Thumbs.db
 # Rust/Cargo
 /target/
 
+# Profiling artifacts
+*.svg
+flamegraph*.svg
+perf*.data
+perf*.old
+
 # mdbook output
 /docs/book/

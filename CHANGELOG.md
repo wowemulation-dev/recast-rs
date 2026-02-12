@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added mdbook documentation site in `docs/`
+- Added nextest configuration with profiles for development, CI, local, and release testing
+- Added flamegraph profiling support via `cargo-flamegraph` with cargo aliases
+- Added performance profiling documentation in `docs/src/development/profiling.md`
+- Added cargo aliases for nextest testing and flamegraph generation
 
 ### Removed
 
@@ -21,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated CI workflow to use nextest with `--profile ci` for faster test execution
+- Added profiling artifacts to `.gitignore` (`*.svg`, `perf*.data`, `perf*.old`)
 - Updated markdownlint configuration: added `$schema`, disabled MD024 for
   Keep a Changelog format, disabled MD060, expanded allowed HTML elements and
   code fence languages
