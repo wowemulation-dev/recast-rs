@@ -256,6 +256,18 @@ fn run_pipeline_diagnostic(obj_name: &str) {
             total_contour_verts as f64 / contour_set.contours.len() as f64
         }
     );
+
+    // Per-contour vertex counts (sorted) for C++ comparison
+    let mut vert_counts: Vec<usize> = contour_set
+        .contours
+        .iter()
+        .map(|c| c.vertices.len())
+        .collect();
+    vert_counts.sort();
+    println!("  Per-contour vertex counts (sorted):");
+    for (i, &count) in vert_counts.iter().enumerate() {
+        println!("    contour[{}]: {}", i, count);
+    }
     println!();
 
     // Stage 6: PolyMesh

@@ -42,6 +42,8 @@ impl ContourVertex {
 pub struct Contour {
     /// Vertices of the contour
     pub vertices: Vec<ContourVertex>,
+    /// Region ID that this contour belongs to
+    pub region: u16,
     /// Area ID of the contour
     pub area: u8,
     /// Whether the contour is closed (first vertex connected to last)
@@ -49,10 +51,11 @@ pub struct Contour {
 }
 
 impl Contour {
-    /// Creates a new contour
-    pub fn new(area: u8) -> Self {
+    /// Creates a new contour with the given region and area IDs
+    pub fn new(region: u16, area: u8) -> Self {
         Self {
             vertices: Vec::new(),
+            region,
             area,
             closed: false,
         }
@@ -385,6 +388,9 @@ impl ContourSet {
             build_flags,
             &mut contours,
         )?;
+
+        // Merge hole contours into their parent outlines (matching C++).
+        Self::merge_holes(&mut contours, region_count);
 
         Ok(Self {
             contours,
@@ -759,31 +765,31 @@ impl ContourSet {
 
                         let simplified_vertex_count = simplified.len() / 4;
 
-                        // Store contour
-                        // Use raw vertices if simplified doesn't have enough
-                        let verts_to_use = if simplified_vertex_count >= 3 {
-                            &simplified
-                        } else if raw_vertex_count >= 3 {
-                            &raw_verts
-                        } else {
+                        // Store contour with simplified vertices (matching C++ behavior).
+                        // C++ stores all contours including those with < 3 simplified
+                        // verts; the poly mesh builder skips them. Hole contours may
+                        // have few simplified verts but still need to be stored so that
+                        // hole merging can process them.
+                        let mut contour = Contour::new(reg, area);
+                        for i in 0..simplified_vertex_count {
+                            let idx = i * 4;
+                            contour.add_vertex(
+                                simplified[idx],
+                                simplified[idx + 1],
+                                simplified[idx + 2],
+                                simplified[idx + 3],
+                            );
+                        }
+
+                        if simplified_vertex_count < 3 && raw_vertex_count < 3 {
                             log::debug!(
                                 "Contour rejected: raw_verts={}, simplified={}",
                                 raw_vertex_count,
                                 simplified_vertex_count
                             );
                             continue;
-                        };
-
-                        let mut contour = Contour::new(area);
-                        for i in 0..verts_to_use.len() / 4 {
-                            let idx = i * 4;
-                            contour.add_vertex(
-                                verts_to_use[idx],
-                                verts_to_use[idx + 1],
-                                verts_to_use[idx + 2],
-                                verts_to_use[idx + 3],
-                            );
                         }
+
                         contours.push(contour);
                     }
                 }
@@ -1304,6 +1310,343 @@ impl ContourSet {
 
         dx * dx + dz * dz
     }
+
+    // ── Hole merging (C++ rcBuildContours post-processing) ──────────────
+
+    /// Calculates the signed area of a 2D polygon (C++ calcAreaOfPolygon2D).
+    /// Positive = counter-clockwise (outline), negative = clockwise (hole).
+    fn calc_area_of_polygon_2d(verts: &[ContourVertex]) -> i32 {
+        let n = verts.len();
+        if n < 3 {
+            return 0;
+        }
+        let mut area = 0i32;
+        let mut j = n - 1;
+        for i in 0..n {
+            area += verts[i].x * verts[j].z - verts[j].x * verts[i].z;
+            j = i;
+        }
+        (area + 1) / 2
+    }
+
+    /// Cross product of (b-a) x (c-a) in the xz plane (C++ area2).
+    fn area2(a: &ContourVertex, b: &ContourVertex, c: &ContourVertex) -> i32 {
+        (b.x - a.x) * (c.z - a.z) - (c.x - a.x) * (b.z - a.z)
+    }
+
+    /// True iff c is strictly to the left of the directed line a→b.
+    fn left(a: &ContourVertex, b: &ContourVertex, c: &ContourVertex) -> bool {
+        Self::area2(a, b, c) < 0
+    }
+
+    /// True iff c is to the left of or on the directed line a→b.
+    fn left_on(a: &ContourVertex, b: &ContourVertex, c: &ContourVertex) -> bool {
+        Self::area2(a, b, c) <= 0
+    }
+
+    /// True iff a, b, c are collinear.
+    fn collinear(a: &ContourVertex, b: &ContourVertex, c: &ContourVertex) -> bool {
+        Self::area2(a, b, c) == 0
+    }
+
+    /// True iff segments ab and cd properly intersect (share an interior point).
+    fn intersect_prop(
+        a: &ContourVertex,
+        b: &ContourVertex,
+        c: &ContourVertex,
+        d: &ContourVertex,
+    ) -> bool {
+        if Self::collinear(a, b, c)
+            || Self::collinear(a, b, d)
+            || Self::collinear(c, d, a)
+            || Self::collinear(c, d, b)
+        {
+            return false;
+        }
+        (Self::left(a, b, c) ^ Self::left(a, b, d)) && (Self::left(c, d, a) ^ Self::left(c, d, b))
+    }
+
+    /// True iff a, b, c are collinear and c lies on the closed segment ab.
+    fn between(a: &ContourVertex, b: &ContourVertex, c: &ContourVertex) -> bool {
+        if !Self::collinear(a, b, c) {
+            return false;
+        }
+        if a.x != b.x {
+            ((a.x <= c.x) && (c.x <= b.x)) || ((a.x >= c.x) && (c.x >= b.x))
+        } else {
+            ((a.z <= c.z) && (c.z <= b.z)) || ((a.z >= c.z) && (c.z >= b.z))
+        }
+    }
+
+    /// True iff segments ab and cd intersect (properly or improperly).
+    fn segments_intersect(
+        a: &ContourVertex,
+        b: &ContourVertex,
+        c: &ContourVertex,
+        d: &ContourVertex,
+    ) -> bool {
+        if Self::intersect_prop(a, b, c, d) {
+            return true;
+        }
+        Self::between(a, b, c)
+            || Self::between(a, b, d)
+            || Self::between(c, d, a)
+            || Self::between(c, d, b)
+    }
+
+    /// True iff segment d0-d1 intersects any edge of the polygon, skipping
+    /// edges incident to vertex i (C++ intersectSegContour).
+    fn intersect_seg_contour(
+        d0: &ContourVertex,
+        d1: &ContourVertex,
+        skip_vertex: i32,
+        verts: &[ContourVertex],
+    ) -> bool {
+        let n = verts.len();
+        for k in 0..n {
+            let k1 = (k + 1) % n;
+            if skip_vertex == k as i32 || skip_vertex == k1 as i32 {
+                continue;
+            }
+            let p0 = &verts[k];
+            let p1 = &verts[k1];
+            if (d0.x == p0.x && d0.z == p0.z)
+                || (d1.x == p0.x && d1.z == p0.z)
+                || (d0.x == p1.x && d0.z == p1.z)
+                || (d1.x == p1.x && d1.z == p1.z)
+            {
+                continue;
+            }
+            if Self::segments_intersect(d0, d1, p0, p1) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// True iff point pj is inside the cone at vertex i of the polygon
+    /// (C++ inCone).
+    fn in_cone(i: usize, verts: &[ContourVertex], pj: &ContourVertex) -> bool {
+        let n = verts.len();
+        let pi = &verts[i];
+        let pi1 = &verts[(i + 1) % n];
+        let pin1 = &verts[if i == 0 { n - 1 } else { i - 1 }];
+
+        if Self::left_on(pin1, pi, pi1) {
+            Self::left(pi, pj, pin1) && Self::left(pj, pi, pi1)
+        } else {
+            !(Self::left_on(pi, pj, pi1) && Self::left_on(pj, pi, pin1))
+        }
+    }
+
+    /// Merges contour `hole` into contour `outline` at the given vertex
+    /// indices, creating bridge vertices. Returns the merged vertex list.
+    /// (C++ mergeContours)
+    fn merge_contour_verts(
+        outline: &[ContourVertex],
+        hole: &[ContourVertex],
+        ia: usize,
+        ib: usize,
+    ) -> Vec<ContourVertex> {
+        let mut merged = Vec::with_capacity(outline.len() + hole.len() + 2);
+
+        // Copy outline vertices starting from ia, wrapping around (+1 for bridge)
+        for i in 0..=outline.len() {
+            merged.push(outline[(ia + i) % outline.len()].clone());
+        }
+
+        // Copy hole vertices starting from ib, wrapping around (+1 for bridge)
+        for i in 0..=hole.len() {
+            merged.push(hole[(ib + i) % hole.len()].clone());
+        }
+
+        merged
+    }
+
+    /// Finds the leftmost (lowest x, then lowest z) vertex in a contour.
+    /// Returns (min_x, min_z, leftmost_index).
+    fn find_left_most_vertex(verts: &[ContourVertex]) -> (i32, i32, usize) {
+        let mut minx = verts[0].x;
+        let mut minz = verts[0].z;
+        let mut leftmost = 0;
+        for i in 1..verts.len() {
+            let x = verts[i].x;
+            let z = verts[i].z;
+            if x < minx || (x == minx && z < minz) {
+                minx = x;
+                minz = z;
+                leftmost = i;
+            }
+        }
+        (minx, minz, leftmost)
+    }
+
+    /// Merges hole contours into their parent outline contours.
+    /// Modifies contours in place (C++ "Merge holes if needed" in rcBuildContours).
+    fn merge_holes(contours: &mut Vec<Contour>, max_regions: u16) {
+        if contours.is_empty() {
+            return;
+        }
+
+        // Calculate winding for each contour
+        let windings: Vec<i32> = contours
+            .iter()
+            .map(|c| {
+                if Self::calc_area_of_polygon_2d(&c.vertices) < 0 {
+                    -1
+                } else {
+                    1
+                }
+            })
+            .collect();
+
+        let nholes = windings.iter().filter(|&&w| w < 0).count();
+        if nholes == 0 {
+            return;
+        }
+
+        log::debug!(
+            "merge_holes: {} holes found in {} contours",
+            nholes,
+            contours.len()
+        );
+
+        // Group contours by region: outlines and holes
+        let nregions = max_regions as usize + 1;
+        let mut region_outlines: Vec<Option<usize>> = vec![None; nregions];
+        let mut region_holes: Vec<Vec<usize>> = vec![Vec::new(); nregions];
+
+        for (i, contour) in contours.iter().enumerate() {
+            let reg = contour.region as usize;
+            if reg >= nregions {
+                continue;
+            }
+            if windings[i] > 0 {
+                if region_outlines[reg].is_some() {
+                    log::error!("merge_holes: Multiple outlines for region {}.", reg);
+                }
+                region_outlines[reg] = Some(i);
+            } else {
+                region_holes[reg].push(i);
+            }
+        }
+
+        // For each region with holes, merge them into the outline
+        for reg in 0..nregions {
+            if region_holes[reg].is_empty() {
+                continue;
+            }
+            let Some(outline_idx) = region_outlines[reg] else {
+                log::error!(
+                    "merge_holes: Bad outline for region {}, contour simplification is likely too aggressive.",
+                    reg
+                );
+                continue;
+            };
+
+            // Sort holes by leftmost vertex (left to right)
+            let mut hole_info: Vec<(usize, i32, i32, usize)> = region_holes[reg]
+                .iter()
+                .map(|&idx| {
+                    let (minx, minz, leftmost) =
+                        Self::find_left_most_vertex(&contours[idx].vertices);
+                    (idx, minx, minz, leftmost)
+                })
+                .collect();
+            hole_info.sort_by(|a, b| {
+                if a.1 == b.1 {
+                    a.2.cmp(&b.2)
+                } else {
+                    a.1.cmp(&b.1)
+                }
+            });
+
+            // Merge each hole into the outline
+            for &(hole_idx, _minx, _minz, leftmost) in &hole_info {
+                let mut best_vertex = leftmost;
+                let hole_nverts = contours[hole_idx].vertices.len();
+                if hole_nverts == 0 {
+                    continue;
+                }
+
+                // Try each vertex of the hole as the merge point
+                let mut merge_index: Option<usize> = None;
+                for _iter in 0..hole_nverts {
+                    // Find potential diagonals from the best_vertex of the hole
+                    // to vertices of the outline that are in the cone
+                    let corner = contours[hole_idx].vertices[best_vertex].clone();
+                    let outline_nverts = contours[outline_idx].vertices.len();
+
+                    let mut diags: Vec<(usize, i32)> = Vec::new();
+                    for j in 0..outline_nverts {
+                        if Self::in_cone(j, &contours[outline_idx].vertices, &corner) {
+                            let ov = &contours[outline_idx].vertices[j];
+                            let dx = ov.x - corner.x;
+                            let dz = ov.z - corner.z;
+                            diags.push((j, dx * dx + dz * dz));
+                        }
+                    }
+                    diags.sort_by_key(|d| d.1);
+
+                    // Find a diagonal that doesn't intersect the outline or remaining holes
+                    for &(diag_vert, _) in &diags {
+                        let pt = &contours[outline_idx].vertices[diag_vert];
+                        let mut intersects = Self::intersect_seg_contour(
+                            pt,
+                            &corner,
+                            diag_vert as i32,
+                            &contours[outline_idx].vertices,
+                        );
+                        // Also check remaining unmerged holes in this region
+                        if !intersects {
+                            for &(other_hole_idx, _, _, _) in &hole_info {
+                                if other_hole_idx == hole_idx {
+                                    continue;
+                                }
+                                if contours[other_hole_idx].vertices.is_empty() {
+                                    continue;
+                                }
+                                if Self::intersect_seg_contour(
+                                    pt,
+                                    &corner,
+                                    -1,
+                                    &contours[other_hole_idx].vertices,
+                                ) {
+                                    intersects = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if !intersects {
+                            merge_index = Some(diag_vert);
+                            break;
+                        }
+                    }
+
+                    if merge_index.is_some() {
+                        break;
+                    }
+                    // Try next vertex of the hole
+                    best_vertex = (best_vertex + 1) % hole_nverts;
+                }
+
+                if let Some(idx) = merge_index {
+                    // Merge the hole into the outline
+                    let hole_verts = std::mem::take(&mut contours[hole_idx].vertices);
+                    let outline_verts = std::mem::take(&mut contours[outline_idx].vertices);
+                    let merged =
+                        Self::merge_contour_verts(&outline_verts, &hole_verts, idx, best_vertex);
+                    contours[outline_idx].vertices = merged;
+                    // Hole becomes empty (0 verts) - matching C++ behavior
+                } else {
+                    log::warn!(
+                        "merge_holes: Failed to find merge points for region {}.",
+                        reg
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1329,7 +1672,7 @@ mod tests {
     #[test]
     fn test_contour_simplification() {
         // Create a simple contour with redundant vertices
-        let mut contour = Contour::new(1);
+        let mut contour = Contour::new(1, 1);
 
         // Add vertices forming a square with extra points
         // Start at corner (0,0)

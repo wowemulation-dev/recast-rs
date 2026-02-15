@@ -74,19 +74,18 @@ fn nav_test_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("nav_test.obj");
 
     // Current Rust output (regression test)
-    // After box blur fix — regions and contours match C++ exactly
-    assert_eq!(poly_mesh.poly_count(), 534); // C++ 537 (0.994x)
-    assert_eq!(poly_mesh.vert_count(), 1189); // C++ 1197 (0.993x)
-    assert_eq!(detail_mesh.vert_count(), 2210); // C++ 2228 (0.992x)
-    assert_eq!(detail_mesh.tri_count(), 1160); // C++ 1172 (0.990x)
+    // After hole merging fix — all metrics match C++ exactly for nav_test
+    assert_eq!(poly_mesh.poly_count(), 537); // C++ 537 (exact)
+    assert_eq!(poly_mesh.vert_count(), 1197); // C++ 1197 (exact)
+    assert_eq!(detail_mesh.vert_count(), 2228); // C++ 2228 (exact)
+    assert_eq!(detail_mesh.tri_count(), 1172); // C++ 1172 (exact)
 }
 
 #[test]
-#[ignore = "Rust produces ~0.99x polygons vs C++; remaining pipeline differences"]
 fn nav_test_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("nav_test.obj");
 
-    // C++ RecastCLI ground truth
+    // C++ RecastCLI ground truth — now exact match
     assert_eq!(poly_mesh.poly_count(), 537);
     assert_eq!(poly_mesh.vert_count(), 1197);
 }
@@ -113,11 +112,11 @@ fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
     // Current Rust output (regression test)
-    // After box blur fix
-    assert_eq!(poly_mesh.poly_count(), 214); // C++ 217 (0.986x)
-    assert_eq!(poly_mesh.vert_count(), 448); // C++ 452 (0.991x)
-    assert_eq!(detail_mesh.vert_count(), 865); // C++ 868 (1.00x)
-    assert_eq!(detail_mesh.tri_count(), 442); // C++ 434 (1.02x)
+    // After hole merging fix
+    assert_eq!(poly_mesh.poly_count(), 216); // C++ 217 (0.995x)
+    assert_eq!(poly_mesh.vert_count(), 452); // C++ 452 (exact)
+    assert_eq!(detail_mesh.vert_count(), 874); // C++ 868 (1.007x)
+    assert_eq!(detail_mesh.tri_count(), 447); // C++ 434 (1.03x)
 }
 
 #[test]

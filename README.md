@@ -20,9 +20,9 @@ It is a Rust 2024 edition port of Mikko Mononen's RecastNavigation C++ library.
 ## Port Accuracy
 
 The Rust output is validated against the C++ RecastNavigation reference
-implementation using identical parameters. Heightfield rasterization, walkable
-spans, distance field, regions, and contours match C++ exactly for the primary
-test mesh. Final polygon counts are within 1% of C++.
+implementation using identical parameters. The primary test mesh (nav_test.obj)
+produces identical output at every pipeline stage including final polygon and
+detail mesh counts.
 
 ### Pipeline Comparison
 
@@ -51,11 +51,11 @@ flowchart LR
     style C fill:#d4edda
     style D fill:#d4edda
     style E fill:#d4edda
-    style F fill:#fff3cd
+    style F fill:#d4edda
     style G fill:#d4edda
 ```
 
-<sup>Green = exact match. Yellow = within 1% of C++.</sup>
+<sup>Green = exact match.</sup>
 
 ### Test Mesh Results
 
@@ -70,10 +70,10 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 | Walkable spans | 56,689 | 56,689 | exact |
 | Regions | 147 | 147 | exact |
 | Contours | 149 | 149 | exact |
-| Polygons | 534 | 537 | 0.994x |
-| Polygon vertices | 1,189 | 1,197 | 0.993x |
-| Detail vertices | 2,210 | 2,228 | 0.992x |
-| Detail triangles | 1,160 | 1,172 | 0.990x |
+| Polygons | 537 | 537 | exact |
+| Polygon vertices | 1,197 | 1,197 | exact |
+| Detail vertices | 2,228 | 2,228 | exact |
+| Detail triangles | 1,172 | 1,172 | exact |
 
 #### dungeon.obj (5101 vertices, 10133 triangles)
 
@@ -82,11 +82,11 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 | Grid size | 248 x 330 | 248 x 330 | exact |
 | Heightfield spans | 52,106 | 52,106 | exact |
 | Regions | 36 | 37 | 0.97x |
-| Contours | 37 | — | — |
-| Polygons | 214 | 217 | 0.986x |
-| Polygon vertices | 448 | 452 | 0.991x |
-| Detail vertices | 865 | 868 | 1.00x |
-| Detail triangles | 442 | 434 | 1.02x |
+| Contours | 37 | 37 | exact |
+| Polygons | 216 | 217 | 0.995x |
+| Polygon vertices | 452 | 452 | exact |
+| Detail vertices | 874 | 868 | 1.007x |
+| Detail triangles | 447 | 434 | 1.03x |
 
 #### bridge.obj (29 vertices, 54 triangles)
 
