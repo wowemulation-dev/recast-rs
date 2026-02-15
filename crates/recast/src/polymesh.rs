@@ -300,7 +300,7 @@ impl PolyMesh {
 
                 p[..nvp].copy_from_slice(q);
 
-                mesh.regs[mesh.npolys] = (contour.vertices[0].region & 0xffff) as u16;
+                mesh.regs[mesh.npolys] = contour.region;
                 mesh.areas[mesh.npolys] = contour.area;
                 mesh.npolys += 1;
 

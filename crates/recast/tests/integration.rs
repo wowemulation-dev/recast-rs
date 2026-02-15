@@ -112,11 +112,11 @@ fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
     // Current Rust output (regression test)
-    // After hole merging fix
+    // After area border flag fix (Bug #29)
     assert_eq!(poly_mesh.poly_count(), 216); // C++ 217 (0.995x)
     assert_eq!(poly_mesh.vert_count(), 452); // C++ 452 (exact)
-    assert_eq!(detail_mesh.vert_count(), 874); // C++ 868 (1.007x)
-    assert_eq!(detail_mesh.tri_count(), 447); // C++ 434 (1.03x)
+    assert_eq!(detail_mesh.vert_count(), 866); // C++ 868 (0.998x)
+    assert_eq!(detail_mesh.tri_count(), 434); // C++ 434 (exact)
 }
 
 #[test]

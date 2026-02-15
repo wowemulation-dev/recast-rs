@@ -479,9 +479,9 @@ impl ContourSet {
         let mut current_region_id = 1u16;
         let mut regions_created = 0;
 
-        for (span_idx, span) in chf.spans.iter().enumerate() {
+        for span_idx in 0..chf.spans.len() {
             // Skip non-walkable spans or already assigned spans
-            if span.area == 0 || region_ids[span_idx] != 0 {
+            if chf.areas[span_idx] == 0 || region_ids[span_idx] != 0 {
                 continue;
             }
 
@@ -557,10 +557,8 @@ impl ContourSet {
                 continue;
             }
 
-            let span = &chf.spans[span_idx];
-
             // Skip unwalkable spans
-            if span.area == 0 {
+            if chf.areas[span_idx] == 0 {
                 continue;
             }
 
@@ -571,10 +569,8 @@ impl ContourSet {
             // Using 8-direction constants: N=1, E=3, S=5, W=7
             for dir in [1u8, 3u8, 5u8, 7u8] {
                 if let Some(neighbor_idx) = chf.get_neighbor(span_idx, dir) {
-                    let neighbor_span = &chf.spans[neighbor_idx];
-
                     // Add to stack if not assigned and walkable
-                    if region_ids[neighbor_idx] == 0 && neighbor_span.area != 0 {
+                    if region_ids[neighbor_idx] == 0 && chf.areas[neighbor_idx] != 0 {
                         stack.push(neighbor_idx);
                     }
                 }
@@ -731,7 +727,7 @@ impl ContourSet {
                             continue;
                         }
 
-                        let area = chf.spans[span_idx].area;
+                        let area = chf.areas[span_idx];
                         contours_attempted += 1;
 
                         // Trace and simplify contour
@@ -834,7 +830,7 @@ impl ContourSet {
 
         // Combine region and area codes to prevent border vertices between areas
         // from being removed
-        regs[0] = region_ids[i] as u32 | ((span.area as u32) << 16);
+        regs[0] = region_ids[i] as u32 | ((chf.areas[i] as u32) << 16);
 
         // Check neighbor in dir direction
         if span.con[dir as usize] != RC_NOT_CONNECTED {
@@ -844,7 +840,7 @@ impl ContourSet {
                 let ai = base_idx + span.con[dir as usize];
                 let as_ = &chf.spans[ai];
                 ch = ch.max(as_.y);
-                regs[1] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
+                regs[1] = region_ids[ai] as u32 | ((chf.areas[ai] as u32) << 16);
 
                 // Check diagonal neighbor (from ai in dirp)
                 if as_.con[dirp] != RC_NOT_CONNECTED {
@@ -854,7 +850,7 @@ impl ContourSet {
                         let ai2 = base_idx2 + as_.con[dirp];
                         let as2 = &chf.spans[ai2];
                         ch = ch.max(as2.y);
-                        regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
+                        regs[2] = region_ids[ai2] as u32 | ((chf.areas[ai2] as u32) << 16);
                     }
                 }
             }
@@ -868,7 +864,7 @@ impl ContourSet {
                 let ai = base_idx + span.con[dirp];
                 let as_ = &chf.spans[ai];
                 ch = ch.max(as_.y);
-                regs[3] = region_ids[ai] as u32 | ((as_.area as u32) << 16);
+                regs[3] = region_ids[ai] as u32 | ((chf.areas[ai] as u32) << 16);
 
                 // Check diagonal neighbor (from ai in dir)
                 if as_.con[dir as usize] != RC_NOT_CONNECTED {
@@ -878,7 +874,7 @@ impl ContourSet {
                         let ai2 = base_idx2 + as_.con[dir as usize];
                         let as2 = &chf.spans[ai2];
                         ch = ch.max(as2.y);
-                        regs[2] = region_ids[ai2] as u32 | ((as2.area as u32) << 16);
+                        regs[2] = region_ids[ai2] as u32 | ((chf.areas[ai2] as u32) << 16);
                     }
                 }
             }
@@ -931,7 +927,7 @@ impl ContourSet {
 
         let start_dir = dir;
         let start_i = i;
-        let area = chf.spans[i].area;
+        let area = chf.areas[i];
 
         let mut iter = 0;
         let mut cur_x = x;
@@ -974,7 +970,7 @@ impl ContourSet {
                 let _span = &chf.spans[cur_i];
                 if let Some(neighbor_idx) = chf.get_neighbor_connection(cur_i, dir as usize) {
                     r = region_ids[neighbor_idx] as i32;
-                    if area != chf.spans[neighbor_idx].area {
+                    if area != chf.areas[neighbor_idx] {
                         is_area_border = true;
                     }
                 }
@@ -1488,10 +1484,14 @@ impl ContourSet {
             return;
         }
 
-        // Calculate winding for each contour
+        // Calculate winding for each contour.
+        // C++ skips contours with nverts < 3 entirely (winding stays 0).
         let windings: Vec<i32> = contours
             .iter()
             .map(|c| {
+                if c.vertices.len() < 3 {
+                    return 0;
+                }
                 if Self::calc_area_of_polygon_2d(&c.vertices) < 0 {
                     -1
                 } else {
@@ -1511,12 +1511,16 @@ impl ContourSet {
             contours.len()
         );
 
-        // Group contours by region: outlines and holes
+        // Group contours by region: outlines and holes.
+        // Only process contours with non-zero winding (matches C++ nverts >= 3 check).
         let nregions = max_regions as usize + 1;
         let mut region_outlines: Vec<Option<usize>> = vec![None; nregions];
         let mut region_holes: Vec<Vec<usize>> = vec![Vec::new(); nregions];
 
         for (i, contour) in contours.iter().enumerate() {
+            if windings[i] == 0 {
+                continue;
+            }
             let reg = contour.region as usize;
             if reg >= nregions {
                 continue;

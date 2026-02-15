@@ -218,6 +218,17 @@ fn run_pipeline_diagnostic(obj_name: &str) {
             sizes.iter().sum::<u32>()
         );
     }
+    // Per-region span counts
+    let mut reg_sizes: Vec<(u16, u32)> = region_span_counts
+        .iter()
+        .filter(|&(r, _)| *r > 0 && *r < 0x8000)
+        .map(|(&r, &c)| (r, c))
+        .collect();
+    reg_sizes.sort_by_key(|&(r, _)| r);
+    println!("  Per-region span counts:");
+    for &(reg, count) in &reg_sizes {
+        println!("    region {}: {} spans", reg, count);
+    }
     println!();
 
     // Stage 5: Contours
@@ -257,6 +268,20 @@ fn run_pipeline_diagnostic(obj_name: &str) {
         }
     );
 
+    // Dump all contour vertices for comparison with C++
+    for (i, c) in contour_set.contours.iter().enumerate() {
+        print!(
+            "contour[{}] reg={} nverts={}: ",
+            i,
+            c.region,
+            c.vertices.len()
+        );
+        for v in &c.vertices {
+            print!("({},{},{},{}) ", v.x, v.y, v.z, v.region);
+        }
+        println!();
+    }
+
     // Per-contour vertex counts (sorted) for C++ comparison
     let mut vert_counts: Vec<usize> = contour_set
         .contours
@@ -279,6 +304,58 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     println!("  nverts: {}", poly_mesh.vert_count());
     println!("  npolys: {}", poly_mesh.poly_count());
     println!("  maxpolys: {}", poly_mesh.max_polys());
+
+    // Per-contour info for C++ comparison
+    println!("\n  Per-contour data (index, region, nverts):");
+    for (i, c) in contour_set.contours.iter().enumerate() {
+        println!(
+            "    cont[{}]: reg={} nverts={}",
+            i,
+            c.region,
+            c.vertices.len()
+        );
+    }
+
+    // Polys per region
+    let nvp = config.max_vertices_per_polygon as usize;
+    let mut polys_per_reg = std::collections::HashMap::new();
+    let regs = poly_mesh.regs();
+    for i in 0..poly_mesh.poly_count() {
+        *polys_per_reg.entry(regs[i]).or_insert(0u32) += 1;
+    }
+    let mut reg_list: Vec<_> = polys_per_reg.iter().collect();
+    reg_list.sort_by_key(|&(r, _)| *r);
+    println!("\n  Polys per region:");
+    for &(reg, count) in &reg_list {
+        println!("    region {}: {} polys", reg, count);
+    }
+
+    // Poly vertex count distribution
+    let polys_data = poly_mesh.polys();
+    let mut count3 = 0u32;
+    let mut count4 = 0u32;
+    let mut count5 = 0u32;
+    let mut count6 = 0u32;
+    for i in 0..poly_mesh.poly_count() {
+        let mut nv = 0;
+        for j in 0..nvp {
+            if polys_data[i * nvp * 2 + j] == 0xffff {
+                break;
+            }
+            nv += 1;
+        }
+        match nv {
+            3 => count3 += 1,
+            4 => count4 += 1,
+            5 => count5 += 1,
+            6 => count6 += 1,
+            _ => {}
+        }
+    }
+    println!(
+        "\n  Poly vertex counts: 3-vert: {}, 4-vert: {}, 5-vert: {}, 6-vert: {}",
+        count3, count4, count5, count6
+    );
     println!();
 
     // Stage 7: PolyMeshDetail
