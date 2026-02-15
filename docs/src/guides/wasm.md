@@ -42,7 +42,7 @@ recast-common = { version = "0.1", default-features = false }
 
 This removes:
 - `TriMesh::from_obj()` (use `TriMesh::from_obj_str()` instead)
-- `Error::Io` variant
+- `MeshError::Io` variant
 
 ### detour
 
@@ -79,6 +79,5 @@ WASM-incompatible features are isolated behind feature flags:
 | Feature | Crate | WASM-compatible |
 |---------|-------|-----------------|
 | `std` | recast-common | No (file I/O) |
-| `async` | recast-common | No (tokio) |
 | `tokio` | detour-dynamic | No (tokio runtime) |
 | `serialization` | detour, detour-tilecache | Yes (in-memory) |

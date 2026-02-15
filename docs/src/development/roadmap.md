@@ -4,11 +4,14 @@ This document describes how to resolve the issues identified in the
 [Port Assessment](assessment.md). Items are ordered by priority: critical
 blockers first, then high-severity issues, then improvements.
 
-## Phase 1: Library Safety (Critical)
+## Phase 1: Library Safety (Critical) -- COMPLETE
 
 These issues must be resolved before crates.io publication.
 
-### 1.1 Eliminate `unwrap()`/`expect()` from Library Code
+### 1.1 Eliminate `unwrap()`/`expect()` from Library Code -- COMPLETE
+
+> **Status**: Reduced from 45 to 2. The 2 remaining are in detour-dynamic
+> job processing (`collider_removal_job.rs`, `dynamic_tile_job.rs`).
 
 **Problem**: 45 `unwrap()`/`expect()` calls in non-test library code
 (verified count: 20 in detour, 13 in detour-tilecache, 9 in recast, 2 in
@@ -37,7 +40,12 @@ recoverable errors is not usable.
 **Verification**: `grep -rn 'unwrap()\|expect(' crates/*/src/ --include='*.rs'`
 filtered to exclude `#[cfg(test)]` modules should return zero results.
 
-### 1.2 Add Structured Error Types
+### 1.2 Add Structured Error Types -- COMPLETE
+
+> **Status**: Per-crate error types implemented. The old catch-all `Error`
+> enum has been removed from recast-common. Each crate owns its errors:
+> `MeshError`, `ConfigError`/`BuildError`/`ConvexVolumeError`, `DetourError`,
+> `CrowdError`, `TileCacheError`, `DynamicError`.
 
 **Problem**: The workspace `Error` enum in `recast-common/src/lib.rs` has
 6 variants. 5 of 6 use bare `String` as payload. The `Pathfinding` variant
@@ -417,20 +425,28 @@ grep -rn 'Pathfinding' crates/*/src/ --include='*.rs'
 cargo fmt --all && cargo lint && cargo test-all
 ```
 
-### 1.3 Enable `-D warnings` Locally
+### 1.3 Enable `-D warnings` Locally -- COMPLETE
 
-**Problem**: `rustflags = ["-D", "warnings"]` is commented out in
+> **Status**: Enabled in `.cargo/config.toml`. All warnings resolved.
+
+**Problem**: `rustflags = ["-D", "warnings"]` was commented out in
 `.cargo/config.toml`. CI enforces this via environment variable, but local
-development allows warnings to accumulate.
+development allowed warnings to accumulate.
 
-**Action**: Uncomment the line in `.cargo/config.toml`. Fix any resulting
+**Action**: Uncommented the line in `.cargo/config.toml`. Fixed all resulting
 warnings.
 
-## Phase 2: Usability (High)
+## Phase 2: Usability (High) -- MOSTLY COMPLETE
 
-These issues block practical adoption.
+These issues block practical adoption. Sections 2.1-2.3 are complete.
+Section 2.4 (crates.io publication) is pending.
 
-### 2.1 Add Worked Examples
+### 2.1 Add Worked Examples -- COMPLETE
+
+> **Status**: 5 examples implemented in `examples/examples/`:
+> `basic_navmesh.rs`, `pathfinding.rs`, `crowd_simulation.rs`,
+> `tilecache_obstacles.rs`, `serialization.rs`. Shared helpers in
+> `examples/src/common.rs`.
 
 **Problem**: Zero examples. Users cannot evaluate the library without writing
 code from scratch. rerecast ships 4 examples (Bevy integrations). DotRecast
@@ -619,7 +635,12 @@ cargo run -p recast-rs-examples --example serialization
 All five must compile and run without errors. Output should include
 non-zero polygon counts and valid path waypoints.
 
-### 2.2 Add Test Fixtures
+### 2.2 Add Test Fixtures -- COMPLETE
+
+> **Status**: Test fixtures exist in `test-data/meshes/` with 3 OBJ files
+> (nav_test.obj, dungeon.obj, bridge.obj). Integration tests in
+> `crates/recast/tests/` and `crates/detour/tests/` validate against C++
+> reference output. 447 tests total (416 unit + 27 integration + 4 tokio).
 
 **Problem**: Tests do not validate against known-good reference output. The
 C++ RecastDemo ships 4 test meshes (dungeon.obj, nav_test.obj,
@@ -763,7 +784,11 @@ cargo test -p recast --test integration
 cargo test -p detour --test integration
 ```
 
-### 2.3 Add Benchmarks
+### 2.3 Add Benchmarks -- COMPLETE
+
+> **Status**: Benchmark directories exist in `crates/recast/benches/`,
+> `crates/detour/benches/`, and `crates/detour-crowd/benches/`. Uses
+> criterion. Flamegraph profiling support added via cargo aliases.
 
 **Problem**: No performance data. Cannot measure regressions or compare
 against C++ FFI alternatives. DotRecast has BenchmarkDotNet benchmarks for
@@ -916,9 +941,10 @@ cargo bench -p detour-crowd
 cargo bench -- --test
 ```
 
-### 2.4 Publish to crates.io
+### 2.4 Publish to crates.io -- PENDING
 
-**Blocked by**: Phase 1 completion (error types, unwrap elimination).
+> **Status**: Phase 1 blockers (error types, unwrap elimination) are
+> resolved. Publication checklist items below still need to be completed.
 
 #### Pre-publication checklist
 
@@ -988,12 +1014,15 @@ before actual publication.
 - Update CHANGELOG.md with publication date
 - Verify each crate page on crates.io shows correct metadata and README
 
-## Phase 3: API Quality (Medium)
+## Phase 3: API Quality (Medium) -- IN PROGRESS
 
 These issues improve the developer experience. All are breaking API changes
 that must happen before 1.0 publication.
 
-### 3.1 Replace C-Style Output Parameters
+### 3.1 Replace C-Style Output Parameters -- PARTIALLY COMPLETE
+
+> **Status**: `detour-crowd` migrated to `Vec3` parameters (30 public
+> methods). `NavMeshQuery` `Vec3` migration is pending.
 
 **Problem**: Some functions use C-style output parameter patterns instead of
 returning owned values. The original roadmap claimed `find_path` was one of
@@ -1440,7 +1469,7 @@ Each builder is a separate commit. Existing direct struct construction
 continues to work (builders are additive, not replacing). Add
 `#[non_exhaustive]` to config structs in the same commit as their builder.
 
-## Phase 4: Ecosystem (Lower Priority)
+## Phase 4: Ecosystem (Lower Priority) -- NOT STARTED
 
 These items improve adoption and broaden the target audience. They are
 independent of each other and can be worked in any order.
@@ -1857,8 +1886,7 @@ split to a separate repo if the maintenance burden grows.
 
 #### Complete inventory
 
-**18 unsafe items** across 3 files (16 expression blocks + 2
-`unsafe impl`):
+**16 unsafe blocks** across 3 files (plus 2 `unsafe impl`):
 
 | File | Items | Category |
 |------|-------|----------|

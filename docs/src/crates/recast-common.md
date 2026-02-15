@@ -31,25 +31,26 @@ Foundational types and utilities shared across all crates.
 
 ### Error Types
 
-```rust,ignore
-pub enum Error {
-    InvalidMesh(String),
-    NavMeshGeneration(String),
-    Pathfinding(String),
-    Recast(String),
-    Io(std::io::Error),    // behind `std` feature
-    Detour(String),
-}
+`recast-common` defines `MeshError` for mesh I/O operations:
 
-pub type Result<T> = std::result::Result<T, Error>;
+```rust,ignore
+pub enum MeshError {
+    VertexArrayNotTripled { len: usize },
+    IndexArrayNotTripled { len: usize },
+    TriangleIndexOutOfBounds { i0: usize, i1: usize, i2: usize, vertex_count: usize },
+    Io(std::io::Error),    // behind `std` feature
+}
 ```
+
+Each downstream crate defines its own error type: `ConfigError`/`BuildError`
+in recast, `DetourError` in detour, `CrowdError` in detour-crowd,
+`TileCacheError` in detour-tilecache, `DynamicError` in detour-dynamic.
 
 ## Feature Flags
 
 | Feature | Default | Description |
 |---------|---------|-------------|
-| `std` | Yes | Enables file I/O (`from_obj`, `Error::Io`) |
-| `async` | No | Enables tokio integration |
+| `std` | Yes | Enables file I/O (`from_obj`, `MeshError::Io`) |
 
 For WASM builds, disable `std`:
 

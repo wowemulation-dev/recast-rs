@@ -13,14 +13,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added flamegraph profiling support via `cargo-flamegraph` with cargo aliases
 - Added performance profiling documentation in `docs/src/development/profiling.md`
 - Added cargo aliases for nextest testing and flamegraph generation
+- Added pipeline accuracy comparison to README with Mermaid diagram and test mesh tables
 
-### Removed
+#### recast-common
 
-- Removed unused `rayon` dependency and `parallel` feature from recast crate
-- Removed unused `bytemuck` dependency from recast-common and recast crates
-- Removed unused `criterion` workspace dependency (no benchmarks exist)
-- Removed unused `anyhow` dependency from recast-common crate
-- Removed unused `Zlib` license allowance from `deny.toml`
+- Added `std` feature flag (enabled by default) to gate file I/O operations
+- Added `TriMesh::from_obj_str()` for parsing OBJ content from strings (WASM-compatible)
+
+### Fixed
+
+#### recast
+
+- Fixed 22 pipeline bugs bringing navmesh output within 1-2% of C++ reference
+- Fixed heightfield normal check: `normal.y.abs()` to `normal.y` (Bug #9)
+- Fixed erosion walkable area step size and `con[4]` indexing (Bugs #10-#11)
+- Fixed `expand_regions` termination: `stack.retain()` broke convergence (Bug #12)
+- Fixed `merge_small_regions`: picked largest neighbor instead of smallest (Bug #13)
+- Fixed `distance_pt_seg`: returned `sqrt` instead of squared distance (Bug #14)
+- Fixed `ContourVertex.region`: was `u16`, truncating `RC_BORDER_VERTEX` flag; changed
+  to `i32` (Bug #15)
+- Fixed contour simplification mask: `0x30000` to `0x2ffff` (Bug #16)
+- Fixed `get_corner_height`: used 8-dir linked list instead of 4-dir `span.con[dir]`
+  (Bug #17)
+- Fixed 4-dir/8-dir direction mismatch in monotone/layer region building (Bug #19)
+- Fixed grid size calculation: `ceil()` to round-to-nearest matching C++
+  `rcCalcGridSize` (Bug #20)
+- Fixed detail sample parameter scaling: apply `cs`/`ch` at call site (Bug #21a)
+- Fixed rasterization x0 boundary clipping and span bounds checking
+- Rewrote detail mesh generation to match C++ per-polygon architecture: local vertex
+  buffers, `triangulate_hull` (shortest-perimeter ear heuristic), `delaunay_hull` for
+  interior sampling, 4-value triangle format (Bug #21b)
+- Fixed height patch population: region-based scan with connection-following BFS instead
+  of vertex-seeding with grid-based flood fill (Bug #22)
+- Implemented `remove_edge_vertices` (was stubbed): `can_remove_vertex`,
+  `remove_vertex`, `triangulate_raw`
+
+#### detour
+
+- Fixed missing Recast-to-Detour direction remapping in `build_tile_data` (Bug #18)
 
 ### Changed
 
@@ -42,7 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### recast-common
 
-- Added `std` feature flag (enabled by default) to gate file I/O operations
+- Replaced catch-all `Error` enum with per-crate error types: `MeshError` in
+  recast-common, `ConfigError`/`BuildError`/`ConvexVolumeError` in recast,
+  `DetourError` in detour, `CrowdError` in detour-crowd, `TileCacheError` in
+  detour-tilecache, `DynamicError` in detour-dynamic
 - Moved `Error::Io` variant behind `std` feature for WASM compatibility
 - Moved `TriMesh::from_obj()` behind `std` feature for WASM compatibility
 
@@ -50,6 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Replaced `std::time::Instant` with `web-time` crate for WASM compatibility
 - `RecastContext` timing now works on both native and WASM targets
+- Renamed direction helpers: `get_dir_offset_y` to `get_dir_offset_z`, cardinal
+  names to axis labels
 
 #### detour
 
@@ -58,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### detour-crowd
 
+- Migrated 30 public methods from `[f32; 3]` arrays to `Vec3` parameters and returns
 - Verified WASM compatibility (no WASM-incompatible dependencies)
 - Added to CI WASM compilation checks
 
@@ -76,11 +112,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Async methods now work on WASM without tokio dependency
 - Added to CI WASM compilation checks
 
-### Added
+### Removed
 
-#### recast-common
-
-- Added `TriMesh::from_obj_str()` for parsing OBJ content from strings (WASM-compatible)
+- Removed unused `rayon` dependency and `parallel` feature from recast crate
+- Removed unused `bytemuck` dependency from recast-common and recast crates
+- Removed unused `criterion` workspace dependency (no benchmarks exist)
+- Removed unused `anyhow` dependency from recast-common crate
+- Removed unused `Zlib` license allowance from `deny.toml`
+- Removed catch-all `Error` enum from recast-common (replaced by per-crate types)
 
 ## [0.1.0] - 2026-01-19
 

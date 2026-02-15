@@ -24,7 +24,6 @@ detour-dynamic = "0.1"     # Dynamic navmesh generation
 | Crate | Feature | Dependencies | Default |
 |-------|---------|--------------|---------|
 | recast-common | `std` | standard library | Yes |
-| recast-common | `async` | tokio | No |
 | detour | `serialization` | serde, serde_json, postcard, byteorder | No |
 | detour-tilecache | `serialization` | serde, serde_json, postcard | No |
 | detour-dynamic | `tokio` | tokio (spawn_blocking) | No |
