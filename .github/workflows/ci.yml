@@ -277,6 +277,9 @@ jobs:
           cache-on-failure: true
           cache-all-crates: true
 
+      - name: Ensure WASM target is installed
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Check WASM compilation (recast-common)
         run: cargo check --target wasm32-unknown-unknown -p recast-common --no-default-features
 
