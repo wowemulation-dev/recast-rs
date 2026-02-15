@@ -124,9 +124,9 @@ fn nav_test_find_nearest_poly_q3() {
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    // After span merge area fix — Y changed due to improved navmesh geometry
+    // After box blur fix
     assert!((snapped.x - 16.0).abs() < 0.01);
-    assert!((snapped.y - (-2.2815)).abs() < 0.01);
+    assert!((snapped.y - (-2.2695)).abs() < 0.01);
     assert!((snapped.z - (-7.0)).abs() < 0.01);
 }
 
@@ -143,9 +143,9 @@ fn dungeon_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    // After detail mesh restructure + height patch fix
+    // After box blur fix
     assert!((snapped.x - 12.1450).abs() < 0.01);
-    assert!((snapped.y - 10.3109).abs() < 0.01);
+    assert!((snapped.y - 10.3973).abs() < 0.01);
     assert!((snapped.z - (-40.5750)).abs() < 0.01);
 }
 

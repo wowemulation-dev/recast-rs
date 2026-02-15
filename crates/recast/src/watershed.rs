@@ -824,41 +824,146 @@ fn is_region_connected_to_border(reg: &Region) -> bool {
     false
 }
 
-/// Replaces all occurrences of `old_id` with `new_id` in a region's connection list.
+/// Replaces all occurrences of `old_id` with `new_id` in a region's connection
+/// and floor lists, then removes adjacent duplicates.
 ///
 /// Matches C++ `replaceNeighbour`.
 fn replace_neighbour(reg: &mut Region, old_id: u16, new_id: u16) {
-    let mut has_new = false;
-    let mut has_old = false;
-    for &conn in &reg.connections {
-        if conn == new_id as usize {
-            has_new = true;
-        }
-        if conn == old_id as usize {
-            has_old = true;
+    let mut nei_changed = false;
+    for conn in &mut reg.connections {
+        if *conn == old_id as usize {
+            *conn = new_id as usize;
+            nei_changed = true;
         }
     }
-    if has_old {
-        // Replace old with new
-        for conn in &mut reg.connections {
-            if *conn == old_id as usize {
-                *conn = new_id as usize;
-            }
+    for floor in &mut reg.floors {
+        if *floor == old_id as usize {
+            *floor = new_id as usize;
         }
-        // Remove adjacent duplicates (C++ walkContour removes them, we do it here)
-        if has_new {
-            reg.connections.retain(|&c| c != new_id as usize);
-            reg.connections.push(new_id as usize);
+    }
+    if nei_changed {
+        remove_adjacent_neighbours(reg);
+    }
+}
+
+/// Checks if region `a` can be merged with region `b`.
+///
+/// Matches C++ `canMergeWithRegion`. Returns false if:
+/// - Area types differ
+/// - Regions share more than 1 connection edge (would create non-simple region)
+/// - Region `b` appears in region `a`'s floor list (vertical overlap)
+fn can_merge_with_region(a: &Region, b: &Region) -> bool {
+    if a.area_type != b.area_type {
+        return false;
+    }
+    // Count how many times b.id appears in a's connections
+    let n = a
+        .connections
+        .iter()
+        .filter(|&&c| c == b.id as usize)
+        .count();
+    if n > 1 {
+        return false;
+    }
+    // Check floors — if b is a floor of a, they overlap vertically
+    if a.floors.contains(&(b.id as usize)) {
+        return false;
+    }
+    true
+}
+
+/// Removes adjacent duplicate entries from a region's connection list.
+///
+/// Matches C++ `removeAdjacentNeighbours`.
+fn remove_adjacent_neighbours(reg: &mut Region) {
+    let mut i = 0;
+    while i < reg.connections.len() && reg.connections.len() > 1 {
+        let ni = if i + 1 < reg.connections.len() {
+            i + 1
+        } else {
+            0
+        };
+        if reg.connections[i] == reg.connections[ni] {
+            // Remove the duplicate at position ni
+            reg.connections.remove(ni);
+            // Don't advance i since we need to recheck at the same position
+            if ni == 0 {
+                // Removed the first element, adjust i
+                if i > 0 {
+                    i -= 1;
+                }
+            }
+        } else {
+            i += 1;
         }
     }
 }
 
+/// Adds a unique floor region ID.
+fn add_unique_floor_region(reg: &mut Region, floor_id: usize) {
+    if !reg.floors.contains(&floor_id) {
+        reg.floors.push(floor_id);
+    }
+}
+
+/// Merges region `b` into region `a` by splicing connection lists.
+///
+/// Matches C++ `mergeRegions`. Returns true if the merge succeeded.
+fn merge_regions(a: &mut Region, b: &mut Region) -> bool {
+    let aid = a.id as usize;
+    let bid = b.id as usize;
+
+    // Find insertion point on A (where B appears in A's connections)
+    let insa = a.connections.iter().position(|&c| c == bid);
+    let Some(insa) = insa else {
+        return false;
+    };
+
+    // Find insertion point on B (where A appears in B's connections)
+    let insb = b.connections.iter().position(|&c| c == aid);
+    let Some(insb) = insb else {
+        return false;
+    };
+
+    // Duplicate A's connections
+    let acon = a.connections.clone();
+    let bcon = &b.connections;
+
+    // Build merged connection list
+    a.connections.clear();
+
+    // Add A's connections starting after the insertion point, skipping the B entry
+    let na = acon.len();
+    for i in 0..na.saturating_sub(1) {
+        a.connections.push(acon[(insa + 1 + i) % na]);
+    }
+
+    // Add B's connections starting after the insertion point, skipping the A entry
+    let nb = bcon.len();
+    for i in 0..nb.saturating_sub(1) {
+        a.connections.push(bcon[(insb + 1 + i) % nb]);
+    }
+
+    remove_adjacent_neighbours(a);
+
+    // Merge floors
+    for &floor in &b.floors {
+        add_unique_floor_region(a, floor);
+    }
+
+    a.span_count += b.span_count;
+    b.span_count = 0;
+    b.connections.clear();
+
+    true
+}
+
 /// Merges small regions with neighbors.
 ///
-/// Matches the C++ merge loop in `mergeAndFilterRegions`. Key differences
-/// from the previous Rust implementation:
-/// - Selects the SMALLEST neighbor (not largest) to prevent oversized regions
-/// - Uses the C++ merge condition: skip if (large AND border-connected)
+/// Matches the C++ merge loop in `mergeAndFilterRegions`:
+/// - Checks `canMergeWithRegion` before merging (area type, connection count, floors)
+/// - Uses `mergeRegions` for proper connection topology splicing
+/// - Selects the smallest neighbor (C++ behavior)
 fn merge_small_regions(
     regions: &mut [Region],
     _min_region_area: i32,
@@ -882,19 +987,21 @@ fn merge_small_regions(
             }
 
             // C++ condition: skip if large AND connected to border.
-            // This means we merge if: small OR not border-connected.
             if regions[i].span_count > merge_region_area
                 && is_region_connected_to_border(&regions[i])
             {
                 continue;
             }
 
-            // Find SMALLEST neighbor that connects to this region (C++ behavior).
+            // Find smallest neighbor that can be merged (C++ behavior).
             let mut smallest = i32::MAX;
             let mut merge_id = regions[i].id;
 
             for j in 0..regions[i].connections.len() {
                 let conn = regions[i].connections[j];
+                if conn & (RC_BORDER_REG as usize) != 0 {
+                    continue;
+                }
                 if conn >= nreg {
                     continue;
                 }
@@ -902,7 +1009,10 @@ fn merge_small_regions(
                 if mreg.id == 0 || (mreg.id & RC_BORDER_REG) != 0 || mreg.overlap {
                     continue;
                 }
-                if mreg.span_count < smallest {
+                if mreg.span_count < smallest
+                    && can_merge_with_region(&regions[i], mreg)
+                    && can_merge_with_region(mreg, &regions[i])
+                {
                     smallest = mreg.span_count;
                     merge_id = mreg.id;
                 }
@@ -912,32 +1022,44 @@ fn merge_small_regions(
                 let old_id = regions[i].id;
                 let target_idx = merge_id as usize;
 
-                // Merge span counts
-                regions[target_idx].span_count += regions[i].span_count;
-                regions[i].span_count = 0;
-                regions[i].id = 0;
+                // Merge using proper connection topology splicing
+                // Split borrows: we need mutable access to two different elements
+                let (target, source) = if target_idx < i {
+                    let (left, right) = regions.split_at_mut(i);
+                    (&mut left[target_idx], &mut right[0])
+                } else {
+                    let (left, right) = regions.split_at_mut(target_idx);
+                    (&mut left[i], &mut right[0])
+                };
 
-                // Fixup regions pointing to current region
-                for j in 0..nreg {
-                    if regions[j].id == 0 || (regions[j].id & RC_BORDER_REG) != 0 {
-                        continue;
+                // The merge function expects (target, source) where target = merge_id, source = i
+                let merged = if target_idx < i {
+                    merge_regions(target, source)
+                } else {
+                    merge_regions(source, target)
+                };
+
+                if merged {
+                    // Fixup regions pointing to current region
+                    for j in 0..nreg {
+                        if regions[j].id == 0 || (regions[j].id & RC_BORDER_REG) != 0 {
+                            continue;
+                        }
+                        if regions[j].id == old_id {
+                            regions[j].id = merge_id;
+                        }
+                        replace_neighbour(&mut regions[j], old_id, merge_id);
                     }
-                    // If another region was merged into current region, update its ID
-                    if regions[j].id == old_id {
-                        regions[j].id = merge_id;
+
+                    // Update spans
+                    for reg in src_reg.iter_mut() {
+                        if *reg == old_id {
+                            *reg = merge_id;
+                        }
                     }
-                    // Replace old_id with merge_id in neighbor connections
-                    replace_neighbour(&mut regions[j], old_id, merge_id);
+
+                    merge_count += 1;
                 }
-
-                // Update spans
-                for reg in src_reg.iter_mut() {
-                    if *reg == old_id {
-                        *reg = merge_id;
-                    }
-                }
-
-                merge_count += 1;
             }
         }
 

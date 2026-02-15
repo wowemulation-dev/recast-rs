@@ -20,8 +20,9 @@ It is a Rust 2024 edition port of Mikko Mononen's RecastNavigation C++ library.
 ## Port Accuracy
 
 The Rust output is validated against the C++ RecastNavigation reference
-implementation using identical parameters. All pipeline stages produce results
-within 1-2% of C++.
+implementation using identical parameters. Heightfield rasterization, walkable
+spans, distance field, regions, and contours match C++ exactly for the primary
+test mesh. Final polygon counts are within 1% of C++.
 
 ### Pipeline Comparison
 
@@ -48,13 +49,13 @@ flowchart LR
 
     style B fill:#d4edda
     style C fill:#d4edda
-    style D fill:#fff3cd
-    style E fill:#fff3cd
+    style D fill:#d4edda
+    style E fill:#d4edda
     style F fill:#fff3cd
     style G fill:#d4edda
 ```
 
-<sup>Green = exact or near-exact match. Yellow = within 1-2% of C++.</sup>
+<sup>Green = exact match. Yellow = within 1% of C++.</sup>
 
 ### Test Mesh Results
 
@@ -66,12 +67,13 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 |--------|------|-----|-------|
 | Grid size | 305 x 258 | 305 x 258 | exact |
 | Heightfield spans | 120,183 | 120,183 | exact |
-| Regions | 150 | 148 | 1.01x |
-| Contours | 151 | 149 | 1.01x |
-| Polygons | 530 | 537 | 0.99x |
-| Polygon vertices | 1,190 | 1,197 | 0.99x |
-| Detail vertices | 2,207 | 2,228 | 0.99x |
-| Detail triangles | 1,164 | 1,172 | 0.99x |
+| Walkable spans | 56,689 | 56,689 | exact |
+| Regions | 147 | 147 | exact |
+| Contours | 149 | 149 | exact |
+| Polygons | 534 | 537 | 0.994x |
+| Polygon vertices | 1,189 | 1,197 | 0.993x |
+| Detail vertices | 2,210 | 2,228 | 0.992x |
+| Detail triangles | 1,160 | 1,172 | 0.990x |
 
 #### dungeon.obj (5101 vertices, 10133 triangles)
 
@@ -79,12 +81,12 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 |--------|------|-----|-------|
 | Grid size | 248 x 330 | 248 x 330 | exact |
 | Heightfield spans | 52,106 | 52,106 | exact |
-| Regions | 35 | 37 | 0.95x |
-| Contours | 36 | 37 | 0.97x |
-| Polygons | 213 | 217 | 0.98x |
-| Polygon vertices | 450 | 452 | 1.00x |
+| Regions | 36 | 37 | 0.97x |
+| Contours | 37 | — | — |
+| Polygons | 214 | 217 | 0.986x |
+| Polygon vertices | 448 | 452 | 0.991x |
 | Detail vertices | 865 | 868 | 1.00x |
-| Detail triangles | 444 | 434 | 1.02x |
+| Detail triangles | 442 | 434 | 1.02x |
 
 #### bridge.obj (29 vertices, 54 triangles)
 

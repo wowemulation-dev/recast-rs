@@ -853,7 +853,8 @@ impl CompactHeightfield {
     /// Applies box blur to smooth the distance field.
     /// Returns true if result is in dst, false if result is in src.
     ///
-    /// Diagonals are reached via two consecutive cardinal hops, matching C++.
+    /// Matches C++ `boxBlur`: always uses a 3x3 kernel (divides by 9),
+    /// padding missing neighbors with the center value.
     fn box_blur(
         &self,
         threshold: u16,
@@ -888,25 +889,30 @@ impl CompactHeightfield {
                         }
 
                         let mut d = cd as i32;
-                        let mut neighbor_count = 1; // Count self
 
-                        // Check 4 cardinal + 4 diagonal neighbors
+                        // Check 4 cardinal + 4 diagonal neighbors (C++ 3x3 kernel)
                         for i in 0..4 {
                             let dir = cardinal_dirs[i];
                             if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
                                 d += src[neighbor_idx] as i32;
-                                neighbor_count += 1;
 
                                 // Diagonal: from cardinal neighbor, go next cardinal direction
                                 let next_dir = next_cardinal[i];
                                 if let Some(diag_idx) = self.get_neighbor(neighbor_idx, next_dir) {
                                     d += src[diag_idx] as i32;
-                                    neighbor_count += 1;
+                                } else {
+                                    // C++: missing diagonal padded with center value
+                                    d += cd as i32;
                                 }
+                            } else {
+                                // C++: missing cardinal padded with center value * 2
+                                // (accounts for both the cardinal and its diagonal)
+                                d += cd as i32 * 2;
                             }
                         }
 
-                        dst[span_idx] = (d / neighbor_count) as u16;
+                        // C++ always divides by 9 with rounding: (d + 5) / 9
+                        dst[span_idx] = ((d + 5) / 9) as u16;
                     }
                 }
             }

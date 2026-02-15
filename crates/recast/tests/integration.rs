@@ -74,11 +74,11 @@ fn nav_test_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("nav_test.obj");
 
     // Current Rust output (regression test)
-    // After span merge area fix — walkable spans now match C++ exactly
-    assert_eq!(poly_mesh.poly_count(), 533);
-    assert_eq!(poly_mesh.vert_count(), 1198);
-    assert_eq!(detail_mesh.vert_count(), 2223); // C++ 2228 (0.998x)
-    assert_eq!(detail_mesh.tri_count(), 1174); // C++ 1172 (1.002x)
+    // After box blur fix — regions and contours match C++ exactly
+    assert_eq!(poly_mesh.poly_count(), 534); // C++ 537 (0.994x)
+    assert_eq!(poly_mesh.vert_count(), 1189); // C++ 1197 (0.993x)
+    assert_eq!(detail_mesh.vert_count(), 2210); // C++ 2228 (0.992x)
+    assert_eq!(detail_mesh.tri_count(), 1160); // C++ 1172 (0.990x)
 }
 
 #[test]
@@ -113,11 +113,11 @@ fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
     // Current Rust output (regression test)
-    // After detail mesh restructure + height patch fix matching C++
-    assert_eq!(poly_mesh.poly_count(), 213);
-    assert_eq!(poly_mesh.vert_count(), 450);
+    // After box blur fix
+    assert_eq!(poly_mesh.poly_count(), 214); // C++ 217 (0.986x)
+    assert_eq!(poly_mesh.vert_count(), 448); // C++ 452 (0.991x)
     assert_eq!(detail_mesh.vert_count(), 865); // C++ 868 (1.00x)
-    assert_eq!(detail_mesh.tri_count(), 444); // C++ 434 (1.02x)
+    assert_eq!(detail_mesh.tri_count(), 442); // C++ 434 (1.02x)
 }
 
 #[test]
