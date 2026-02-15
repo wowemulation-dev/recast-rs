@@ -111,16 +111,14 @@ fn dungeon_grid_size() {
 fn dungeon_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("dungeon.obj");
 
-    // Current Rust output (regression test)
-    // After area border flag fix (Bug #29)
-    assert_eq!(poly_mesh.poly_count(), 216); // C++ 217 (0.995x)
+    // Matches C++ exactly after Bug #30-#32 fixes
+    assert_eq!(poly_mesh.poly_count(), 217); // C++ 217 (exact)
     assert_eq!(poly_mesh.vert_count(), 452); // C++ 452 (exact)
-    assert_eq!(detail_mesh.vert_count(), 866); // C++ 868 (0.998x)
+    assert_eq!(detail_mesh.vert_count(), 868); // C++ 868 (exact)
     assert_eq!(detail_mesh.tri_count(), 434); // C++ 434 (exact)
 }
 
 #[test]
-#[ignore = "Rust produces ~0.98x polygons vs C++; remaining pipeline differences"]
 fn dungeon_generation_matches_cpp() {
     let (_, poly_mesh, _, _) = build_mesh("dungeon.obj");
 

@@ -993,19 +993,17 @@ impl ContourSet {
                 flags[cur_i] &= !(1 << dir);
                 dir = (dir + 1) & 0x3; // Rotate CW
             } else {
-                // Move to neighbor
+                // Move to neighbor (matching C++ exactly)
                 let nx = cur_x + Self::get_dir_offset_x(dir as i32);
                 let ny = cur_y + Self::get_dir_offset_z(dir as i32);
                 if let Some(neighbor_idx) = chf.get_neighbor_connection(cur_i, dir as usize) {
                     cur_x = nx;
                     cur_y = ny;
                     cur_i = neighbor_idx;
-                    dir = (dir + 3) & 0x3; // Rotate CCW
-                } else {
-                    // No neighbor found - this could be a grid boundary
-                    // Instead of failing, turn clockwise to follow the boundary
-                    dir = (dir + 1) & 0x3; // Rotate CW to follow boundary
                 }
+                // C++ unconditionally rotates CCW here, regardless of
+                // whether a neighbor was found
+                dir = (dir + 3) & 0x3; // Rotate CCW
             }
 
             if cur_i == start_i && dir == start_dir {
@@ -1362,34 +1360,6 @@ impl ContourSet {
         (Self::left(a, b, c) ^ Self::left(a, b, d)) && (Self::left(c, d, a) ^ Self::left(c, d, b))
     }
 
-    /// True iff a, b, c are collinear and c lies on the closed segment ab.
-    fn between(a: &ContourVertex, b: &ContourVertex, c: &ContourVertex) -> bool {
-        if !Self::collinear(a, b, c) {
-            return false;
-        }
-        if a.x != b.x {
-            ((a.x <= c.x) && (c.x <= b.x)) || ((a.x >= c.x) && (c.x >= b.x))
-        } else {
-            ((a.z <= c.z) && (c.z <= b.z)) || ((a.z >= c.z) && (c.z >= b.z))
-        }
-    }
-
-    /// True iff segments ab and cd intersect (properly or improperly).
-    fn segments_intersect(
-        a: &ContourVertex,
-        b: &ContourVertex,
-        c: &ContourVertex,
-        d: &ContourVertex,
-    ) -> bool {
-        if Self::intersect_prop(a, b, c, d) {
-            return true;
-        }
-        Self::between(a, b, c)
-            || Self::between(a, b, d)
-            || Self::between(c, d, a)
-            || Self::between(c, d, b)
-    }
-
     /// True iff segment d0-d1 intersects any edge of the polygon, skipping
     /// edges incident to vertex i (C++ intersectSegContour).
     fn intersect_seg_contour(
@@ -1413,7 +1383,7 @@ impl ContourSet {
             {
                 continue;
             }
-            if Self::segments_intersect(d0, d1, p0, p1) {
+            if Self::intersect_prop(d0, d1, p0, p1) {
                 return true;
             }
         }
@@ -1592,7 +1562,7 @@ impl ContourSet {
                     }
                     diags.sort_by_key(|d| d.1);
 
-                    // Find a diagonal that doesn't intersect the outline or remaining holes
+                    // Find a diagonal that doesn't intersect the outline or holes
                     for &(diag_vert, _) in &diags {
                         let pt = &contours[outline_idx].vertices[diag_vert];
                         let mut intersects = Self::intersect_seg_contour(
@@ -1601,12 +1571,10 @@ impl ContourSet {
                             diag_vert as i32,
                             &contours[outline_idx].vertices,
                         );
-                        // Also check remaining unmerged holes in this region
+                        // Also check current and remaining unmerged holes in this region
+                        // (C++ checks from k=i, including the current hole)
                         if !intersects {
                             for &(other_hole_idx, _, _, _) in &hole_info {
-                                if other_hole_idx == hole_idx {
-                                    continue;
-                                }
                                 if contours[other_hole_idx].vertices.is_empty() {
                                     continue;
                                 }

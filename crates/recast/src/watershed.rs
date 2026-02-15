@@ -707,7 +707,7 @@ fn merge_and_filter_regions(
     }
 
     // Compact region IDs
-    compact_region_ids(&regions, src_reg)?;
+    compact_region_ids(&mut regions, src_reg)?;
 
     Ok(())
 }
@@ -1071,30 +1071,50 @@ fn merge_small_regions(
     Ok(())
 }
 
-/// Compacts region IDs to remove gaps
-fn compact_region_ids(regions: &[Region], src_reg: &mut [u16]) -> Result<(), BuildError> {
-    // Build remapping table
-    let mut remap = vec![0u16; regions.len()];
-    let mut new_id = 1u16;
-
-    for (i, reg) in regions.iter().enumerate() {
+/// Compacts region IDs to remove gaps.
+///
+/// Matches C++ `rcBuildRegions` compaction: assigns one new ID per unique
+/// old ID, so merged regions (multiple array slots sharing the same `.id`)
+/// all get the same compacted ID.
+fn compact_region_ids(regions: &mut [Region], src_reg: &mut [u16]) -> Result<(), BuildError> {
+    // Mark which regions need remapping
+    for reg in regions.iter_mut() {
+        reg.remap = false;
         if reg.id == 0 {
             continue;
         }
-
         if (reg.id & RC_BORDER_REG) != 0 {
-            remap[i] = reg.id;
-        } else {
-            remap[i] = new_id;
-            new_id += 1;
+            continue;
+        }
+        reg.remap = true;
+    }
+
+    // Assign new IDs: one new ID per unique old ID
+    let mut reg_id_gen = 0u16;
+    let nreg = regions.len();
+    for i in 0..nreg {
+        if !regions[i].remap {
+            continue;
+        }
+        let old_id = regions[i].id;
+        reg_id_gen += 1;
+        let new_id = reg_id_gen;
+        // Update ALL slots that share this old ID
+        for j in i..nreg {
+            if regions[j].id == old_id {
+                regions[j].id = new_id;
+                regions[j].remap = false;
+            }
         }
     }
 
-    // Remap regions
+    // Remap span region IDs using the updated regions array
     for span_reg in src_reg.iter_mut() {
         let reg_id = *span_reg;
-        if reg_id < remap.len() as u16 {
-            *span_reg = remap[reg_id as usize];
+        if (reg_id & RC_BORDER_REG) == 0 {
+            if (reg_id as usize) < nreg {
+                *span_reg = regions[reg_id as usize].id;
+            }
         }
     }
 
