@@ -1,3 +1,8 @@
 [tools]
+"cargo:flamegraph" = "latest"
+"cargo:cargo-llvm-cov" = "latest"
+"cargo:cargo-nextest" = "latest"
+"cargo:cross" = "latest"
 mdbook = "latest"
+"npm:markdownlint-cli2" = "latest"
 rust = { version = "1.92.0", profile = "default" }
