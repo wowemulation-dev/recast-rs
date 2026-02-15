@@ -30,7 +30,7 @@
     "grid_height": 137,
     "poly_count": 8,
     "vert_count": 18,
-    "detail_vert_count": 18,
+    "detail_vert_count": 32,
     "detail_tri_count": 16,
     "bounds_min": [-2.659215, -0.804926, -20.766577],
     "bounds_max": [2.181665, 4.416752, 20.192308]

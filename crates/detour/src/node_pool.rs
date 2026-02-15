@@ -223,16 +223,11 @@ impl DtNodePool {
         result
     }
 
-    /// Gets the index of a node
+    /// Gets the index of a node by scanning for pointer equality
     pub fn get_node_idx(&self, node: &DtNode) -> NodeIndex {
-        let ptr = node as *const DtNode;
-        let base = self.nodes.as_ptr();
-
-        if ptr >= base && ptr < unsafe { base.add(self.nodes.len()) } {
-            let offset = unsafe { ptr.offset_from(base) } as usize;
-            (offset + 1) as NodeIndex
-        } else {
-            0
+        match self.nodes.iter().position(|n| std::ptr::eq(n, node)) {
+            Some(offset) => (offset + 1) as NodeIndex,
+            None => 0,
         }
     }
 
@@ -294,14 +289,15 @@ impl DtNodePool {
     }
 }
 
-/// Priority queue for nodes during pathfinding
+/// Index-based priority queue for nodes during pathfinding.
+///
+/// Stores indices into a `DtNodePool` rather than raw pointers.
+/// The pool must be passed to operations that need to read node data.
 pub struct DtNodeQueue {
-    /// Heap storage
-    heap: Vec<*mut DtNode>,
+    /// Heap of node indices (0-based into `DtNodePool.nodes`)
+    heap: Vec<usize>,
     /// Capacity
     capacity: usize,
-    /// Current size
-    size: usize,
 }
 
 impl DtNodeQueue {
@@ -310,74 +306,63 @@ impl DtNodeQueue {
         Self {
             heap: Vec::with_capacity(capacity + 1),
             capacity,
-            size: 0,
         }
     }
 
     /// Clears the queue
     pub fn clear(&mut self) {
-        self.size = 0;
         self.heap.clear();
     }
 
-    /// Gets the top node (minimum cost)
-    pub fn top(&self) -> Option<&DtNode> {
-        if self.size > 0 {
-            unsafe { Some(&**self.heap.get_unchecked(0)) }
-        } else {
-            None
-        }
+    /// Gets the top node index (minimum cost), or `None` if empty
+    pub fn top(&self) -> Option<usize> {
+        self.heap.first().copied()
     }
 
-    /// Pops the top node
-    pub fn pop(&mut self) -> Option<&mut DtNode> {
-        if self.size == 0 {
+    /// Pops the top node index (minimum cost)
+    pub fn pop(&mut self, pool: &DtNodePool) -> Option<usize> {
+        if self.heap.is_empty() {
             return None;
         }
 
         let result = self.heap[0];
-        self.size -= 1;
+        let last = self.heap[self.heap.len() - 1];
+        self.heap.pop();
 
-        if self.size > 0 {
-            let last = self.heap[self.size];
-            self.trickle_down(0, last);
+        if !self.heap.is_empty() {
+            self.heap[0] = last;
+            self.trickle_down(0, pool);
         }
 
-        self.heap.truncate(self.size);
-        unsafe { Some(&mut *result) }
+        Some(result)
     }
 
-    /// Pushes a node onto the queue
-    pub fn push(&mut self, node: &mut DtNode) {
-        if self.size >= self.capacity {
+    /// Pushes a node index onto the queue
+    pub fn push(&mut self, node_idx: usize, pool: &DtNodePool) {
+        if self.heap.len() >= self.capacity {
             return;
         }
 
-        self.heap.push(node as *mut DtNode);
-        self.bubble_up(self.size, node as *mut DtNode);
-        self.size += 1;
+        let pos = self.heap.len();
+        self.heap.push(node_idx);
+        self.bubble_up(pos, pool);
     }
 
-    /// Modifies a node's position in the queue
-    pub fn modify(&mut self, node: &DtNode) {
-        let node_ptr = node as *const DtNode as *mut DtNode;
-
-        for i in 0..self.size {
-            if self.heap[i] == node_ptr {
-                self.bubble_up(i, node_ptr);
-                return;
-            }
+    /// Re-sorts a node after its cost has changed
+    pub fn modify(&mut self, node_idx: usize, pool: &DtNodePool) {
+        if let Some(pos) = self.heap.iter().position(|&idx| idx == node_idx) {
+            self.bubble_up(pos, pool);
         }
     }
 
     /// Checks if the queue is empty
     pub fn empty(&self) -> bool {
-        self.size == 0
+        self.heap.is_empty()
     }
 
     /// Gets memory used by the queue
     pub fn get_mem_used(&self) -> usize {
-        std::mem::size_of::<Self>() + std::mem::size_of::<*mut DtNode>() * (self.capacity + 1)
+        std::mem::size_of::<Self>() + std::mem::size_of::<usize>() * (self.capacity + 1)
     }
 
     /// Gets the capacity
@@ -385,63 +370,55 @@ impl DtNodeQueue {
         self.capacity
     }
 
-    /// Bubbles a node up the heap
-    fn bubble_up(&mut self, mut i: usize, node: *mut DtNode) {
-        let node_total = unsafe { (*node).total };
+    /// Bubbles a node up the heap (min-heap by `total` cost)
+    fn bubble_up(&mut self, mut i: usize, pool: &DtNodePool) {
+        let node_total = pool.nodes[self.heap[i]].total;
 
         while i > 0 {
             let parent = (i - 1) / 2;
-            let parent_total = unsafe { (*self.heap[parent]).total };
+            let parent_total = pool.nodes[self.heap[parent]].total;
 
             if node_total >= parent_total {
                 break;
             }
 
-            self.heap[i] = self.heap[parent];
+            self.heap.swap(i, parent);
             i = parent;
         }
-
-        self.heap[i] = node;
     }
 
     /// Trickles a node down the heap
-    fn trickle_down(&mut self, mut i: usize, node: *mut DtNode) {
-        let node_total = unsafe { (*node).total };
+    fn trickle_down(&mut self, mut i: usize, pool: &DtNodePool) {
+        let size = self.heap.len();
 
         loop {
             let child1 = 2 * i + 1;
-            if child1 >= self.size {
+            if child1 >= size {
                 break;
             }
 
             let child2 = child1 + 1;
             let mut min_child = child1;
 
-            if child2 < self.size {
-                let child1_total = unsafe { (*self.heap[child1]).total };
-                let child2_total = unsafe { (*self.heap[child2]).total };
-
-                if child2_total < child1_total {
+            if child2 < size {
+                let c1_total = pool.nodes[self.heap[child1]].total;
+                let c2_total = pool.nodes[self.heap[child2]].total;
+                if c2_total < c1_total {
                     min_child = child2;
                 }
             }
 
-            let min_child_total = unsafe { (*self.heap[min_child]).total };
+            let node_total = pool.nodes[self.heap[i]].total;
+            let min_child_total = pool.nodes[self.heap[min_child]].total;
             if node_total <= min_child_total {
                 break;
             }
 
-            self.heap[i] = self.heap[min_child];
+            self.heap.swap(i, min_child);
             i = min_child;
         }
-
-        self.heap[i] = node;
     }
 }
-
-// Safety: The raw pointers in DtNodeQueue are only used within the lifetime of the nodes
-unsafe impl Send for DtNodeQueue {}
-unsafe impl Sync for DtNodeQueue {}
 
 #[cfg(test)]
 mod tests {
@@ -482,36 +459,36 @@ mod tests {
         let poly2 = PolyRef::new(2);
         let poly3 = PolyRef::new(3);
 
-        // Set up node 1
+        // Set up node 1 (index 0 in pool)
         {
             let node1 = pool.get_node(poly1, 0).unwrap();
             node1.total = 5.0;
-            queue.push(node1);
         }
+        queue.push(0, &pool);
 
-        // Set up node 2
+        // Set up node 2 (index 1 in pool)
         {
             let node2 = pool.get_node(poly2, 0).unwrap();
             node2.total = 3.0;
-            queue.push(node2);
         }
+        queue.push(1, &pool);
 
-        // Set up node 3
+        // Set up node 3 (index 2 in pool)
         {
             let node3 = pool.get_node(poly3, 0).unwrap();
             node3.total = 7.0;
-            queue.push(node3);
         }
+        queue.push(2, &pool);
 
         // Pop in order of total cost
-        let top1 = queue.pop().unwrap();
-        assert_eq!(top1.id, poly2); // lowest cost
+        let idx1 = queue.pop(&pool).unwrap();
+        assert_eq!(pool.nodes[idx1].id, poly2); // lowest cost
 
-        let top2 = queue.pop().unwrap();
-        assert_eq!(top2.id, poly1);
+        let idx2 = queue.pop(&pool).unwrap();
+        assert_eq!(pool.nodes[idx2].id, poly1);
 
-        let top3 = queue.pop().unwrap();
-        assert_eq!(top3.id, poly3); // highest cost
+        let idx3 = queue.pop(&pool).unwrap();
+        assert_eq!(pool.nodes[idx3].id, poly3); // highest cost
 
         assert!(queue.empty());
     }

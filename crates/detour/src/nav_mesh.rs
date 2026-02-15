@@ -2044,7 +2044,7 @@ impl NavMesh {
             let mut closest = *pos;
 
             // Use polygon height calculation for accurate Y coordinate
-            if let Some(height) = self.get_poly_height(tile, poly, pos)? {
+            if let Some(height) = self.get_poly_height(tile, poly_id as usize, pos)? {
                 closest[1] = height;
             } else {
                 // Fallback to average height of polygon vertices
@@ -2105,45 +2105,35 @@ impl NavMesh {
         Ok((tile, poly))
     }
 
-    /// Gets the tile and polygon for a reference (mutable version)
-    pub fn get_tile_and_poly_by_ref_mut(
-        &mut self,
+    /// Resolves a poly reference to tile and polygon indices.
+    ///
+    /// Returns `(tile_index, poly_index)` that can be used to index into
+    /// `self.tiles` and `tile.polys` respectively. This avoids the soundness
+    /// issue of returning aliased `&mut` references to both a tile and one of
+    /// its polygons.
+    pub fn decode_poly_ref_indices(
+        &self,
         reference: PolyRef,
-    ) -> Result<(&mut MeshTile, &mut Poly), DetourError> {
-        // Extract tile and poly IDs from the reference
+    ) -> Result<(usize, usize), DetourError> {
         let tile_id = decode_tile_id(reference);
         let poly_id = decode_poly_id(reference);
 
-        // Convert to tile index
         let tile_idx = tile_id_to_index(tile_id).ok_or(DetourError::InvalidParam)?;
 
-        // Check if the tile index is valid
         if tile_idx >= self.max_tiles as usize {
             return Err(DetourError::InvalidParam);
         }
 
-        // Get the tile
-        let tile = match self.tiles.get_mut(tile_idx) {
-            Some(Some(tile)) => tile,
-            _ => return Err(DetourError::InvalidParam),
+        let tile = match &self.tiles[tile_idx] {
+            Some(tile) => tile,
+            None => return Err(DetourError::InvalidParam),
         };
 
-        // Check if the poly ID is valid
-        if poly_id >= tile.polys.len() as u32 {
+        if poly_id as usize >= tile.polys.len() {
             return Err(DetourError::InvalidParam);
         }
 
-        // Can't return direct mutable references to both tile and poly because of Rust's borrowing rules
-        // This would require a more complex solution
-        // For now, using a workaround with unsafe
-        // SAFETY: This is unsafe because we're creating multiple mutable references to the same data
-        // However, it's safe in this context because we're only returning references to disjoint parts of the data
-        unsafe {
-            let tile_ptr = tile as *mut MeshTile;
-            let poly_ptr = (*tile_ptr).polys.as_mut_ptr().add(poly_id as usize);
-
-            Ok((&mut *tile_ptr, &mut *poly_ptr))
-        }
+        Ok((tile_idx, poly_id as usize))
     }
 
     /// Gets the tile at the specified coordinates
@@ -2739,9 +2729,11 @@ impl NavMesh {
     pub fn get_poly_height(
         &self,
         tile: &MeshTile,
-        poly: &Poly,
+        poly_idx: usize,
         pos: &[f32; 3],
     ) -> Result<Option<f32>, DetourError> {
+        let poly = &tile.polys[poly_idx];
+
         // Off-mesh connections don't have detail polygons
         if poly.poly_type == PolyType::OffMeshConnection {
             return Ok(None);
@@ -2759,12 +2751,7 @@ impl NavMesh {
             return Ok(None);
         }
 
-        // Get polygon detail - for now use the polygon's position in the tile
-        // In the original implementation, poly.index would point to the detail mesh
-        // Since we don't have that field, we'll need to find the polygon's index
-        let poly_ptr = poly as *const Poly;
-        let first_poly_ptr = tile.polys.as_ptr();
-        let ip = unsafe { poly_ptr.offset_from(first_poly_ptr) as usize };
+        let ip = poly_idx;
 
         if ip >= tile.detail_meshes.len() {
             return Ok(None);
@@ -3041,8 +3028,19 @@ impl NavMesh {
         // Set flags
         nav_mesh.flags = flags;
 
+        // Allocate a tile slot first so we know the correct salt and tile index.
+        // The salt must match between the tile and every PolyRef stored in links,
+        // otherwise is_valid_poly_ref rejects links and A* cannot expand neighbors.
+        let tile_idx = nav_mesh.allocate_tile()?;
+        let tile_salt = nav_mesh.tiles[tile_idx]
+            .as_ref()
+            .map(|t| t.salt)
+            .unwrap_or(1);
+        let tile_id = (tile_idx + 1) as u32; // tile IDs are 1-based
+
         // Create a single tile for the entire mesh
         let mut tile = MeshTile::new();
+        tile.salt = tile_salt;
 
         // Set up tile header
         tile.header = Some(TileHeader {
@@ -3105,11 +3103,10 @@ impl NavMesh {
             tile.polys.push(poly);
         }
 
-        // Calculate neighbor connections and create links between polygons
-        // For a single-tile mesh, we check for shared edges between polygons
-        // We'll create the base PolyRef using tile_idx (which will be allocated below)
-        // For now, we'll calculate it the same way get_poly_ref_base would
-        let base = 1u32 << DT_POLY_BITS; // tile_idx 0 maps to tile_id 1
+        // Calculate neighbor connections and create links between polygons.
+        // The base PolyRef encodes the tile's salt and id so that every link
+        // reference passes is_valid_poly_ref when the tile is queried.
+        let base = encode_poly_ref_with_salt(tile_salt & DT_SALT_MASK, tile_id, 0).id();
 
         // Structure to hold neighbor information temporarily
         struct NeighborInfo {
@@ -3224,10 +3221,7 @@ impl NavMesh {
             }
         }
 
-        // Allocate a tile from the free list
-        let tile_idx = nav_mesh.allocate_tile()?;
-
-        // Add tile to the navigation mesh
+        // Place the tile into the previously allocated slot
         nav_mesh.tiles[tile_idx] = Some(tile);
 
         // Add to position lookup

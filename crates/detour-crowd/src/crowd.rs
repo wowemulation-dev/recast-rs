@@ -169,6 +169,86 @@ impl Default for AgentParams {
     }
 }
 
+impl AgentParams {
+    /// Sets the agent radius.
+    pub fn with_radius(mut self, radius: f32) -> Self {
+        self.radius = radius;
+        self
+    }
+
+    /// Sets the agent height.
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
+    }
+
+    /// Sets the maximum acceleration.
+    pub fn with_max_acceleration(mut self, accel: f32) -> Self {
+        self.max_acceleration = accel;
+        self
+    }
+
+    /// Sets the maximum speed.
+    pub fn with_max_speed(mut self, speed: f32) -> Self {
+        self.max_speed = speed;
+        self
+    }
+
+    /// Sets the collision query range.
+    pub fn with_collision_query_range(mut self, range: f32) -> Self {
+        self.collision_query_range = range;
+        self
+    }
+
+    /// Sets the path optimization range.
+    pub fn with_path_optimization_range(mut self, range: f32) -> Self {
+        self.path_optimization_range = range;
+        self
+    }
+
+    /// Sets whether the agent uses separation behavior.
+    pub fn with_separate(mut self, separate: bool) -> Self {
+        self.separate = separate;
+        self
+    }
+
+    /// Sets the update flags controlling agent steering behavior.
+    pub fn with_update_flags(mut self, flags: UpdateFlags) -> Self {
+        self.update_flags = flags;
+        self
+    }
+
+    /// Sets the obstacle avoidance quality type (0..3).
+    pub fn with_obstacle_avoidance_type(mut self, avoidance_type: i32) -> Self {
+        self.obstacle_avoidance_type = avoidance_type;
+        self
+    }
+
+    /// Sets the query filter type index.
+    pub fn with_query_filter_type(mut self, filter_type: i32) -> Self {
+        self.query_filter_type = filter_type;
+        self
+    }
+
+    /// Sets optional user data attached to the agent.
+    pub fn with_user_data(mut self, data: Option<usize>) -> Self {
+        self.user_data = data;
+        self
+    }
+
+    /// Sets whether the agent uses RVO collision avoidance.
+    pub fn with_use_rvo(mut self, use_rvo: bool) -> Self {
+        self.use_rvo = use_rvo;
+        self
+    }
+
+    /// Sets the RVO configuration for the agent.
+    pub fn with_rvo_config(mut self, config: RVOConfig) -> Self {
+        self.rvo_config = config;
+        self
+    }
+}
+
 // Legacy CrowdAgent for backwards compatibility
 /// Agent in the crowd (legacy)
 #[derive(Debug, Clone)]

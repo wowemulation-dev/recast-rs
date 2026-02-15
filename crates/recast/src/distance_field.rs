@@ -39,10 +39,8 @@ pub fn build_distance_field(
 
     // Initialize with boundary spans (distance 0)
     for span_idx in 0..span_count {
-        let span = &chf.spans[span_idx];
-
         // Skip non-walkable spans
-        if span.area == 0 {
+        if chf.areas[span_idx] == 0 {
             distances[span_idx] = 0;
             continue;
         }
@@ -73,10 +71,8 @@ pub fn build_distance_field(
         // Using 8-direction constants: N=1, E=3, S=5, W=7
         for dir in [1u8, 3u8, 5u8, 7u8] {
             if let Some(neighbor_idx) = chf.get_neighbor(span_idx, dir) {
-                let neighbor_span = &chf.spans[neighbor_idx];
-
                 // Skip non-walkable neighbors
-                if neighbor_span.area == 0 {
+                if chf.areas[neighbor_idx] == 0 {
                     continue;
                 }
 
@@ -118,7 +114,7 @@ pub fn build_regions_watershed(
         .enumerate()
         .filter(|(idx, dist)| {
             // Only include walkable spans with valid distance
-            chf.spans[*idx].area != 0 && **dist != 0 && **dist != u16::MAX
+            chf.areas[*idx] != 0 && **dist != 0 && **dist != u16::MAX
         })
         .map(|(idx, dist)| (idx, *dist))
         .collect();
@@ -403,8 +399,8 @@ fn paint_rect_region(
                 if let Some(start_idx) = cell.index {
                     #[allow(clippy::needless_range_loop)]
                     for i in start_idx..start_idx + cell.count {
-                        if let Some(span) = chf.spans.get(i) {
-                            if span.area != 0 {
+                        if i < chf.areas.len() {
+                            if chf.areas[i] != 0 {
                                 src_reg[i] = region_id;
                             }
                         }
@@ -472,8 +468,8 @@ pub fn build_regions_monotone(
             if let Some(cell) = chf.cells.get(cell_idx) {
                 if let Some(start_idx) = cell.index {
                     for i in start_idx..start_idx + cell.count {
-                        if let Some(span) = chf.spans.get(i) {
-                            if span.area == 0 {
+                        if i < chf.areas.len() {
+                            if chf.areas[i] == 0 {
                                 continue;
                             }
 
@@ -481,7 +477,7 @@ pub fn build_regions_monotone(
                             let mut previd = 0u16;
                             if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 0) {
                                 if (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
-                                    && chf.spans[neighbor_idx].area == span.area
+                                    && chf.areas[neighbor_idx] == chf.areas[i]
                                 {
                                     previd = src_reg[neighbor_idx];
                                 }
@@ -501,7 +497,7 @@ pub fn build_regions_monotone(
                             if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 3) {
                                 if src_reg[neighbor_idx] != 0
                                     && (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
-                                    && chf.spans[neighbor_idx].area == span.area
+                                    && chf.areas[neighbor_idx] == chf.areas[i]
                                 {
                                     let nr = src_reg[neighbor_idx];
                                     if (previd as usize) < sweeps.len()
@@ -631,8 +627,8 @@ pub fn build_layer_regions(
             if let Some(cell) = chf.cells.get(cell_idx) {
                 if let Some(start_idx) = cell.index {
                     for i in start_idx..start_idx + cell.count {
-                        if let Some(span) = chf.spans.get(i) {
-                            if span.area == 0 {
+                        if i < chf.areas.len() {
+                            if chf.areas[i] == 0 {
                                 continue;
                             }
 
@@ -640,7 +636,7 @@ pub fn build_layer_regions(
                             let mut previd = 0u16;
                             if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 0) {
                                 if (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
-                                    && chf.spans[neighbor_idx].area == span.area
+                                    && chf.areas[neighbor_idx] == chf.areas[i]
                                 {
                                     previd = src_reg[neighbor_idx];
                                 }
@@ -660,7 +656,7 @@ pub fn build_layer_regions(
                             if let Some(neighbor_idx) = chf.get_neighbor_connection(i, 3) {
                                 if src_reg[neighbor_idx] != 0
                                     && (src_reg[neighbor_idx] & RC_BORDER_REG) == 0
-                                    && chf.spans[neighbor_idx].area == span.area
+                                    && chf.areas[neighbor_idx] == chf.areas[i]
                                 {
                                     let nr = src_reg[neighbor_idx];
                                     if (previd as usize) < sweeps.len()
@@ -902,16 +898,16 @@ mod tests {
 
         // For testing, mark first and last few spans as boundaries to create distance gradient
         let boundary_count = chf.spans.len().min(4);
-        for (i, span) in chf.spans.iter().enumerate().take(boundary_count) {
-            if span.area != 0 {
+        for i in 0..boundary_count {
+            if chf.areas[i] != 0 {
                 boundary_flags[i] = 1;
             }
         }
 
         // Also mark some at the end
         let start_idx = chf.spans.len().saturating_sub(boundary_count);
-        for (i, span) in chf.spans.iter().enumerate().skip(start_idx) {
-            if span.area != 0 {
+        for i in start_idx..chf.spans.len() {
+            if chf.areas[i] != 0 {
                 boundary_flags[i] = 1;
             }
         }
@@ -924,7 +920,7 @@ mod tests {
         // Interior walkable spans should be assigned to regions (boundaries may not be)
         let mut assigned_count = 0;
         for (idx, &region_id) in region_ids.iter().enumerate() {
-            if chf.spans[idx].area != 0 && boundary_flags[idx] == 0 && region_id > 0 {
+            if chf.areas[idx] != 0 && boundary_flags[idx] == 0 && region_id > 0 {
                 assigned_count += 1;
             }
         }

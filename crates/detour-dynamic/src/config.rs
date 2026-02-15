@@ -1,5 +1,7 @@
 use glam::Vec3;
 
+use crate::error::DynamicError;
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct DynamicNavMeshConfig {
@@ -144,27 +146,70 @@ impl DynamicNavMeshConfig {
         self
     }
 
-    pub fn validate(&self) -> Result<(), String> {
+    /// Sets the partition type (0 = watershed, 1 = monotone, 2 = layers).
+    pub fn with_partition(mut self, partition: i32) -> Self {
+        self.partition = partition;
+        self
+    }
+
+    /// Sets the walkable area marker value.
+    pub fn with_walkable_area(mut self, area: u8) -> Self {
+        self.walkable_area = area;
+        self
+    }
+
+    /// Sets whether to filter low-hanging obstacles.
+    pub fn with_filter_low_hanging_obstacles(mut self, filter: bool) -> Self {
+        self.filter_low_hanging_obstacles = filter;
+        self
+    }
+
+    /// Sets whether to filter ledge spans.
+    pub fn with_filter_ledge_spans(mut self, filter: bool) -> Self {
+        self.filter_ledge_spans = filter;
+        self
+    }
+
+    /// Sets whether to filter walkable low-height spans.
+    pub fn with_filter_walkable_low_height_spans(mut self, filter: bool) -> Self {
+        self.filter_walkable_low_height_spans = filter;
+        self
+    }
+
+    /// Validates the configuration parameters.
+    pub fn validate(&self) -> Result<(), DynamicError> {
         if self.cell_size <= 0.0 {
-            return Err("Cell size must be positive".to_string());
+            return Err(DynamicError::InvalidConfig(
+                "Cell size must be positive".to_string(),
+            ));
         }
         if self.cell_height <= 0.0 {
-            return Err("Cell height must be positive".to_string());
+            return Err(DynamicError::InvalidConfig(
+                "Cell height must be positive".to_string(),
+            ));
         }
         if self.walkable_height <= 0.0 {
-            return Err("Walkable height must be positive".to_string());
+            return Err(DynamicError::InvalidConfig(
+                "Walkable height must be positive".to_string(),
+            ));
         }
         if self.walkable_radius < 0.0 {
-            return Err("Walkable radius cannot be negative".to_string());
+            return Err(DynamicError::InvalidConfig(
+                "Walkable radius cannot be negative".to_string(),
+            ));
         }
         if self.walkable_climb < 0.0 {
-            return Err("Walkable climb cannot be negative".to_string());
+            return Err(DynamicError::InvalidConfig(
+                "Walkable climb cannot be negative".to_string(),
+            ));
         }
         if self.world_min.x >= self.world_max.x
             || self.world_min.y >= self.world_max.y
             || self.world_min.z >= self.world_max.z
         {
-            return Err("World bounds invalid: min must be less than max".to_string());
+            return Err(DynamicError::InvalidConfig(
+                "World bounds invalid: min must be less than max".to_string(),
+            ));
         }
         Ok(())
     }

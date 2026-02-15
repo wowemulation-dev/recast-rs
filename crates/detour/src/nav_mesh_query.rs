@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::f32;
 
-use super::nav_mesh::{MeshTile, Poly};
+use super::nav_mesh::{MeshTile, Poly, decode_poly_id};
 use super::raycast_hit::{RaycastHit, RaycastOptions, RaycastResult};
 use super::sliced_pathfinding::SlicedPathState;
 use super::{NavMesh, Path, PolyFlags, PolyRef, PolyType, QueryFilter};
@@ -977,12 +977,13 @@ impl<'a> NavMeshQuery<'a> {
 
         // Get the tile and poly
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
+        let poly_idx = decode_poly_id(poly_ref) as usize;
 
         let mut closest = pos;
         let mut is_over_poly = false;
 
         // Try to get height for the position within the polygon
-        if let Some(height) = self.nav_mesh.get_poly_height(tile, poly, &pos)? {
+        if let Some(height) = self.nav_mesh.get_poly_height(tile, poly_idx, &pos)? {
             closest[1] = height;
             is_over_poly = true;
             return Ok((Vec3::from(closest), is_over_poly));
@@ -2735,11 +2736,12 @@ impl<'a> NavMeshQuery<'a> {
             return Err(DetourError::InvalidParam);
         }
 
-        // Get the tile and polygon
-        let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
+        // Get the tile and polygon index
+        let (tile, _poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
+        let poly_idx = decode_poly_id(poly_ref) as usize;
 
         // Delegate to the NavMesh implementation
-        self.nav_mesh.get_poly_height(tile, poly, &pos)
+        self.nav_mesh.get_poly_height(tile, poly_idx, &pos)
     }
 
     /// Finds a random point within a given radius of a center point using custom random function

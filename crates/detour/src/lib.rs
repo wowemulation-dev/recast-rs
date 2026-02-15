@@ -218,6 +218,99 @@ impl Default for NavMeshCreateParams {
     }
 }
 
+impl NavMeshCreateParams {
+    /// Sets the walkable height (world units).
+    pub fn with_walkable_height(mut self, height: f32) -> Self {
+        self.walkable_height = height;
+        self
+    }
+
+    /// Sets the walkable radius (world units).
+    pub fn with_walkable_radius(mut self, radius: f32) -> Self {
+        self.walkable_radius = radius;
+        self
+    }
+
+    /// Sets the walkable climb height (world units).
+    pub fn with_walkable_climb(mut self, climb: f32) -> Self {
+        self.walkable_climb = climb;
+        self
+    }
+
+    /// Sets the cell size (xz-plane resolution).
+    pub fn with_cell_size(mut self, cs: f32) -> Self {
+        self.cs = cs;
+        self
+    }
+
+    /// Sets the cell height (y-axis resolution).
+    pub fn with_cell_height(mut self, ch: f32) -> Self {
+        self.ch = ch;
+        self
+    }
+
+    /// Sets the AABB bounds.
+    pub fn with_bounds(mut self, bmin: [f32; 3], bmax: [f32; 3]) -> Self {
+        self.bmin = bmin;
+        self.bmax = bmax;
+        self
+    }
+
+    /// Sets whether to build the BV tree for spatial queries.
+    pub fn with_build_bv_tree(mut self, build: bool) -> Self {
+        self.build_bv_tree = build;
+        self
+    }
+
+    /// Sets the navigation mesh parameters.
+    pub fn with_nav_mesh_params(mut self, params: NavMeshParams) -> Self {
+        self.nav_mesh_params = params;
+        self
+    }
+
+    /// Validates and returns the params.
+    ///
+    /// Checks that vertex/polygon counts match the corresponding data arrays
+    /// and that cell dimensions are positive. Returns `Err(DetourError::InvalidParam)`
+    /// on mismatch.
+    pub fn build(self) -> Result<Self, DetourError> {
+        self.validate()?;
+        Ok(self)
+    }
+
+    /// Validates the create params without consuming them.
+    pub fn validate(&self) -> Result<(), DetourError> {
+        if self.cs <= 0.0 || self.ch <= 0.0 {
+            return Err(DetourError::InvalidParam);
+        }
+
+        if self.vert_count > 0 && self.verts.len() != self.vert_count as usize * 3 {
+            return Err(DetourError::InvalidParam);
+        }
+
+        if self.poly_count > 0 {
+            let expected_poly_data = self.poly_count as usize * 2 * self.nvp as usize;
+            if self.polys.len() < expected_poly_data {
+                return Err(DetourError::InvalidParam);
+            }
+        }
+
+        if self.detail_tri_count > 0 && self.detail_tris.len() < self.detail_tri_count as usize * 4
+        {
+            return Err(DetourError::InvalidParam);
+        }
+
+        if self.off_mesh_con_count > 0 {
+            let n = self.off_mesh_con_count as usize;
+            if self.off_mesh_con_verts.len() < n * 6 || self.off_mesh_con_rad.len() < n {
+                return Err(DetourError::InvalidParam);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 bitflags::bitflags! {
     /// Navigation mesh parameter flags
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

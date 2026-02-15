@@ -50,7 +50,7 @@ pub struct DynamicNavMesh {
 impl DynamicNavMesh {
     /// Create a new dynamic navigation mesh
     pub fn new(config: DynamicNavMeshConfig) -> Result<Self, DynamicError> {
-        config.validate().map_err(DynamicError::InvalidConfig)?;
+        config.validate()?;
 
         let tile_manager = DynamicTileManager::new(config.clone());
         let job_processor = JobProcessor::new();

@@ -806,7 +806,7 @@ impl ContourSet {
     }
 
     /// Gets the height of a corner vertex following the C++ getCornerHeight algorithm.
-    /// Uses span.con[dir] directly (matching C++ rcGetCon) instead of linked list lookup.
+    /// Uses `span.con\[dir\]` directly (matching C++ rcGetCon) instead of linked list lookup.
     fn get_corner_height(
         x: i32,
         y: i32,
