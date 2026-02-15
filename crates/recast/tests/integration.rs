@@ -74,11 +74,11 @@ fn nav_test_generation_rust_output() {
     let (_, poly_mesh, detail_mesh, _) = build_mesh("nav_test.obj");
 
     // Current Rust output (regression test)
-    // After detail mesh restructure + height patch fix matching C++
-    assert_eq!(poly_mesh.poly_count(), 530);
-    assert_eq!(poly_mesh.vert_count(), 1190);
-    assert_eq!(detail_mesh.vert_count(), 2207); // C++ 2228 (0.99x)
-    assert_eq!(detail_mesh.tri_count(), 1164); // C++ 1172 (0.99x)
+    // After span merge area fix — walkable spans now match C++ exactly
+    assert_eq!(poly_mesh.poly_count(), 533);
+    assert_eq!(poly_mesh.vert_count(), 1198);
+    assert_eq!(detail_mesh.vert_count(), 2223); // C++ 2228 (0.998x)
+    assert_eq!(detail_mesh.tri_count(), 1174); // C++ 1172 (1.002x)
 }
 
 #[test]

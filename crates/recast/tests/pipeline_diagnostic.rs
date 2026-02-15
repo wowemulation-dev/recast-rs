@@ -325,3 +325,151 @@ fn pipeline_diagnostic_dungeon() {
 fn pipeline_diagnostic_bridge() {
     run_pipeline_diagnostic("bridge.obj");
 }
+
+/// Counts walkable spans in a heightfield (area != 0).
+fn count_walkable_spans(hf: &recast::Heightfield) -> (u64, u64) {
+    let mut total = 0u64;
+    let mut walkable = 0u64;
+    for (_coord, span_opt) in hf.spans() {
+        if let Some(first) = span_opt {
+            let mut current = Some(first.clone());
+            while let Some(span_rc) = current {
+                let span = span_rc.borrow();
+                total += 1;
+                if span.area != 0 {
+                    walkable += 1;
+                }
+                current = span.next.clone();
+            }
+        }
+    }
+    (total, walkable)
+}
+
+/// Instrument each filter function separately to isolate where span divergence occurs.
+///
+/// Uses low-level rasterization API (not RecastBuilder::build_heightfield which
+/// bundles rasterization + filtering together). This allows counting walkable spans
+/// after each individual filter step.
+///
+/// Run: cargo test -p recast --test pipeline_diagnostic filter_stages -- --nocapture
+#[test]
+fn filter_stages_nav_test() {
+    use glam::Vec3;
+
+    let path = format!("{}/meshes/nav_test.obj", TEST_DATA);
+    let mesh = TriMesh::from_obj(&path).expect("failed to load mesh");
+    let (bmin, bmax) = mesh.calculate_bounds();
+    let mut config = test_config();
+    config.calculate_grid_size(bmin, bmax);
+
+    // Create heightfield manually (without RecastBuilder which bundles filters)
+    let mut hf = recast::Heightfield::new(
+        config.width,
+        config.height,
+        bmin,
+        bmax,
+        config.cs,
+        config.ch,
+    );
+
+    // Rasterize triangles manually (matching RecastBuilder::rasterize_triangles but without filters)
+    let walkable_slope_threshold =
+        (config.walkable_slope_angle * std::f32::consts::PI / 180.0).cos();
+    #[allow(unused_assignments)]
+    let mut walkable_tris = 0u32;
+    let num_triangles = mesh.indices.len() / 3;
+    for i in 0..num_triangles {
+        let idx0 = mesh.indices[i * 3] as usize;
+        let idx1 = mesh.indices[i * 3 + 1] as usize;
+        let idx2 = mesh.indices[i * 3 + 2] as usize;
+
+        let v0 = Vec3::new(
+            mesh.vertices[idx0 * 3],
+            mesh.vertices[idx0 * 3 + 1],
+            mesh.vertices[idx0 * 3 + 2],
+        );
+        let v1 = Vec3::new(
+            mesh.vertices[idx1 * 3],
+            mesh.vertices[idx1 * 3 + 1],
+            mesh.vertices[idx1 * 3 + 2],
+        );
+        let v2 = Vec3::new(
+            mesh.vertices[idx2 * 3],
+            mesh.vertices[idx2 * 3 + 1],
+            mesh.vertices[idx2 * 3 + 2],
+        );
+
+        let e1 = v1 - v0;
+        let e2 = v2 - v0;
+        let cross = e1.cross(e2);
+        if cross.length() < f32::EPSILON {
+            continue;
+        }
+        let normal = cross.normalize();
+        let area = if normal.y > walkable_slope_threshold {
+            1u8
+        } else {
+            0u8
+        };
+        if area != 0 {
+            walkable_tris += 1;
+        }
+
+        recast::rasterize_triangle(&v0, &v1, &v2, area, &mut hf, 1).expect("rasterize failed");
+    }
+
+    println!();
+    println!("=== Filter Stage Instrumentation: nav_test.obj ===");
+    println!(
+        "  Walkable triangles: {} / {}",
+        walkable_tris, num_triangles
+    );
+    println!();
+
+    let (total, walkable) = count_walkable_spans(&hf);
+    println!(
+        "After rasterization:    total={}, walkable={}",
+        total, walkable
+    );
+
+    hf.filter_low_hanging_walkable_obstacles(config.walkable_climb as i16)
+        .expect("filter failed");
+    let (_, walkable_after_lh) = count_walkable_spans(&hf);
+    println!(
+        "After low-hanging:      walkable={} (delta={:+})",
+        walkable_after_lh,
+        walkable_after_lh as i64 - walkable as i64
+    );
+
+    hf.filter_ledge_spans(config.walkable_height as i16, config.walkable_climb as i16)
+        .expect("filter failed");
+    let (_, walkable_after_ledge) = count_walkable_spans(&hf);
+    println!(
+        "After ledge:            walkable={} (delta={:+})",
+        walkable_after_ledge,
+        walkable_after_ledge as i64 - walkable_after_lh as i64
+    );
+
+    hf.filter_walkable_low_height_spans(config.walkable_height as i16)
+        .expect("filter failed");
+    let (_, walkable_after_lhf) = count_walkable_spans(&hf);
+    println!(
+        "After low-height:       walkable={} (delta={:+})",
+        walkable_after_lhf,
+        walkable_after_lhf as i64 - walkable_after_ledge as i64
+    );
+
+    println!();
+    println!("C++ reference:          walkable=56689");
+    println!(
+        "Difference:             {} (Rust {} C++)",
+        (walkable_after_lhf as i64 - 56689).abs(),
+        if walkable_after_lhf < 56689 {
+            "<"
+        } else {
+            ">="
+        }
+    );
+    println!();
+}

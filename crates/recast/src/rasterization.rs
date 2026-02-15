@@ -137,8 +137,16 @@ fn add_span_internal(
                 break;
             }
 
-            // Merge with next span
-            merged_max = merged_max.max(next_borrow.max);
+            // Merge with next span — must also merge area (matching C++ addSpan)
+            let next_max = next_borrow.max;
+            let next_area = next_borrow.area;
+            merged_max = merged_max.max(next_max);
+
+            // Area merge: same threshold check as C++ for each overlapping span
+            if (merged_max as i32 - next_max as i32).abs() <= flag_merge_threshold {
+                merged_area = merged_area.max(next_area);
+            }
+
             let following = next_borrow.next.clone();
             drop(next_borrow);
             next_span = following;

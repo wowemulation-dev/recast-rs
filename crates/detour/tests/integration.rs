@@ -124,9 +124,9 @@ fn nav_test_find_nearest_poly_q3() {
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing contour simplification squared distance
+    // After span merge area fix — Y changed due to improved navmesh geometry
     assert!((snapped.x - 16.0).abs() < 0.01);
-    assert!((snapped.y - (-2.2695)).abs() < 0.01);
+    assert!((snapped.y - (-2.2815)).abs() < 0.01);
     assert!((snapped.z - (-7.0)).abs() < 0.01);
 }
 
