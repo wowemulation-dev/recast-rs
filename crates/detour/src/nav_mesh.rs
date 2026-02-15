@@ -3041,8 +3041,19 @@ impl NavMesh {
         // Set flags
         nav_mesh.flags = flags;
 
+        // Allocate a tile slot first so we know the correct salt and tile index.
+        // The salt must match between the tile and every PolyRef stored in links,
+        // otherwise is_valid_poly_ref rejects links and A* cannot expand neighbors.
+        let tile_idx = nav_mesh.allocate_tile()?;
+        let tile_salt = nav_mesh.tiles[tile_idx]
+            .as_ref()
+            .map(|t| t.salt)
+            .unwrap_or(1);
+        let tile_id = (tile_idx + 1) as u32; // tile IDs are 1-based
+
         // Create a single tile for the entire mesh
         let mut tile = MeshTile::new();
+        tile.salt = tile_salt;
 
         // Set up tile header
         tile.header = Some(TileHeader {
@@ -3105,11 +3116,10 @@ impl NavMesh {
             tile.polys.push(poly);
         }
 
-        // Calculate neighbor connections and create links between polygons
-        // For a single-tile mesh, we check for shared edges between polygons
-        // We'll create the base PolyRef using tile_idx (which will be allocated below)
-        // For now, we'll calculate it the same way get_poly_ref_base would
-        let base = 1u32 << DT_POLY_BITS; // tile_idx 0 maps to tile_id 1
+        // Calculate neighbor connections and create links between polygons.
+        // The base PolyRef encodes the tile's salt and id so that every link
+        // reference passes is_valid_poly_ref when the tile is queried.
+        let base = encode_poly_ref_with_salt(tile_salt & DT_SALT_MASK, tile_id, 0).id();
 
         // Structure to hold neighbor information temporarily
         struct NeighborInfo {
@@ -3224,10 +3234,7 @@ impl NavMesh {
             }
         }
 
-        // Allocate a tile from the free list
-        let tile_idx = nav_mesh.allocate_tile()?;
-
-        // Add tile to the navigation mesh
+        // Place the tile into the previously allocated slot
         nav_mesh.tiles[tile_idx] = Some(tile);
 
         // Add to position lookup

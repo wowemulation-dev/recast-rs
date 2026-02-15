@@ -1,10 +1,8 @@
 //! Integration tests for detour pathfinding and spatial queries.
 //!
 //! Tests build navmeshes from test OBJ files using recast, then validate
-//! spatial queries and pathfinding against reference data.
-//!
-//! Tests marked `#[ignore]` compare against C++ ground truth and will
-//! pass once pipeline bugs are fixed.
+//! spatial queries and pathfinding against reference data from
+//! `test-data/reference/*.json`.
 
 use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
 use glam::Vec3;
@@ -86,7 +84,6 @@ fn nav_test_find_nearest_poly_origin() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid(), "returned poly_ref should be valid");
 
-    // After fixing contour simplification squared distance
     assert!((snapped.x - 0.0000).abs() < 0.01);
     assert!((snapped.y - (-2.2695)).abs() < 0.01);
     assert!((snapped.z - (-2.2001)).abs() < 0.01);
@@ -99,13 +96,11 @@ fn nav_test_find_nearest_poly_q1() {
     let filter = QueryFilter::default();
     let extent = Vec3::new(5.0, 10.0, 5.0);
 
-    // Query at [5,0,0] is reliably within navmesh extent
     let (poly_ref, snapped) = query
         .find_nearest_poly(Vec3::new(5.0, 0.0, 0.0), extent, &filter)
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing contour simplification squared distance
     assert!((snapped.x - 4.8514).abs() < 0.01);
     assert!((snapped.y - (-2.2695)).abs() < 0.01);
     assert!((snapped.z - (-2.3777)).abs() < 0.01);
@@ -118,13 +113,11 @@ fn nav_test_find_nearest_poly_q3() {
     let filter = QueryFilter::default();
     let extent = Vec3::new(5.0, 10.0, 5.0);
 
-    // Query at [16,0,-7] lands directly on the navmesh
     let (poly_ref, snapped) = query
         .find_nearest_poly(Vec3::new(16.0, 0.0, -7.0), extent, &filter)
         .unwrap();
     assert!(poly_ref.is_valid());
 
-    // After box blur fix
     assert!((snapped.x - 16.0).abs() < 0.01);
     assert!((snapped.y - (-2.2695)).abs() < 0.01);
     assert!((snapped.z - (-7.0)).abs() < 0.01);
@@ -143,7 +136,6 @@ fn dungeon_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    // After area border flag fix (Bug #29)
     assert!((snapped.x - 12.1450).abs() < 0.01);
     assert!((snapped.y - 10.3074).abs() < 0.01);
     assert!((snapped.z - (-40.5750)).abs() < 0.01);
@@ -162,13 +154,12 @@ fn bridge_find_nearest_poly_center() {
     let (poly_ref, snapped) = result.unwrap();
     assert!(poly_ref.is_valid());
 
-    // After fixing contour simplification squared distance
     assert!((snapped.x - (-0.2390)).abs() < 0.01);
     assert!((snapped.y - 4.5951).abs() < 0.01);
     assert!((snapped.z - (-0.2870)).abs() < 0.01);
 }
 
-// -- Pathfinding: current behavior --
+// -- Pathfinding: find_path --
 
 #[test]
 fn nav_test_find_path_returns_result() {
@@ -184,42 +175,154 @@ fn nav_test_find_path_returns_result() {
         .find_nearest_poly(Vec3::new(20.0, 0.0, 0.0), extent, &filter)
         .unwrap();
 
-    let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter);
-
-    // Currently returns 1-polygon paths due to link setup issue
-    assert!(path.is_ok());
-    let path = path.unwrap();
+    let path = query
+        .find_path(start_ref, end_ref, start_pos, end_pos, &filter)
+        .unwrap();
     assert!(!path.is_empty());
+    assert!(path.len() > 1, "path should traverse multiple polygons");
 }
 
 #[test]
-#[ignore = "find_path returns 1-polygon paths; polygon links not set up in build_from_recast"]
-fn nav_test_pathfinding_matches_cpp() {
+fn nav_test_pathfinding_straight_path() {
+    // Validates multi-polygon pathfinding with straight path (funnel algorithm).
+    // Uses two points known to be on the Rust navmesh and far enough apart
+    // to produce a multi-polygon path with intermediate waypoints.
     let nav_mesh = build_navmesh("nav_test.obj");
     let mut query = NavMeshQuery::new(&nav_mesh);
     let filter = QueryFilter::default();
     let extent = Vec3::new(5.0, 10.0, 5.0);
 
+    // (0,0,0) snaps to ~(0, -2.27, -2.2) and (16,0,-7) snaps to ~(16, -2.27, -7)
     let (start_ref, start_pos) = query
-        .find_nearest_poly(Vec3::new(5.0, 0.0, 0.0), extent, &filter)
+        .find_nearest_poly(Vec3::new(0.0, 0.0, 0.0), extent, &filter)
         .unwrap();
     let (end_ref, end_pos) = query
-        .find_nearest_poly(Vec3::new(20.0, 0.0, 0.0), extent, &filter)
+        .find_nearest_poly(Vec3::new(16.0, 0.0, -7.0), extent, &filter)
         .unwrap();
 
-    let start_arr = start_pos.to_array();
-    let end_arr = end_pos.to_array();
     let path = query
         .find_path(start_ref, end_ref, start_pos, end_pos, &filter)
         .unwrap();
 
-    // C++ produces a multi-polygon path
     assert!(path.len() > 1, "path should traverse multiple polygons");
 
-    let straight = query
-        .find_straight_path(Vec3::from(start_arr), Vec3::from(end_arr), &path)
+    let straight = query.find_straight_path(start_pos, end_pos, &path).unwrap();
+
+    assert!(
+        straight.waypoints.len() >= 2,
+        "straight path should have at least start and end waypoints, got {}",
+        straight.waypoints.len()
+    );
+
+    // First waypoint should be near the start position
+    let first = straight.waypoints[0];
+    assert!(
+        (first.x - start_pos.x).abs() < 0.1,
+        "first waypoint x={} should be near start x={}",
+        first.x,
+        start_pos.x
+    );
+    assert!(
+        (first.z - start_pos.z).abs() < 0.1,
+        "first waypoint z={} should be near start z={}",
+        first.z,
+        start_pos.z
+    );
+
+    // Last waypoint should be near the end position
+    let last = straight.waypoints[straight.waypoints.len() - 1];
+    assert!(
+        (last.x - end_pos.x).abs() < 0.1,
+        "last waypoint x={} should be near end x={}",
+        last.x,
+        end_pos.x
+    );
+    assert!(
+        (last.z - end_pos.z).abs() < 0.1,
+        "last waypoint z={} should be near end z={}",
+        last.z,
+        end_pos.z
+    );
+}
+
+#[test]
+fn dungeon_pathfinding_multi_polygon() {
+    // C++ reference: start=[22.6,10.2,-45.9], end=[6.5,10.2,-18.3], 6 waypoints
+    let nav_mesh = build_navmesh("dungeon.obj");
+    let mut query = NavMeshQuery::new(&nav_mesh);
+    let filter = QueryFilter::default();
+    let extent = Vec3::new(5.0, 10.0, 5.0);
+
+    let (start_ref, start_pos) = query
+        .find_nearest_poly(Vec3::new(22.6, 10.2, -45.9), extent, &filter)
+        .unwrap();
+    let (end_ref, end_pos) = query
+        .find_nearest_poly(Vec3::new(6.5, 10.2, -18.3), extent, &filter)
         .unwrap();
 
-    // C++ produces multiple waypoints for this query
-    assert!(straight.waypoints.len() > 1);
+    let path = query
+        .find_path(start_ref, end_ref, start_pos, end_pos, &filter)
+        .unwrap();
+
+    assert!(
+        path.len() > 1,
+        "dungeon path should traverse multiple polygons, got {}",
+        path.len()
+    );
+
+    let straight = query.find_straight_path(start_pos, end_pos, &path).unwrap();
+
+    assert!(
+        straight.waypoints.len() >= 2,
+        "dungeon straight path should have at least 2 waypoints, got {}",
+        straight.waypoints.len()
+    );
+}
+
+#[test]
+fn bridge_pathfinding_multi_polygon() {
+    // C++ reference: start=[0,3,5], end=[0,3,-5], 2 waypoints
+    let nav_mesh = build_navmesh("bridge.obj");
+    let mut query = NavMeshQuery::new(&nav_mesh);
+    let filter = QueryFilter::default();
+    let extent = Vec3::new(5.0, 10.0, 5.0);
+
+    let (start_ref, start_pos) = query
+        .find_nearest_poly(Vec3::new(0.0, 3.0, 5.0), extent, &filter)
+        .unwrap();
+    let (end_ref, end_pos) = query
+        .find_nearest_poly(Vec3::new(0.0, 3.0, -5.0), extent, &filter)
+        .unwrap();
+
+    let path = query
+        .find_path(start_ref, end_ref, start_pos, end_pos, &filter)
+        .unwrap();
+
+    assert!(
+        path.len() > 1,
+        "bridge path should traverse multiple polygons, got {}",
+        path.len()
+    );
+
+    let straight = query.find_straight_path(start_pos, end_pos, &path).unwrap();
+
+    assert!(
+        straight.waypoints.len() >= 2,
+        "bridge straight path should have at least 2 waypoints, got {}",
+        straight.waypoints.len()
+    );
+
+    // Bridge is small — C++ produces exactly 2 waypoints (start + end).
+    // Verify the start and end waypoints are near the query positions.
+    let first = straight.waypoints[0];
+    let last = straight.waypoints[straight.waypoints.len() - 1];
+
+    assert!(
+        (first.x - start_pos.x).abs() < 0.1 && (first.z - start_pos.z).abs() < 0.1,
+        "first waypoint should be near start"
+    );
+    assert!(
+        (last.x - end_pos.x).abs() < 0.1 && (last.z - end_pos.z).abs() < 0.1,
+        "last waypoint should be near end"
+    );
 }
