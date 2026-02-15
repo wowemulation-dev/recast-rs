@@ -218,6 +218,57 @@ impl Default for NavMeshCreateParams {
     }
 }
 
+impl NavMeshCreateParams {
+    /// Sets the walkable height (world units).
+    pub fn with_walkable_height(mut self, height: f32) -> Self {
+        self.walkable_height = height;
+        self
+    }
+
+    /// Sets the walkable radius (world units).
+    pub fn with_walkable_radius(mut self, radius: f32) -> Self {
+        self.walkable_radius = radius;
+        self
+    }
+
+    /// Sets the walkable climb height (world units).
+    pub fn with_walkable_climb(mut self, climb: f32) -> Self {
+        self.walkable_climb = climb;
+        self
+    }
+
+    /// Sets the cell size (xz-plane resolution).
+    pub fn with_cell_size(mut self, cs: f32) -> Self {
+        self.cs = cs;
+        self
+    }
+
+    /// Sets the cell height (y-axis resolution).
+    pub fn with_cell_height(mut self, ch: f32) -> Self {
+        self.ch = ch;
+        self
+    }
+
+    /// Sets the AABB bounds.
+    pub fn with_bounds(mut self, bmin: [f32; 3], bmax: [f32; 3]) -> Self {
+        self.bmin = bmin;
+        self.bmax = bmax;
+        self
+    }
+
+    /// Sets whether to build the BV tree for spatial queries.
+    pub fn with_build_bv_tree(mut self, build: bool) -> Self {
+        self.build_bv_tree = build;
+        self
+    }
+
+    /// Sets the navigation mesh parameters.
+    pub fn with_nav_mesh_params(mut self, params: NavMeshParams) -> Self {
+        self.nav_mesh_params = params;
+        self
+    }
+}
+
 bitflags::bitflags! {
     /// Navigation mesh parameter flags
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

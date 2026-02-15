@@ -84,6 +84,96 @@ impl RecastConfig {
         Self::default()
     }
 
+    /// Sets the cell size (width/depth resolution).
+    pub fn with_cell_size(mut self, cs: f32) -> Self {
+        self.cs = cs;
+        self
+    }
+
+    /// Sets the cell height (vertical resolution).
+    pub fn with_cell_height(mut self, ch: f32) -> Self {
+        self.ch = ch;
+        self
+    }
+
+    /// Sets the AABB bounds and recalculates grid size.
+    pub fn with_bounds(mut self, bmin: Vec3, bmax: Vec3) -> Self {
+        self.calculate_grid_size(bmin, bmax);
+        self
+    }
+
+    /// Sets the maximum walkable slope angle in degrees.
+    pub fn with_walkable_slope_angle(mut self, angle: f32) -> Self {
+        self.walkable_slope_angle = angle;
+        self
+    }
+
+    /// Sets the minimum floor-to-ceiling height (in voxels).
+    pub fn with_walkable_height(mut self, height: i32) -> Self {
+        self.walkable_height = height;
+        self
+    }
+
+    /// Sets the maximum traversable ledge height (in voxels).
+    pub fn with_walkable_climb(mut self, climb: i32) -> Self {
+        self.walkable_climb = climb;
+        self
+    }
+
+    /// Sets the distance to erode walkable area from obstacles (in voxels).
+    pub fn with_walkable_radius(mut self, radius: i32) -> Self {
+        self.walkable_radius = radius;
+        self
+    }
+
+    /// Sets the maximum allowed length for contour edges along the border.
+    pub fn with_max_edge_len(mut self, len: i32) -> Self {
+        self.max_edge_len = len;
+        self
+    }
+
+    /// Sets the maximum distance a simplified contour may deviate from the raw contour.
+    pub fn with_max_simplification_error(mut self, error: f32) -> Self {
+        self.max_simplification_error = error;
+        self
+    }
+
+    /// Sets the minimum number of cells for isolated island areas.
+    pub fn with_min_region_area(mut self, area: i32) -> Self {
+        self.min_region_area = area;
+        self
+    }
+
+    /// Sets the region area threshold below which regions are merged.
+    pub fn with_merge_region_area(mut self, area: i32) -> Self {
+        self.merge_region_area = area;
+        self
+    }
+
+    /// Sets the maximum number of vertices per polygon.
+    pub fn with_max_vertices_per_polygon(mut self, count: i32) -> Self {
+        self.max_vertices_per_polygon = count;
+        self
+    }
+
+    /// Sets the sampling distance for the detail mesh.
+    pub fn with_detail_sample_dist(mut self, dist: f32) -> Self {
+        self.detail_sample_dist = dist;
+        self
+    }
+
+    /// Sets the maximum error for the detail mesh surface.
+    pub fn with_detail_sample_max_error(mut self, error: f32) -> Self {
+        self.detail_sample_max_error = error;
+        self
+    }
+
+    /// Sets the border size around the heightfield.
+    pub fn with_border_size(mut self, size: i32) -> Self {
+        self.border_size = size;
+        self
+    }
+
     /// Calculates and sets the grid size based on the provided AABB
     pub fn calculate_grid_size(&mut self, bmin: Vec3, bmax: Vec3) {
         self.bmin = bmin;
