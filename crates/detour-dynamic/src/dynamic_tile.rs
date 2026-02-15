@@ -195,13 +195,9 @@ impl DynamicTile {
                     });
                 }
 
-                // Read span count using unsafe for performance (data already validated)
-                let span_count = unsafe {
-                    u16::from_le_bytes([
-                        *span_data.get_unchecked(position),
-                        *span_data.get_unchecked(position + 1),
-                    ]) as usize
-                };
+                // Read span count (bounds already validated above)
+                let span_count =
+                    u16::from_le_bytes([span_data[position], span_data[position + 1]]) as usize;
                 position += 2;
 
                 // Early exit for empty cells
@@ -225,35 +221,16 @@ impl DynamicTile {
 
                 // Process all spans for this cell
                 for _ in 0..span_count {
-                    // Use unsafe indexing for performance (bounds already checked)
-                    let smin = unsafe {
-                        i32::from_le_bytes([
-                            *span_data.get_unchecked(position),
-                            *span_data.get_unchecked(position + 1),
-                            *span_data.get_unchecked(position + 2),
-                            *span_data.get_unchecked(position + 3),
-                        ])
-                    };
+                    let smin =
+                        i32::from_le_bytes(span_data[position..position + 4].try_into().unwrap());
                     position += 4;
 
-                    let smax = unsafe {
-                        i32::from_le_bytes([
-                            *span_data.get_unchecked(position),
-                            *span_data.get_unchecked(position + 1),
-                            *span_data.get_unchecked(position + 2),
-                            *span_data.get_unchecked(position + 3),
-                        ])
-                    };
+                    let smax =
+                        i32::from_le_bytes(span_data[position..position + 4].try_into().unwrap());
                     position += 4;
 
-                    let area = unsafe {
-                        i32::from_le_bytes([
-                            *span_data.get_unchecked(position),
-                            *span_data.get_unchecked(position + 1),
-                            *span_data.get_unchecked(position + 2),
-                            *span_data.get_unchecked(position + 3),
-                        ])
-                    };
+                    let area =
+                        i32::from_le_bytes(span_data[position..position + 4].try_into().unwrap());
                     position += 4;
 
                     // Add span to heightfield (this is the main bottleneck)

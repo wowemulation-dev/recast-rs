@@ -267,6 +267,48 @@ impl NavMeshCreateParams {
         self.nav_mesh_params = params;
         self
     }
+
+    /// Validates and returns the params.
+    ///
+    /// Checks that vertex/polygon counts match the corresponding data arrays
+    /// and that cell dimensions are positive. Returns `Err(DetourError::InvalidParam)`
+    /// on mismatch.
+    pub fn build(self) -> Result<Self, DetourError> {
+        self.validate()?;
+        Ok(self)
+    }
+
+    /// Validates the create params without consuming them.
+    pub fn validate(&self) -> Result<(), DetourError> {
+        if self.cs <= 0.0 || self.ch <= 0.0 {
+            return Err(DetourError::InvalidParam);
+        }
+
+        if self.vert_count > 0 && self.verts.len() != self.vert_count as usize * 3 {
+            return Err(DetourError::InvalidParam);
+        }
+
+        if self.poly_count > 0 {
+            let expected_poly_data = self.poly_count as usize * 2 * self.nvp as usize;
+            if self.polys.len() < expected_poly_data {
+                return Err(DetourError::InvalidParam);
+            }
+        }
+
+        if self.detail_tri_count > 0 && self.detail_tris.len() < self.detail_tri_count as usize * 4
+        {
+            return Err(DetourError::InvalidParam);
+        }
+
+        if self.off_mesh_con_count > 0 {
+            let n = self.off_mesh_con_count as usize;
+            if self.off_mesh_con_verts.len() < n * 6 || self.off_mesh_con_rad.len() < n {
+                return Err(DetourError::InvalidParam);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 bitflags::bitflags! {

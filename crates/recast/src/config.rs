@@ -184,6 +184,15 @@ impl RecastConfig {
         self.height = ((bmax.z - bmin.z) / self.cs + 0.5) as i32;
     }
 
+    /// Validates and returns the configuration.
+    ///
+    /// This is the recommended way to finalize a config built with `with_*()`
+    /// methods. Returns `Err` if any parameter is out of range.
+    pub fn build(self) -> Result<Self, ConfigError> {
+        self.validate()?;
+        Ok(self)
+    }
+
     /// Validates the configuration parameters
     pub fn validate(&self) -> Result<(), ConfigError> {
         if self.width <= 0 || self.height <= 0 {

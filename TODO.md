@@ -131,57 +131,31 @@ Config structs have up to 28 fields with no guided construction.
 `DynamicNavMeshConfig` already has 16 `with_*()` methods; follow that
 pattern. See roadmap section 3.3 for builder specifications and defaults.
 
-- [ ] `RecastConfigBuilder` -- 18-field config, validating `build()` method
-- [ ] `NavMeshCreateParamsBuilder` -- 25-field config with `from_recast()` constructor
-- [ ] `AgentParamsBuilder` -- 13-field config for crowd agents
-- [ ] Extend `DynamicNavMeshConfig` -- add missing `with_*()` methods and `validate()`
+Fluent `with_*()` methods added directly to config structs (not separate
+builder types).
+
+- [x] `RecastConfig` -- 15 `with_*()` methods for fluent construction
+- [x] `NavMeshCreateParams` -- 8 `with_*()` methods for scalar fields
+- [x] `AgentParams` -- 13 `with_*()` methods for crowd agent config
+- [x] `DynamicNavMeshConfig` -- 5 missing `with_*()` methods added, `validate()` returns `Result<(), DynamicError>`
+- [x] Add validating `build()` constructors to `RecastConfig` and `NavMeshCreateParams`
 
 ---
 
-## Phase 4: Ecosystem (Lower Priority)
+## Phase 4: Reduce Unsafe Code
 
-Independent items that improve adoption.
+- [x] `nav_mesh.rs` `get_tile_and_poly_by_ref_mut` -- replaced with safe `decode_poly_ref_indices` returning `(usize, usize)`
+- [x] `node_pool.rs` Send/Sync -- removed invalid `unsafe impl`; refactored `DtNodeQueue` to index-based queue
+- [x] `nav_mesh.rs` pointer offset -- `get_poly_height` now takes `poly_idx: usize` instead of pointer arithmetic
+- [x] `dynamic_tile.rs` `get_unchecked` -- 4 blocks replaced with safe slice indexing
 
-### 4.1 Interactive Demo
+---
 
-C++ and DotRecast both ship interactive demos. Use `egui` + `three-d`
-(not Bevy). See roadmap section 4.1 for crate structure and phase
-breakdown. Estimated 2,000-2,500 lines.
+## Deferred
 
-- [ ] Phase A -- Minimal viewer: window, OBJ wireframe, RecastConfig panel, build + render navmesh (~800 lines)
-- [ ] Phase B -- Pathfinding tool: click start/end, find_path + render path (~400 lines)
-- [ ] Phase C -- Crowd tool: place agents, set targets, animate updates (~500 lines)
-- [ ] Phase D -- Obstacle tool: add/remove obstacles, TileCache rebuild (~300 lines)
-- [ ] Phase E -- WASM target: wasm-bindgen entry point, browser file picker (~200 lines)
+These items are tracked in the [Resolution Roadmap](docs/src/development/roadmap.md)
+but are not planned for near-term work.
 
-### 4.2 `no_std` Support
-
-48-63 hours estimated across all crates. Feature-gated `hashbrown` for
-`no_std` HashMap/HashSet. See roadmap section 4.2 for per-crate analysis,
-std type inventory, and implementation order.
-
-- [ ] `recast-common` -- Easy (2-3h): already has `std` feature, gate HashMap/HashSet
-- [ ] `recast` -- Medium (6-8h): gate HashMap/HashSet/BinaryHeap, format! usage, web-time timing
-- [ ] `detour` -- Hard (16-20h): gate serialization + file persistence behind `std`, replace collections
-- [ ] `detour-crowd` -- Medium (4-6h): replace 4 HashMap instances; blocked by detour
-- [ ] `detour-tilecache` -- Medium-Hard (8-10h): gate file persistence, replace collections
-- [ ] `detour-dynamic` -- Hard (12-16h): gate async features behind `std`, replace Arc/AtomicU64/mpsc
-
-### 4.3 Framework Integrations
-
-Separate crates, separate release cadence. See roadmap section 4.3 for
-design and type specifications.
-
-- [ ] `bevy-recast` -- Plugin with NavmeshSettings, async generation, path request events, gizmo debug (~400-500 lines)
-- [ ] macroquad example -- NavMeshContext utility, standalone example (~150-200 lines)
-
-### 4.4 Reduce Unsafe Code
-
-18 unsafe items across 3 files (16 expression blocks + 2 `unsafe impl`).
-See roadmap section 4.4 for safe replacements and benchmarking
-requirements. Benchmark hot-path replacements before merging.
-
-- [ ] `nav_mesh.rs` `get_tile_and_poly_by_ref_mut` -- correctness issue, return indices or view struct (3-6h)
-- [ ] `node_pool.rs` Send/Sync -- remove invalid `unsafe impl` (1h); then refactor to index-based queue (4-8h, 12 items)
-- [ ] `nav_mesh.rs` pointer offset -- pass poly index instead of computing from pointer arithmetic (1-2h)
-- [ ] `dynamic_tile.rs` `get_unchecked` -- 4 blocks, replace with safe slice indexing, benchmark first (1-2h)
+- Interactive demo (roadmap 4.1)
+- `no_std` support (roadmap 4.2)
+- Framework integrations: `bevy-recast`, macroquad (roadmap 4.3)
