@@ -38,27 +38,22 @@ Timing uses `web-time` for cross-platform compatibility.
 
 ## Example
 
-```rust
-use recast::{Heightfield, CompactHeightfield, ContourSet, PolyMesh, RecastConfig};
+```rust,ignore
+use recast::{RecastBuilder, RecastConfig};
 
 // Configure the build
-let config = RecastConfig {
-    cell_size: 0.3,
-    cell_height: 0.2,
-    walkable_slope_angle: 45.0,
-    walkable_height: 2.0,
-    walkable_climb: 0.9,
-    walkable_radius: 0.6,
-    ..Default::default()
-};
+let mut config = RecastConfig::default();
+config.cs = 0.3;
+config.ch = 0.2;
+config.walkable_slope_angle = 45.0;
+config.walkable_height = 2;   // voxel units (i32)
+config.walkable_climb = 1;
+config.walkable_radius = 1;
+config.calculate_grid_size(bounds_min, bounds_max);
 
-// Build the navmesh pipeline
-let mut heightfield = Heightfield::new(&config, &bounds_min, &bounds_max)?;
-heightfield.rasterize_triangles(&vertices, &indices, area_ids)?;
-
-let compact = CompactHeightfield::build(&heightfield, &config)?;
-let contours = ContourSet::build(&compact, &config)?;
-let poly_mesh = PolyMesh::build(&contours, &config)?;
+// Build the full pipeline in one call
+let builder = RecastBuilder::new(config);
+let (poly_mesh, detail_mesh) = builder.build_mesh(&vertices, &indices)?;
 ```
 
 ## Pipeline Stages

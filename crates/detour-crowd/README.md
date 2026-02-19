@@ -28,37 +28,34 @@ This is a Rust port of the DetourCrowd component from [RecastNavigation][recast-
 
 ## Example
 
-```rust
-use detour_crowd::{Crowd, CrowdConfig, AgentParams};
+```rust,ignore
+use detour_crowd::{Crowd, AgentParams};
+use glam::Vec3;
 
 // Create a crowd simulation
-let config = CrowdConfig::default();
-let mut crowd = Crowd::new(&nav_mesh, config)?;
+let mut crowd = Crowd::new(&nav_mesh, 128, 0.6);
 
 // Configure agent parameters
-let params = AgentParams {
-    radius: 0.6,
-    height: 2.0,
-    max_acceleration: 8.0,
-    max_speed: 3.5,
-    collision_query_range: 12.0,
-    path_optimization_range: 30.0,
-    ..Default::default()
-};
+let mut params = AgentParams::default();
+params.radius = 0.6;
+params.height = 2.0;
+params.max_acceleration = 8.0;
+params.max_speed = 3.5;
 
-// Add agents
-let agent_id = crowd.add_agent(&start_pos, &params)?;
+// Add agents (positions are Vec3)
+let agent_id = crowd.add_agent(start_pos, params)?;
 
 // Set movement target
-crowd.request_move_target(agent_id, target_poly, &target_pos)?;
+crowd.request_move_target(agent_id, target_poly, target_pos)?;
 
 // Update simulation each frame
 crowd.update(delta_time)?;
 
 // Get agent state
-let agent = crowd.get_agent(agent_id)?;
-let position = agent.position();
-let velocity = agent.velocity();
+if let Some(agent) = crowd.get_agent(agent_id) {
+    let position = agent.get_pos();
+    let velocity = agent.get_vel();
+}
 ```
 
 ## Components

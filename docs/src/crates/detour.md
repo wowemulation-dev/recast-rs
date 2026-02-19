@@ -50,13 +50,13 @@ let mut query = NavMeshQuery::new(&nav_mesh);
 let filter = QueryFilter::default();
 
 // Find nearest polygon to a world position
-let (poly_ref, closest_pos) = query.find_nearest_poly(&pos, &extents, &filter)?;
+let (poly_ref, closest_pos) = query.find_nearest_poly(pos, extents, &filter)?;
 
 // Find a path (returns polygon references)
-let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 
 // Convert to waypoints via funnel algorithm
-let straight_path = query.find_straight_path(&start_pos, &end_pos, &path)?;
+let straight_path = query.find_straight_path(start_pos, end_pos, &path)?;
 ```
 
 Available queries:

@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### recast
 
-- Fixed 22 pipeline bugs bringing navmesh output within 1-2% of C++ reference
+- Fixed 33 pipeline bugs bringing navmesh output to exact match with C++ reference
+  for all three test meshes (nav_test, dungeon, bridge)
 - Fixed heightfield normal check: `normal.y.abs()` to `normal.y` (Bug #9)
 - Fixed erosion walkable area step size and `con[4]` indexing (Bugs #10-#11)
 - Fixed `expand_regions` termination: `stack.retain()` broke convergence (Bug #12)
@@ -47,6 +48,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of vertex-seeding with grid-based flood fill (Bug #22)
 - Implemented `remove_edge_vertices` (was stubbed): `can_remove_vertex`,
   `remove_vertex`, `triangulate_raw`
+- Fixed `add_span_internal`: area merge only applied to first overlapping span, missing
+  area threshold check in subsequent-span merge loop (Bug #23)
+- Fixed `merge_small_regions`: missing `canMergeWithRegion` and `mergeRegions` from C++,
+  missing connection topology splicing and `replaceNeighbour` floor list update (Bug #24)
+- Fixed `box_blur` in distance field: divided by actual neighbor count instead of
+  always 9; C++ pads missing neighbors with center value and divides `(d+5)/9` (Bug #25)
+- Fixed missing contour hole merging: entire "Merge holes if needed" post-processing
+  from C++ `rcBuildContours` was absent; added hole detection, parent grouping, and
+  bridge vertex insertion (Bug #26)
+- Fixed polygon region assignment: used `contour.vertices[0].region` instead of
+  `contour.region` (Bug #27)
+- Fixed `merge_holes` winding calculation for degenerate contours with fewer than
+  3 vertices (Bug #28)
+- Fixed stale `spans[i].area` after erosion: `erode_walkable_area` updates `chf.areas[i]`
+  but not `chf.spans[i].area`; contour, region, and height code used the stale value,
+  missing `RC_AREA_BORDER` flag (Bug #29)
+- Fixed `compact_region_ids`: assigned one new ID per array slot instead of per unique
+  old ID, breaking merged regions (Bug #30)
+- Fixed `intersect_seg_contour` and `walk_contour`: used wrong intersection test
+  (proper+improper instead of proper only) and conditional CCW instead of
+  unconditional (Bug #31)
+- Fixed `merge_holes`: skipped current hole in intersection test (`continue` on
+  `other_hole_idx == hole_idx`), C++ checks all holes including current (Bug #32)
+- Fixed stale `spans[i].area` in distance field, monotone, and layer region builders:
+  same pattern as Bug #29 in `build_distance_field`, `build_regions_monotone`,
+  `build_layer_regions`, `paint_rect_region` (Bug #33)
 
 #### detour
 

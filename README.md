@@ -81,12 +81,12 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 |--------|------|-----|-------|
 | Grid size | 248 x 330 | 248 x 330 | exact |
 | Heightfield spans | 52,106 | 52,106 | exact |
-| Regions | 36 | 37 | 0.97x |
+| Regions | 35 | 35 | exact |
 | Contours | 37 | 37 | exact |
-| Polygons | 216 | 217 | 0.995x |
+| Polygons | 217 | 217 | exact |
 | Polygon vertices | 452 | 452 | exact |
-| Detail vertices | 874 | 868 | 1.007x |
-| Detail triangles | 447 | 434 | 1.03x |
+| Detail vertices | 868 | 868 | exact |
+| Detail triangles | 434 | 434 | exact |
 
 #### bridge.obj (29 vertices, 54 triangles)
 
@@ -163,22 +163,25 @@ detour-crowd = "0.1"  # Optional: crowd simulation
 
 ### Example
 
-```rust
+```rust,ignore
 use recast::{RecastBuilder, RecastConfig};
-use detour::{NavMesh, NavMeshQuery, QueryFilter};
+use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
+use glam::Vec3;
 
-// Build a navigation mesh
-let config = RecastConfig::default();
+// Build a navigation mesh from triangle data
+let mut config = RecastConfig::default();
+config.calculate_grid_size(bounds_min, bounds_max);
 let builder = RecastBuilder::new(config);
-let (poly_mesh, detail_mesh) = builder.build_from_vertices(&vertices, &indices)?;
+let (poly_mesh, detail_mesh) = builder.build_mesh(&vertices, &indices)?;
 
 // Create a NavMesh for pathfinding
-let nav_mesh = NavMesh::from_poly_mesh(&poly_mesh, &detail_mesh)?;
+let params = NavMeshParams::default();
+let nav_mesh = NavMesh::build_from_recast(params, &poly_mesh, &detail_mesh, NavMeshFlags::empty())?;
 
 // Find a path
 let mut query = NavMeshQuery::new(&nav_mesh);
 let filter = QueryFilter::default();
-let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 ```
 
 ## Building

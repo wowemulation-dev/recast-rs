@@ -45,22 +45,25 @@ The typical workflow is:
 
 ```rust,ignore
 use recast::{RecastBuilder, RecastConfig};
-use detour::{NavMesh, NavMeshQuery, QueryFilter};
+use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
+use glam::Vec3;
 
-// Configure the navigation mesh generation
-let config = RecastConfig::default();
+// Configure and build the navigation mesh
+let mut config = RecastConfig::default();
+config.calculate_grid_size(bounds_min, bounds_max);
 let builder = RecastBuilder::new(config);
 
 // Build from triangle data (flat f32 arrays: [x,y,z, x,y,z, ...])
 let (poly_mesh, detail_mesh) = builder.build_mesh(&vertices, &indices)?;
 
 // Create a NavMesh for pathfinding
-let nav_mesh = NavMesh::from_poly_mesh(&poly_mesh, &detail_mesh)?;
+let params = NavMeshParams::default();
+let nav_mesh = NavMesh::build_from_recast(params, &poly_mesh, &detail_mesh, NavMeshFlags::empty())?;
 
 // Find a path
 let mut query = NavMeshQuery::new(&nav_mesh);
 let filter = QueryFilter::default();
-let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 ```
 
 ## RecastConfig Parameters

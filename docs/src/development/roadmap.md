@@ -1,8 +1,7 @@
 # Resolution Roadmap
 
-This document describes how to resolve the issues identified in the
-[Port Assessment](assessment.md). Items are ordered by priority: critical
-blockers first, then high-severity issues, then improvements.
+Items are ordered by priority: critical blockers first, then high-severity
+issues, then improvements.
 
 ## Phase 1: Library Safety (Critical) -- COMPLETE
 

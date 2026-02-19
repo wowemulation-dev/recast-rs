@@ -18,32 +18,24 @@ The main cache managing tiles and obstacles.
 
 ```rust,ignore
 use detour_tilecache::{TileCache, TileCacheParams};
-use glam::Vec3;
 
-let params = TileCacheParams {
-    tile_width: 48,
-    tile_height: 48,
-    max_obstacles: 128,
-    ..Default::default()
-};
-let mut tile_cache = TileCache::new(&params)?;
+let mut params = TileCacheParams::default();
+params.width = 48;
+params.height = 48;
+params.max_obstacles = 128;
+let mut tile_cache = TileCache::new(params)?;
 
-// Add obstacles
-let cylinder = tile_cache.add_cylinder_obstacle(
-    &Vec3::new(10.0, 0.0, 10.0),
-    2.0,   // radius
-    4.0,   // height
+// Add a cylinder obstacle
+let cylinder = tile_cache.add_obstacle(
+    [10.0, 0.0, 10.0],  // position
+    2.0,                 // radius
+    4.0,                 // height
 )?;
 
+// Add a box obstacle
 let box_obs = tile_cache.add_box_obstacle(
-    &Vec3::new(5.0, 0.0, 5.0),   // min
-    &Vec3::new(7.0, 3.0, 7.0),   // max
-)?;
-
-let oriented_box = tile_cache.add_oriented_box_obstacle(
-    &Vec3::new(0.0, 0.0, 0.0),   // center
-    &Vec3::new(2.0, 1.5, 1.0),   // half extents
-    0.785,                         // rotation (radians)
+    [5.0, 0.0, 5.0],    // min
+    [7.0, 3.0, 7.0],    // max
 )?;
 
 // Process changes (rebuilds affected tiles)

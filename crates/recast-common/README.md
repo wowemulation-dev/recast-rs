@@ -14,7 +14,7 @@ and related crates. It is not intended for direct use by end users.
 
 ## Contents
 
-- **Error Types**: Common error definitions for the workspace
+- **Error Types**: `MeshError` for mesh operations (each dependent crate defines its own errors)
 - **Math Utilities**: Vector operations and geometric calculations
 - **Mesh Utilities**: Triangle mesh processing helpers
 - **Debug Utilities**: Visualization and debugging support

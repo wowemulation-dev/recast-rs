@@ -44,27 +44,28 @@ save/load is not available on WASM.
 
 ## Example
 
-```rust
-use detour::{NavMesh, NavMeshQuery, QueryFilter, FindPathResult};
+```rust,ignore
+use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
+use glam::Vec3;
 
-// Load or create a navigation mesh
-let nav_mesh = NavMesh::from_poly_mesh(&poly_mesh)?;
+// Build a NavMesh from Recast output
+let params = NavMeshParams::default();
+let nav_mesh = NavMesh::build_from_recast(params, &poly_mesh, &detail_mesh, NavMeshFlags::empty())?;
 
 // Create a query object
-let mut query = NavMeshQuery::new(&nav_mesh, 2048)?;
+let mut query = NavMeshQuery::new(&nav_mesh);
 let filter = QueryFilter::default();
+let extents = Vec3::new(2.0, 4.0, 2.0);
 
 // Find the start and end polygons
-let start_ref = query.find_nearest_poly(&start_pos, &extents, &filter)?;
-let end_ref = query.find_nearest_poly(&end_pos, &extents, &filter)?;
+let (start_ref, _) = query.find_nearest_poly(start_pos, extents, &filter)?;
+let (end_ref, _) = query.find_nearest_poly(end_pos, extents, &filter)?;
 
-// Find a path
-let path = query.find_path(start_ref, end_ref, &start_pos, &end_pos, &filter)?;
+// Find a path (A* polygon corridor)
+let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 
 // Straighten the path using the funnel algorithm
-let straight_path = query.find_straight_path(
-    &start_pos, &end_pos, &path, 256, 0
-)?;
+let straight_path = query.find_straight_path(start_pos, end_pos, &path)?;
 ```
 
 ## Query Types

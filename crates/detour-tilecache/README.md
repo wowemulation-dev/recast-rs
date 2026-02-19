@@ -32,33 +32,29 @@ This is a Rust port of the DetourTileCache component from [RecastNavigation][rec
 
 ## Example
 
-```rust
+```rust,ignore
 use detour_tilecache::{TileCache, TileCacheParams};
-use glam::Vec3;
 
 // Configure tile cache
-let params = TileCacheParams {
-    tile_width: 48,
-    tile_height: 48,
-    max_obstacles: 128,
-    max_layers: 32,
-    ..Default::default()
-};
+let mut params = TileCacheParams::default();
+params.width = 48;
+params.height = 48;
+params.max_obstacles = 128;
 
 // Create tile cache
-let mut tile_cache = TileCache::new(&params)?;
+let mut tile_cache = TileCache::new(params)?;
 
 // Add a cylinder obstacle (e.g., a tree or pillar)
-let obstacle_id = tile_cache.add_cylinder_obstacle(
-    &Vec3::new(10.0, 0.0, 10.0),  // position
-    2.0,                               // radius
-    4.0,                               // height
+let obstacle_id = tile_cache.add_obstacle(
+    [10.0, 0.0, 10.0],  // position
+    2.0,                 // radius
+    4.0,                 // height
 )?;
 
 // Add a box obstacle (e.g., a crate)
 let box_id = tile_cache.add_box_obstacle(
-    &Vec3::new(15.0, 0.0, 15.0),   // min corner
-    &Vec3::new(17.0, 2.0, 17.0),   // max corner
+    [15.0, 0.0, 15.0],  // min corner
+    [17.0, 2.0, 17.0],  // max corner
 )?;
 
 // Update affected tiles

@@ -73,11 +73,8 @@ let collider = Arc::new(BoxCollider::new(
 ));
 navmesh.add_collider(collider)?;
 
-// Rebuild affected tiles
-navmesh.rebuild_dirty_tiles()?;
-
-// Query the navmesh
-let query = navmesh.create_query()?;
+// Build the navmesh (processes all pending changes)
+navmesh.build_async().await?;
 ```
 
 ## Async Updates

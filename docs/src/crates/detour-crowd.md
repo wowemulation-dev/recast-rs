@@ -18,31 +18,30 @@ The simulation manager. Creates agents, sets targets, and steps the
 simulation.
 
 ```rust,ignore
-use detour_crowd::{Crowd, CrowdConfig, AgentParams};
+use detour_crowd::{Crowd, AgentParams};
+use glam::Vec3;
 
-let config = CrowdConfig::default();
-let mut crowd = Crowd::new(&nav_mesh, config)?;
+let mut crowd = Crowd::new(&nav_mesh, 128, 0.6);
 
 // Add an agent
-let params = AgentParams {
-    radius: 0.6,
-    height: 2.0,
-    max_acceleration: 8.0,
-    max_speed: 3.5,
-    ..Default::default()
-};
-let agent_id = crowd.add_agent(&start_pos, &params)?;
+let mut params = AgentParams::default();
+params.radius = 0.6;
+params.height = 2.0;
+params.max_acceleration = 8.0;
+params.max_speed = 3.5;
+let agent_id = crowd.add_agent(start_pos, params)?;
 
 // Set target
-crowd.request_move_target(agent_id, target_poly, &target_pos)?;
+crowd.request_move_target(agent_id, target_poly, target_pos)?;
 
 // Step simulation
 crowd.update(delta_time)?;
 
 // Read agent state
-let agent = crowd.get_agent(agent_id)?;
-let position = agent.position();
-let velocity = agent.velocity();
+if let Some(agent) = crowd.get_agent(agent_id) {
+    let position = agent.get_pos();
+    let velocity = agent.get_vel();
+}
 ```
 
 ### PathCorridor
