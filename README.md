@@ -2,9 +2,17 @@
 
 A Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavigation).
 
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE-MIT)
+<div align="center">
+
+[![Discord](https://img.shields.io/discord/1394228766414471219?logo=discord&style=flat-square)](https://discord.gg/Q44pPMvGEd)
+[![Sponsor](https://img.shields.io/github/sponsors/wowemulation-dev?logo=github&style=flat-square)](https://github.com/sponsors/wowemulation-dev)
+[![CI Status](https://github.com/wowemulation-dev/recast-rs/workflows/CI/badge.svg)](https://github.com/wowemulation-dev/recast-rs/actions)
+[![WASM](https://img.shields.io/badge/WASM-compatible-blueviolet.svg)](https://webassembly.org/)
 [![Rust Version](https://img.shields.io/badge/rust-1.92+-orange.svg)](https://www.rust-lang.org)
-[![WASM Compatible](https://img.shields.io/badge/WASM-compatible-green.svg)](https://webassembly.org/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE-APACHE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
+
+</div>
 
 > **Note**: This port is developed for the [WoW Emulation project][wowemu] and
 > has not been used outside of that context. The API may change as the project
