@@ -5,7 +5,7 @@ A Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavi
 <div align="center">
 
 [![Discord](https://img.shields.io/discord/1394228766414471219?logo=discord&style=flat-square)](https://discord.gg/Q44pPMvGEd)
-[![Sponsor](https://img.shields.io/github/sponsors/wowemulation-dev?logo=github&style=flat-square)](https://github.com/sponsors/wowemulation-dev)
+[![Sponsor](https://img.shields.io/github/sponsors/danielsreichenbach?logo=github&style=flat-square)](https://github.com/sponsors/danielsreichenbach)
 [![CI Status](https://github.com/wowemulation-dev/recast-rs/workflows/CI/badge.svg)](https://github.com/wowemulation-dev/recast-rs/actions)
 [![WASM](https://img.shields.io/badge/WASM-compatible-blueviolet.svg)](https://webassembly.org/)
 [![Rust Version](https://img.shields.io/badge/rust-1.92+-orange.svg)](https://www.rust-lang.org)
@@ -13,12 +13,6 @@ A Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavi
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 
 </div>
-
-> **Note**: This port is developed for the [WoW Emulation project][wowemu] and
-> has not been used outside of that context. The API may change as the project
-> matures.
-
-[wowemu]: https://github.com/wowemulation-dev
 
 ## Overview
 
@@ -276,13 +270,6 @@ cargo build --target wasm32-unknown-unknown -p recast -p detour
 - **detour-tilecache**: Uses pure Rust LZ4 (`lz4_flex`)
 - **detour-dynamic**: Async via `async-lock` and `futures-lite` (no tokio required)
 
-## License
-
-Dual-licensed under either:
-
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-
 ## Acknowledgments
 
 - Mikko Mononen for [RecastNavigation](https://github.com/recastnavigation/recastnavigation)
@@ -294,3 +281,41 @@ Dual-licensed under either:
 - [Original RecastNavigation](https://github.com/recastnavigation/recastnavigation)
 - [Recast Navigation Documentation](https://recastnav.com/)
 - [Digesting Duck Blog](http://digestingduck.blogspot.com/) - Navigation mesh concepts by Mikko Mononen
+
+## Support the Project
+
+If you find this project useful, please consider
+[sponsoring the project](https://github.com/sponsors/danielsreichenbach).
+
+This is currently a nights-and-weekends effort by one person. Funding goals:
+
+- **20 hours/week** - Sustained funding to dedicate real development time
+  instead of squeezing it into spare hours
+- **Public CDN mirror** - Host a community mirror for World of Warcraft builds,
+  ensuring long-term availability of historical game data
+
+## Contributing
+
+See the [Contributing Guide](CONTRIBUTING.md) for development setup and
+guidelines.
+
+## License
+
+This project is dual-licensed under either:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+
+You may choose to use either license at your option.
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall
+be dual licensed as above, without any additional terms or conditions.
+
+---
+
+**Note**: This project is not affiliated with Blizzard Entertainment. It is
+an independent implementation based on reverse engineering by the World of
+Warcraft emulation community.
