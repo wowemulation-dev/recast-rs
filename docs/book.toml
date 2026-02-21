@@ -8,6 +8,9 @@ src = "src"
 [build]
 build-dir = "book"
 
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
 [output.html]
 git-repository-url = "https://github.com/wowemulation-dev/recast-rs"
 edit-url-template = "https://github.com/wowemulation-dev/recast-rs/edit/main/docs/{path}"
