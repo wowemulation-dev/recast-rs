@@ -252,32 +252,30 @@ impl VoxelQuery {
                 let y_max = (y1.max(y2) / heightfield.ch()).ceil();
 
                 // Check spans in this cell
-                if let Some(Some(span_rc)) = heightfield.spans().get(&(current_x, current_z)) {
-                    let mut current_span = Some(span_rc.clone());
-                    while let Some(span) = current_span {
-                        let span_ref = span.borrow();
-                        let span_min = span_ref.min as f32;
-                        let span_max = span_ref.max as f32;
+                let mut si = heightfield.column_first_span(current_x, current_z);
+                while si != recast::SPAN_NULL {
+                    let s = heightfield.span(si);
+                    let span_min = s.min as f32;
+                    let span_max = s.max as f32;
 
-                        // Check if ray intersects this span
-                        if span_min <= y_max && span_max >= y_min {
-                            let hit_t = (t_min + t).min(1.0);
-                            let hit_pos = Vec3::new(
-                                start.x + hit_t * tx,
-                                start.y + hit_t * ty,
-                                start.z + hit_t * tz,
-                            );
+                    // Check if ray intersects this span
+                    if span_min <= y_max && span_max >= y_min {
+                        let hit_t = (t_min + t).min(1.0);
+                        let hit_pos = Vec3::new(
+                            start.x + hit_t * tx,
+                            start.y + hit_t * ty,
+                            start.z + hit_t * tz,
+                        );
 
-                            return Some(VoxelRaycastHit {
-                                t: hit_t,
-                                position: hit_pos,
-                                cell_x: current_x,
-                                cell_z: current_z,
-                            });
-                        }
-
-                        current_span = span_ref.next.clone();
+                        return Some(VoxelRaycastHit {
+                            t: hit_t,
+                            position: hit_pos,
+                            cell_x: current_x,
+                            cell_z: current_z,
+                        });
                     }
+
+                    si = s.next;
                 }
             }
 

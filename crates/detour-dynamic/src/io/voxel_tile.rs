@@ -75,13 +75,11 @@ impl VoxelTile {
         for z in 0..heightfield.height() {
             for x in 0..heightfield.width() {
                 let index = (z * heightfield.width() + x) as usize;
-                if let Some(span_rc) = heightfield.spans().get(&(x, z)).and_then(|s| s.as_ref()) {
-                    let mut current_span = Some(span_rc.clone());
-                    while let Some(span) = current_span {
-                        counts[index] += 1;
-                        total_count += 1;
-                        current_span = span.borrow().next.clone();
-                    }
+                let mut si = heightfield.column_first_span(x, z);
+                while si != recast::SPAN_NULL {
+                    counts[index] += 1;
+                    total_count += 1;
+                    si = heightfield.span(si).next;
                 }
             }
         }
@@ -99,15 +97,13 @@ impl VoxelTile {
                 data.extend_from_slice(&counts[index].to_be_bytes());
 
                 // Write spans
-                if let Some(span_rc) = heightfield.spans().get(&(x, z)).and_then(|s| s.as_ref()) {
-                    let mut current_span = Some(span_rc.clone());
-                    while let Some(span) = current_span {
-                        let span_ref = span.borrow();
-                        data.extend_from_slice(&(span_ref.min as u32).to_be_bytes());
-                        data.extend_from_slice(&(span_ref.max as u32).to_be_bytes());
-                        data.extend_from_slice(&(span_ref.area as u32).to_be_bytes());
-                        current_span = span_ref.next.clone();
-                    }
+                let mut si = heightfield.column_first_span(x, z);
+                while si != recast::SPAN_NULL {
+                    let s = heightfield.span(si);
+                    data.extend_from_slice(&(s.min as u32).to_be_bytes());
+                    data.extend_from_slice(&(s.max as u32).to_be_bytes());
+                    data.extend_from_slice(&(s.area as u32).to_be_bytes());
+                    si = s.next;
                 }
             }
         }

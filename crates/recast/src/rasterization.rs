@@ -3,11 +3,9 @@
 //! This module provides functions to rasterize triangles into heightfields,
 //! following the exact C++ implementation from RecastRasterization.cpp.
 
-use super::heightfield::{Heightfield, Span};
+use super::heightfield::{Heightfield, SPAN_NULL, SpanEntry, SpanIndex};
 use crate::error::BuildError;
 use glam::Vec3;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Axis enum for polygon clipping
 #[derive(Debug, Clone, Copy)]
@@ -46,8 +44,8 @@ pub fn add_span(
     )
 }
 
-/// Internal implementation of span addition with merging logic
-/// Matches C++ addSpan static function
+/// Internal implementation of span addition with merging logic.
+/// Matches C++ addSpan static function.
 fn add_span_internal(
     heightfield: &mut Heightfield,
     x: i32,
@@ -57,119 +55,100 @@ fn add_span_internal(
     area_id: u8,
     flag_merge_threshold: i32,
 ) -> Result<(), BuildError> {
-    // Get the column
-    let column_key = (x, z);
-    let column = heightfield.spans.entry(column_key).or_insert(None);
+    let col_idx = (x + z * heightfield.width) as usize;
+    let first = heightfield.columns[col_idx];
 
     // If column is empty, create first span
-    if column.is_none() {
-        let new_span = Rc::new(RefCell::new(Span {
+    if first == SPAN_NULL {
+        let idx = heightfield.alloc_span(SpanEntry {
             min: span_min,
             max: span_max,
             area: area_id,
-            next: None,
-        }));
-        *column = Some(new_span);
+            next: SPAN_NULL,
+        });
+        heightfield.columns[col_idx] = idx;
         return Ok(());
     }
 
     // Find position where to insert the span
-    let mut prev: Option<Rc<RefCell<Span>>> = None;
-    let mut current = column.clone();
+    let mut prev: SpanIndex = SPAN_NULL;
+    let mut current = first;
 
-    while let Some(span_rc) = current {
-        let span = span_rc.borrow();
+    while current != SPAN_NULL {
+        let cur = heightfield.spans[current as usize];
 
-        // Check for overlap
-        if span_max < span.min {
-            // Insert before current span
-            drop(span);
-            let new_span = Rc::new(RefCell::new(Span {
+        // No overlap: new span is entirely below current
+        if span_max < cur.min {
+            let new_idx = heightfield.alloc_span(SpanEntry {
                 min: span_min,
                 max: span_max,
                 area: area_id,
-                next: Some(span_rc.clone()),
-            }));
-
-            if let Some(prev_rc) = prev {
-                prev_rc.borrow_mut().next = Some(new_span);
+                next: current,
+            });
+            if prev != SPAN_NULL {
+                heightfield.spans[prev as usize].next = new_idx;
             } else {
-                *column = Some(new_span);
+                heightfield.columns[col_idx] = new_idx;
             }
             return Ok(());
         }
 
-        if span_min > span.max {
-            // Continue to next span
-            let next = span.next.clone();
-            drop(span);
-            prev = Some(span_rc);
-            current = next;
+        // No overlap: new span is entirely above current
+        if span_min > cur.max {
+            prev = current;
+            current = cur.next;
             continue;
         }
 
         // Spans overlap, merge them
-        let merged_min = span_min.min(span.min);
-        let mut merged_max = span_max.max(span.max);
-        let next = span.next.clone();
-        drop(span);
+        let merged_min = span_min.min(cur.min);
+        let mut merged_max = span_max.max(cur.max);
 
         // Determine merged area - match C++ logic exactly
-        // In C++, newSpan starts with the incoming area_id
         let mut merged_area = area_id;
-
-        // Only update area if max values are within threshold
-        let current_max = span_rc.borrow().max;
-        let current_area = span_rc.borrow().area;
-
-        if (merged_max as i32 - current_max as i32).abs() <= flag_merge_threshold {
-            // Higher area ID numbers indicate higher resolution priority
-            merged_area = merged_area.max(current_area);
+        if (merged_max as i32 - cur.max as i32).abs() <= flag_merge_threshold {
+            merged_area = merged_area.max(cur.area);
         }
 
         // Check if we need to merge with following spans
-        let mut next_span = next;
-        while let Some(next_rc) = next_span.clone() {
-            let next_borrow = next_rc.borrow();
-            if next_borrow.min > merged_max {
-                // No more overlaps
-                drop(next_borrow);
+        let mut next_span = cur.next;
+        while next_span != SPAN_NULL {
+            let ns = heightfield.spans[next_span as usize];
+            if ns.min > merged_max {
                 break;
             }
 
-            // Merge with next span — must also merge area (matching C++ addSpan)
-            let next_max = next_borrow.max;
-            let next_area = next_borrow.area;
-            merged_max = merged_max.max(next_max);
+            // Merge with next span
+            merged_max = merged_max.max(ns.max);
 
-            // Area merge: same threshold check as C++ for each overlapping span
-            if (merged_max as i32 - next_max as i32).abs() <= flag_merge_threshold {
-                merged_area = merged_area.max(next_area);
+            if (merged_max as i32 - ns.max as i32).abs() <= flag_merge_threshold {
+                merged_area = merged_area.max(ns.area);
             }
 
-            let following = next_borrow.next.clone();
-            drop(next_borrow);
+            let following = ns.next;
+            // Free the consumed span
+            heightfield.free_span(next_span);
             next_span = following;
         }
 
-        // Update or remove current span
-        span_rc.borrow_mut().min = merged_min;
-        span_rc.borrow_mut().max = merged_max;
-        span_rc.borrow_mut().area = merged_area;
-        span_rc.borrow_mut().next = next_span;
+        // Update current span with merged values
+        heightfield.spans[current as usize].min = merged_min;
+        heightfield.spans[current as usize].max = merged_max;
+        heightfield.spans[current as usize].area = merged_area;
+        heightfield.spans[current as usize].next = next_span;
 
         return Ok(());
     }
 
     // Add at end of list
-    if let Some(prev_rc) = prev {
-        let new_span = Rc::new(RefCell::new(Span {
+    if prev != SPAN_NULL {
+        let new_idx = heightfield.alloc_span(SpanEntry {
             min: span_min,
             max: span_max,
             area: area_id,
-            next: None,
-        }));
-        prev_rc.borrow_mut().next = Some(new_span);
+            next: SPAN_NULL,
+        });
+        heightfield.spans[prev as usize].next = new_idx;
     }
 
     Ok(())
@@ -524,13 +503,11 @@ mod tests {
             1.0,
         );
 
-        // Add a span
         add_span(&mut heightfield, 5, 5, 10, 20, 1, 1).unwrap();
 
-        // Check span was added
-        let column = heightfield.spans.get(&(5, 5)).unwrap();
-        assert!(column.is_some());
-        let span = column.as_ref().unwrap().borrow();
+        let si = heightfield.column_first_span(5, 5);
+        assert_ne!(si, SPAN_NULL);
+        let span = heightfield.span(si);
         assert_eq!(span.min, 10);
         assert_eq!(span.max, 20);
         assert_eq!(span.area, 1);
@@ -547,18 +524,14 @@ mod tests {
             1.0,
         );
 
-        // Add two overlapping spans
         add_span(&mut heightfield, 5, 5, 10, 20, 1, 1).unwrap();
         add_span(&mut heightfield, 5, 5, 15, 25, 2, 1).unwrap();
 
-        // Check spans were merged
-        let column = heightfield.spans.get(&(5, 5)).unwrap();
-        assert!(column.is_some());
-        let span = column.as_ref().unwrap().borrow();
+        let si = heightfield.column_first_span(5, 5);
+        assert_ne!(si, SPAN_NULL);
+        let span = heightfield.span(si);
         assert_eq!(span.min, 10);
         assert_eq!(span.max, 25);
-        // Area should be max of the two areas when within merge threshold
-        // C++ logic: max(1, 2) = 2
         assert_eq!(span.area, 2);
     }
 
@@ -581,13 +554,7 @@ mod tests {
         rasterize_triangle(&v0, &v1, &v2, 1, &mut heightfield, 1).unwrap();
 
         // Check that some spans were created
-        let mut has_spans = false;
-        for column in heightfield.spans.values() {
-            if column.is_some() {
-                has_spans = true;
-                break;
-            }
-        }
+        let has_spans = heightfield.columns().iter().any(|&si| si != SPAN_NULL);
         assert!(has_spans);
     }
 }
