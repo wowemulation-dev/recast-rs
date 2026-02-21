@@ -24,7 +24,7 @@ pub use area::{
     erode_walkable_area, mark_box_area, mark_convex_poly_area, mark_cylinder_area,
     median_filter_walkable_area, offset_poly,
 };
-pub use compact_heightfield::{CompactCell, CompactConnection, CompactHeightfield, CompactSpan};
+pub use compact_heightfield::{CompactCell, CompactHeightfield, CompactSpan, RC_NOT_CONNECTED};
 pub use config::RecastConfig;
 pub use context::{LogEntry, LogLevel, ProgressInfo, RecastContext, TimerCategory, TimerGuard};
 pub use contour::{BuildContoursFlags, Contour, ContourSet, ContourVertex};

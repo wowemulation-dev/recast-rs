@@ -26,6 +26,9 @@ impl CompactCell {
     }
 }
 
+/// Not connected sentinel for `CompactSpan::con` entries.
+pub const RC_NOT_CONNECTED: u8 = 63;
+
 /// A compact span in the heightfield
 #[derive(Debug, Clone)]
 pub struct CompactSpan {
@@ -37,14 +40,14 @@ pub struct CompactSpan {
     pub area: u8,
     /// Region ID (0 = not in region)
     pub reg: u16,
-    /// Index of the first connection (or None if the span has no connections)
-    pub first_connection: Option<usize>,
     /// Y coordinate of the span
     pub y: i32,
     /// Height of the span (max - min)
     pub h: u8,
-    /// Connections to neighbor spans in 4 directions (63 = not connected)
-    pub con: [usize; 4],
+    /// Connections to neighbor spans in 4 directions.
+    /// Each entry is a layer index within the neighbor cell, or
+    /// [`RC_NOT_CONNECTED`] (63) if no connection exists.
+    pub con: [u8; 4],
 }
 
 impl CompactSpan {
@@ -54,33 +57,10 @@ impl CompactSpan {
             min,
             max,
             area,
-            reg: 0, // Initialize with no region
-            first_connection: None,
+            reg: 0,
             y,
             h: (max - min) as u8,
-            con: [63; 4], // 63 = RC_NOT_CONNECTED
-        }
-    }
-}
-
-/// A connection between spans
-#[derive(Debug, Clone)]
-pub struct CompactConnection {
-    /// Reference to the span that is connected to
-    pub ref_span: usize,
-    /// Direction of the connection (0-7)
-    pub dir: u8,
-    /// Next connection for the current span (or None if this is the last connection)
-    pub next: Option<usize>,
-}
-
-impl CompactConnection {
-    /// Creates a new compact connection
-    pub fn new(ref_span: usize, dir: u8, next: Option<usize>) -> Self {
-        Self {
-            ref_span,
-            dir,
-            next,
+            con: [RC_NOT_CONNECTED; 4],
         }
     }
 }
@@ -91,8 +71,6 @@ impl CompactConnection {
 /// The C++ code uses numbered directions 0-3 with axis-label comments.
 ///
 /// ## 4-direction system (`con[4]` array, matches C++ `rcGetCon`)
-///
-/// This is the primary direction system, matching C++ exactly:
 ///
 /// ```text
 ///   dir 0 = -X   offset (-1,  0)
@@ -106,62 +84,6 @@ impl CompactConnection {
 /// (C++ `rcGetDirOffsetX` / `rcGetDirOffsetY`).
 ///
 /// Rotation: `(dir + 1) & 3` = clockwise, `(dir + 3) & 3` = counter-clockwise.
-///
-/// ## 8-direction system (linked list connections, Rust-only)
-///
-/// The linked list connection system uses 8 directions numbered 0-7.
-/// C++ does not have this system; it packs connections into a bitfield.
-///
-/// ```text
-///   0(-1,-1)  1( 0,-1)  2(+1,-1)
-///
-///   7(-1, 0)  --------  3(+1, 0)
-///
-///   6(-1,+1)  5( 0,+1)  4(+1,+1)
-///
-///   (values shown as X,Z offsets)
-/// ```
-///
-/// The 4-direction indices map to 8-direction as: 0→7, 1→5, 2→3, 3→1.
-
-/// No connection in any direction.
-#[allow(dead_code)]
-pub const DIR_NONE: u8 = 0xff;
-
-// 8-direction constants for the linked-list connection system.
-// These are Rust-only; C++ packs connections into a bitfield instead.
-
-/// 8-dir 0: offset (-1, -1)
-#[allow(dead_code)]
-pub const DIR_NW: u8 = 0;
-/// 8-dir 1: offset (0, -1) — maps to 4-dir 3 (-Z)
-#[allow(dead_code)]
-pub const DIR_N: u8 = 1;
-/// 8-dir 2: offset (+1, -1)
-#[allow(dead_code)]
-pub const DIR_NE: u8 = 2;
-/// 8-dir 3: offset (+1, 0) — maps to 4-dir 2 (+X)
-#[allow(dead_code)]
-pub const DIR_E: u8 = 3;
-/// 8-dir 4: offset (+1, +1)
-#[allow(dead_code)]
-pub const DIR_SE: u8 = 4;
-/// 8-dir 5: offset (0, +1) — maps to 4-dir 1 (+Z)
-#[allow(dead_code)]
-pub const DIR_S: u8 = 5;
-/// 8-dir 6: offset (-1, +1)
-#[allow(dead_code)]
-pub const DIR_SW: u8 = 6;
-/// 8-dir 7: offset (-1, 0) — maps to 4-dir 0 (-X)
-#[allow(dead_code)]
-pub const DIR_W: u8 = 7;
-
-/// X offset for each of the 8 directions (index 0 through 7).
-#[allow(dead_code)]
-pub const DIR_OFFSET_X: [i32; 8] = [-1, 0, 1, 1, 1, 0, -1, -1];
-/// Z offset for each of the 8 directions (index 0 through 7).
-#[allow(dead_code)]
-pub const DIR_OFFSET_Z: [i32; 8] = [-1, -1, -1, 0, 1, 1, 1, 0];
 
 /// Region constants
 /// Border region flag (region is on the border of the walkable area)
@@ -199,8 +121,8 @@ pub struct CompactHeightfield {
     pub(crate) cells: Vec<CompactCell>,
     /// Array of compact spans
     pub(crate) spans: Vec<CompactSpan>,
-    /// Array of connections between spans
-    pub(crate) connections: Vec<CompactConnection>,
+    /// Reverse mapping: span_idx → cell_idx (for resolving neighbors)
+    pub(crate) span_cells: Vec<u32>,
     /// Array of area IDs for each span
     pub(crate) areas: Vec<u8>,
     /// Array of distance values per span (for watershed)
@@ -274,9 +196,9 @@ impl CompactHeightfield {
         &mut self.spans
     }
 
-    /// Returns the connections between spans.
-    pub fn connections(&self) -> &[CompactConnection] {
-        &self.connections
+    /// Returns the span-to-cell reverse mapping.
+    pub fn span_cells(&self) -> &[u32] {
+        &self.span_cells
     }
 
     /// Returns the area IDs for each span.
@@ -363,7 +285,7 @@ impl CompactHeightfield {
         // Allocate memory for the compact heightfield
         let mut cells = Vec::with_capacity((width * height) as usize);
         let mut spans = Vec::with_capacity(span_count);
-        let connections = Vec::new(); // Will be filled in later
+        let mut span_cells = Vec::with_capacity(span_count);
         let mut areas = Vec::with_capacity(span_count);
 
         // Build the compact heightfield
@@ -397,6 +319,7 @@ impl CompactHeightfield {
                 }
 
                 // Add the cell
+                let cell_idx = cells.len() as u32;
                 cells.push(CompactCell::new(Some(spans.len()), walkable_count));
 
                 // Add only walkable spans (matching C++ rcBuildCompactHeightfield)
@@ -420,11 +343,11 @@ impl CompactHeightfield {
                             max: s.max,
                             area: s.area,
                             reg: 0,
-                            first_connection: None,
                             y: bot,
                             h: air_height as u8,
-                            con: [63; 4], // RC_NOT_CONNECTED
+                            con: [RC_NOT_CONNECTED; 4],
                         });
+                        span_cells.push(cell_idx);
                         areas.push(s.area);
 
                         // Track max height
@@ -450,7 +373,7 @@ impl CompactHeightfield {
             ch,
             cells,
             spans,
-            connections,
+            span_cells,
             areas,
             dist,
             walkable_span_count,
@@ -475,6 +398,15 @@ impl CompactHeightfield {
     /// - Air space overlap must be >= walkable_height
     /// - Step height between walkable surfaces must be <= walkable_climb
     /// - Takes first valid connection per direction (not best)
+    /// Builds connections between spans.
+    ///
+    /// Matches C++ `rcBuildCompactHeightfield` connection logic:
+    /// - Only 4 cardinal directions (W=0, S=1, E=2, N=3)
+    /// - Air space overlap must be >= walkable_height
+    /// - Step height between walkable surfaces must be <= walkable_climb
+    /// - Takes first valid connection per direction (not best)
+    /// - Stores layer index in `con[4]`; resolved via `get_neighbor` or
+    ///   `get_neighbor_connection`
     fn build_connections(
         &mut self,
         walkable_height: i32,
@@ -487,14 +419,9 @@ impl CompactHeightfield {
         let dir_offset_x: [i32; 4] = [-1, 0, 1, 0];
         let dir_offset_z: [i32; 4] = [0, 1, 0, -1];
 
-        // Map 4-dir to 8-dir for linked list storage
-        let dir4_to_dir8: [u8; 4] = [7, 5, 3, 1]; // W=7, S=5, E=3, N=1
+        const MAX_LAYERS: u8 = RC_NOT_CONNECTED - 1;
 
-        const MAX_LAYERS: usize = 62; // RC_NOT_CONNECTED - 1
-
-        // Process cells to find connections (matching C++ exactly)
         let num_cells = (width * height) as usize;
-        let mut connections_per_span: Vec<Vec<(usize, u8)>> = vec![Vec::new(); self.spans.len()];
 
         for cell_idx in 0..num_cells {
             let cell = &self.cells[cell_idx];
@@ -506,7 +433,6 @@ impl CompactHeightfield {
                 for s in 0..cell.count {
                     let span_idx = first_span_idx + s;
 
-                    // Skip unwalkable spans
                     if self.areas[span_idx] == 0 {
                         continue;
                     }
@@ -514,15 +440,12 @@ impl CompactHeightfield {
                     let span_y = self.spans[span_idx].y;
                     let span_h = self.spans[span_idx].h as i32;
 
-                    // Check 4 cardinal directions
                     for dir in 0..4usize {
-                        // Initialize as not connected
-                        self.spans[span_idx].con[dir] = 63; // RC_NOT_CONNECTED
+                        self.spans[span_idx].con[dir] = RC_NOT_CONNECTED;
 
                         let nx = x + dir_offset_x[dir];
                         let nz = z + dir_offset_z[dir];
 
-                        // Skip out-of-bounds neighbors
                         if nx < 0 || nz < 0 || nx >= width || nz >= height {
                             continue;
                         }
@@ -535,11 +458,6 @@ impl CompactHeightfield {
                                 let neighbor_idx = first_neighbor_idx + ns;
                                 let neighbor_span = &self.spans[neighbor_idx];
 
-                                // C++ connection criteria:
-                                // bot = max(span.y, neighbor.y)
-                                // top = min(span.y + span.h, neighbor.y + neighbor.h)
-                                // (top - bot) >= walkableHeight AND
-                                // abs(neighbor.y - span.y) <= walkableClimb
                                 let bot = span_y.max(neighbor_span.y);
                                 let top =
                                     (span_y + span_h).min(neighbor_span.y + neighbor_span.h as i32);
@@ -547,48 +465,17 @@ impl CompactHeightfield {
                                 if (top - bot) >= walkable_height
                                     && (neighbor_span.y - span_y).abs() <= walkable_climb
                                 {
-                                    // C++ stores layer index (offset within neighbor cell)
-                                    let layer_index = ns;
-                                    if layer_index > MAX_LAYERS {
+                                    if ns > MAX_LAYERS as usize {
                                         continue;
                                     }
-                                    self.spans[span_idx].con[dir] = layer_index;
-
-                                    // Also store in linked list for get_neighbor compatibility
-                                    connections_per_span[span_idx]
-                                        .push((neighbor_idx, dir4_to_dir8[dir]));
-                                    break; // C++ takes first valid match
+                                    self.spans[span_idx].con[dir] = ns as u8;
+                                    break;
                                 }
                             }
                         }
                     }
                 }
             }
-        }
-
-        // Build the linked list connections
-        let mut span_to_first_connection = vec![None; self.spans.len()];
-
-        // Estimate connections: average ~4 per walkable span
-        let estimated_connections = self.spans.len() * 4;
-        self.connections = Vec::with_capacity(estimated_connections);
-
-        for (span_idx, span_connections) in connections_per_span.iter().enumerate() {
-            let mut first_connection = None;
-
-            for &(neighbor_span_idx, dir8) in span_connections.iter().rev() {
-                let connection = CompactConnection::new(neighbor_span_idx, dir8, first_connection);
-                let connection_idx = self.connections.len();
-                self.connections.push(connection);
-                first_connection = Some(connection_idx);
-            }
-
-            span_to_first_connection[span_idx] = first_connection;
-        }
-
-        // Update spans with first connection indices
-        for (span_idx, first_connection) in span_to_first_connection.iter().enumerate() {
-            self.spans[span_idx].first_connection = *first_connection;
         }
 
         Ok(())
@@ -656,22 +543,38 @@ impl CompactHeightfield {
         None
     }
 
-    /// Gets the neighboring span in a specific direction
+    /// Gets the neighboring span in a specific 8-direction.
+    ///
+    /// Maps 8-dir to 4-dir internally (only cardinal dirs 1,3,5,7 are valid).
+    /// Returns `None` if direction is diagonal or not connected.
     pub fn get_neighbor(&self, span_idx: usize, dir: u8) -> Option<usize> {
-        let span = &self.spans[span_idx];
-        let mut connection_idx = span.first_connection;
+        // Map 8-dir to 4-dir: 7→0(-X), 5→1(+Z), 3→2(+X), 1→3(-Z)
+        let dir4 = match dir {
+            7 => 0,
+            5 => 1,
+            3 => 2,
+            1 => 3,
+            _ => return None, // Diagonal dirs not supported
+        };
+        self.get_con(span_idx, dir4)
+    }
 
-        while let Some(conn_idx) = connection_idx {
-            let connection = &self.connections[conn_idx];
-
-            if connection.dir == dir {
-                return Some(connection.ref_span);
-            }
-
-            connection_idx = connection.next;
+    /// Gets the neighboring span using the 4-direction `con[4]` array directly.
+    ///
+    /// This is the primary neighbor lookup, matching C++ `rcGetCon`. Returns
+    /// the absolute span index of the neighbor, or `None` if not connected.
+    pub fn get_con(&self, span_idx: usize, dir: usize) -> Option<usize> {
+        let layer = self.spans[span_idx].con[dir];
+        if layer == RC_NOT_CONNECTED {
+            return None;
         }
-
-        None
+        let cell_idx = self.span_cells[span_idx] as usize;
+        let x = (cell_idx % self.width as usize) as i32;
+        let z = (cell_idx / self.width as usize) as i32;
+        let nx = x + Self::dir_offset_x(dir);
+        let nz = z + Self::dir_offset_z(dir);
+        let ncell = &self.cells[(nz * self.width + nx) as usize];
+        ncell.index.map(|idx| idx + layer as usize)
     }
 
     /// Builds the distance field for the compact heightfield
@@ -709,17 +612,11 @@ impl CompactHeightfield {
 
     /// Calculates the distance field using the C++ two-pass algorithm.
     ///
-    /// Uses the 4 cardinal 8-dir indices for propagation, with diagonal
+    /// Uses the 4-dir `con[4]` array for propagation, with diagonal
     /// checks via two consecutive cardinal hops.
     fn calculate_distance_field(&self, src: &mut [u16]) -> Result<u16, BuildError> {
         let w = self.width;
         let h = self.height;
-
-        // 8-dir linked-list indices for the 4 cardinal directions
-        const DIR_NEG_X: u8 = 7; // -X
-        const DIR_POS_Z: u8 = 5; // +Z
-        const DIR_POS_X: u8 = 3; // +X
-        const DIR_NEG_Z: u8 = 1; // -Z
 
         // Initialize all distances to infinity
         for distance in src.iter_mut() {
@@ -737,16 +634,14 @@ impl CompactHeightfield {
                         let span_idx = first_span_idx + s;
 
                         let mut neighbor_count = 0;
-
-                        for dir in [DIR_NEG_Z, DIR_POS_X, DIR_POS_Z, DIR_NEG_X] {
-                            if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
+                        for dir in 0..4 {
+                            if let Some(neighbor_idx) = self.get_con(span_idx, dir) {
                                 if self.areas[neighbor_idx] == self.areas[span_idx] {
                                     neighbor_count += 1;
                                 }
                             }
                         }
 
-                        // If doesn't have 4 neighbors with same area, it's a boundary
                         if neighbor_count != 4 {
                             src[span_idx] = 0;
                         }
@@ -766,28 +661,26 @@ impl CompactHeightfield {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
 
-                        // -X (cardinal: +2)
-                        if let Some(neg_x_idx) = self.get_neighbor(span_idx, DIR_NEG_X) {
+                        // dir 0 = -X (cardinal: +2)
+                        if let Some(neg_x_idx) = self.get_con(span_idx, 0) {
                             if src[neg_x_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[neg_x_idx].saturating_add(2);
                             }
-
-                            // (-X,-Z) diagonal: from -X neighbor, go -Z (+3)
-                            if let Some(diag_idx) = self.get_neighbor(neg_x_idx, DIR_NEG_Z) {
+                            // (-X,-Z) diagonal: from -X neighbor, go dir 3 (-Z)
+                            if let Some(diag_idx) = self.get_con(neg_x_idx, 3) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
                             }
                         }
 
-                        // -Z (cardinal: +2)
-                        if let Some(neg_z_idx) = self.get_neighbor(span_idx, DIR_NEG_Z) {
+                        // dir 3 = -Z (cardinal: +2)
+                        if let Some(neg_z_idx) = self.get_con(span_idx, 3) {
                             if src[neg_z_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[neg_z_idx].saturating_add(2);
                             }
-
-                            // (-Z,+X) diagonal: from -Z neighbor, go +X (+3)
-                            if let Some(diag_idx) = self.get_neighbor(neg_z_idx, DIR_POS_X) {
+                            // (-Z,+X) diagonal: from -Z neighbor, go dir 2 (+X)
+                            if let Some(diag_idx) = self.get_con(neg_z_idx, 2) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
@@ -809,28 +702,26 @@ impl CompactHeightfield {
                     for s in 0..cell.count {
                         let span_idx = first_span_idx + s;
 
-                        // +X (cardinal: +2)
-                        if let Some(pos_x_idx) = self.get_neighbor(span_idx, DIR_POS_X) {
+                        // dir 2 = +X (cardinal: +2)
+                        if let Some(pos_x_idx) = self.get_con(span_idx, 2) {
                             if src[pos_x_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[pos_x_idx].saturating_add(2);
                             }
-
-                            // (+X,+Z) diagonal: from +X neighbor, go +Z (+3)
-                            if let Some(diag_idx) = self.get_neighbor(pos_x_idx, DIR_POS_Z) {
+                            // (+X,+Z) diagonal: from +X neighbor, go dir 1 (+Z)
+                            if let Some(diag_idx) = self.get_con(pos_x_idx, 1) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
                             }
                         }
 
-                        // +Z (cardinal: +2)
-                        if let Some(pos_z_idx) = self.get_neighbor(span_idx, DIR_POS_Z) {
+                        // dir 1 = +Z (cardinal: +2)
+                        if let Some(pos_z_idx) = self.get_con(span_idx, 1) {
                             if src[pos_z_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[pos_z_idx].saturating_add(2);
                             }
-
-                            // (+Z,-X) diagonal: from +Z neighbor, go -X (+3)
-                            if let Some(diag_idx) = self.get_neighbor(pos_z_idx, DIR_NEG_X) {
+                            // (+Z,-X) diagonal: from +Z neighbor, go dir 0 (-X)
+                            if let Some(diag_idx) = self.get_con(pos_z_idx, 0) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
@@ -841,9 +732,7 @@ impl CompactHeightfield {
             }
         }
 
-        // Find maximum distance
         let max_dist = src.iter().copied().max().unwrap_or(0);
-
         Ok(max_dist)
     }
 
@@ -861,14 +750,6 @@ impl CompactHeightfield {
         let w = self.width;
         let h = self.height;
         let thr = threshold * 2;
-
-        // Cardinal directions in 8-dir system
-        // C++ order: dir 0=W, 1=S, 2=E, 3=N
-        // 8-dir:     W=7, S=5, E=3, N=1
-        let cardinal_dirs: [u8; 4] = [7, 5, 3, 1];
-        // For each cardinal dir[i], the next cardinal dir[(i+1)&3] to reach diagonal:
-        // W(7) → S(5) = SW, S(5) → E(3) = SE, E(3) → N(1) = NE, N(1) → W(7) = NW
-        let next_cardinal: [u8; 4] = [5, 3, 1, 7];
 
         for y in 0..h {
             for x in 0..w {
@@ -888,27 +769,23 @@ impl CompactHeightfield {
                         let mut d = cd as i32;
 
                         // Check 4 cardinal + 4 diagonal neighbors (C++ 3x3 kernel)
-                        for i in 0..4 {
-                            let dir = cardinal_dirs[i];
-                            if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
+                        // For each dir, diagonal is reached by going (dir+1)&3 from
+                        // the cardinal neighbor.
+                        for dir in 0..4usize {
+                            if let Some(neighbor_idx) = self.get_con(span_idx, dir) {
                                 d += src[neighbor_idx] as i32;
 
-                                // Diagonal: from cardinal neighbor, go next cardinal direction
-                                let next_dir = next_cardinal[i];
-                                if let Some(diag_idx) = self.get_neighbor(neighbor_idx, next_dir) {
+                                let next_dir = (dir + 1) & 3;
+                                if let Some(diag_idx) = self.get_con(neighbor_idx, next_dir) {
                                     d += src[diag_idx] as i32;
                                 } else {
-                                    // C++: missing diagonal padded with center value
                                     d += cd as i32;
                                 }
                             } else {
-                                // C++: missing cardinal padded with center value * 2
-                                // (accounts for both the cardinal and its diagonal)
                                 d += cd as i32 * 2;
                             }
                         }
 
-                        // C++ always divides by 9 with rounding: (d + 5) / 9
                         dst[span_idx] = ((d + 5) / 9) as u16;
                     }
                 }
@@ -918,40 +795,21 @@ impl CompactHeightfield {
         Ok(true) // Result is in dst
     }
 
-    /// Gets the neighbor span via the linked-list connection system for a
-    /// 4-direction index.
+    /// Gets the neighbor span for a 4-direction index (0-3).
     ///
-    /// Maps the 4-direction index to the 8-direction linked list:
-    /// - `0` (-X) → 8-dir 7
-    /// - `1` (+Z) → 8-dir 5
-    /// - `2` (+X) → 8-dir 3
-    /// - `3` (-Z) → 8-dir 1
+    /// Equivalent to `get_con` but kept for API compatibility.
     pub fn get_neighbor_connection(&self, span_idx: usize, direction: usize) -> Option<usize> {
         if direction >= 4 {
             return None;
         }
-        // Map 4-direction to 8-direction index
-        let dir8 = match direction {
-            0 => 7, // -X
-            1 => 5, // +Z
-            2 => 3, // +X
-            3 => 1, // -Z
-            _ => return None,
-        };
-        self.get_neighbor(span_idx, dir8)
+        self.get_con(span_idx, direction)
     }
 
     /// Gets the X-axis offset for a 4-direction index.
     ///
     /// Matches C++ `rcGetDirOffsetX`. See [`get_dir_offset_z`](Self::get_dir_offset_z).
     pub fn get_dir_offset_x(&self, direction: usize) -> i32 {
-        match direction {
-            0 => -1, // -X
-            1 => 0,  // +Z
-            2 => 1,  // +X
-            3 => 0,  // -Z
-            _ => 0,
-        }
+        Self::dir_offset_x(direction)
     }
 
     /// Gets the Z-axis offset for a 4-direction index.
@@ -959,13 +817,19 @@ impl CompactHeightfield {
     /// C++ names this `rcGetDirOffsetY` because it returns the grid's second
     /// axis, but the grid lies on the XZ plane so the offset is along Z.
     pub fn get_dir_offset_z(&self, direction: usize) -> i32 {
-        match direction {
-            0 => 0,  // -X
-            1 => 1,  // +Z
-            2 => 0,  // +X
-            3 => -1, // -Z
-            _ => 0,
-        }
+        Self::dir_offset_z(direction)
+    }
+
+    /// Static X-axis offset for a 4-direction index. Avoids &self borrow.
+    fn dir_offset_x(direction: usize) -> i32 {
+        const OFFSETS: [i32; 4] = [-1, 0, 1, 0];
+        OFFSETS[direction]
+    }
+
+    /// Static Z-axis offset for a 4-direction index. Avoids &self borrow.
+    fn dir_offset_z(direction: usize) -> i32 {
+        const OFFSETS: [i32; 4] = [0, 1, 0, -1];
+        OFFSETS[direction]
     }
 
     /// Builds regions using watershed partitioning
@@ -1047,11 +911,8 @@ impl CompactHeightfield {
         region_ids[seed_idx] = region_id;
 
         while let Some(span_idx) = stack.pop() {
-            // Check all 4 cardinal neighbors
-            // Using 8-direction constants: N=1, E=3, S=5, W=7
-            for dir in [1u8, 3u8, 5u8, 7u8] {
-                if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
-                    // Only expand to walkable spans of same area that aren't assigned yet
+            for dir in 0..4 {
+                if let Some(neighbor_idx) = self.get_con(span_idx, dir) {
                     if self.areas[neighbor_idx] != 0
                         && self.areas[neighbor_idx] == self.areas[span_idx]
                         && region_ids[neighbor_idx] == 0
@@ -1162,10 +1023,8 @@ impl CompactHeightfield {
                 continue;
             }
 
-            // Check all 4 cardinal neighbors
-            // Using 8-direction constants: N=1, E=3, S=5, W=7
-            for dir in [1u8, 3u8, 5u8, 7u8] {
-                if let Some(neighbor_idx) = self.get_neighbor(span_idx, dir) {
+            for dir in 0..4 {
+                if let Some(neighbor_idx) = self.get_con(span_idx, dir) {
                     let neighbor_region = region_ids[neighbor_idx] & !RC_BORDER_REG;
 
                     if neighbor_region != region_id && neighbor_region != 0 {
@@ -1265,7 +1124,12 @@ mod tests {
         assert_eq!(chf.height, height);
         assert_eq!(chf.cells.len(), (width * height) as usize);
         assert_eq!(chf.spans.len(), 4); // 4 spans total
-        assert!(!chf.connections.is_empty()); // There should be some connections
+        // Verify spans have connections (at least one con[] != RC_NOT_CONNECTED)
+        assert!(
+            chf.spans
+                .iter()
+                .any(|s| s.con.iter().any(|&c| c != RC_NOT_CONNECTED))
+        );
     }
 
     #[test]
@@ -1320,7 +1184,7 @@ mod tests {
 
         // Check if the spans are connected
         let span0_idx = 0; // First span at (0, 0)
-        let neighbor_idx = chf.get_neighbor(span0_idx, DIR_E);
+        let neighbor_idx = chf.get_con(span0_idx, 2); // dir 2 = +X (east)
         assert!(neighbor_idx.is_some());
         let neighbor_idx = neighbor_idx.unwrap();
         assert_eq!(neighbor_idx, 1); // Should be the span at (1, 0)

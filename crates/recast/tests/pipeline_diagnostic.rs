@@ -135,7 +135,7 @@ fn run_pipeline_diagnostic(obj_name: &str) {
         chf.span_count()
     );
     println!("  total_con4_links: {}", total_connections);
-    println!("  linked_list_connections: {}", chf.connections().len());
+    println!("  span_cells: {}", chf.span_cells().len());
     println!();
 
     // Stage 2b: Erosion (matching C++ rcErodeWalkableArea)

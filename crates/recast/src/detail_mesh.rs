@@ -1223,7 +1223,7 @@ impl PolyMeshDetail {
         region: u16,
         border_size: i32,
     ) -> Result<(), BuildError> {
-        const RC_NOT_CONNECTED: usize = 63;
+        const RC_NOT_CONNECTED: u8 = 63;
 
         // Allocate height data
         if hp.width <= 0 || hp.height <= 0 {
@@ -1279,7 +1279,7 @@ impl PolyMeshDetail {
                                         let ai = chf.cells[(ax + ay * chf.width) as usize]
                                             .index
                                             .unwrap()
-                                            + s.con[dir];
+                                            + s.con[dir] as usize;
                                         if chf.spans[ai].reg != region {
                                             border = true;
                                             break;
@@ -1345,7 +1345,8 @@ impl PolyMeshDetail {
                     continue;
                 }
 
-                let ai = chf.cells[(ax + ay * chf.width) as usize].index.unwrap() + cs.con[dir];
+                let ai =
+                    chf.cells[(ax + ay * chf.width) as usize].index.unwrap() + cs.con[dir] as usize;
                 hp.data[hp_idx] = chf.spans[ai].max as u16;
 
                 queue.push(ax);
@@ -1370,7 +1371,7 @@ impl PolyMeshDetail {
         hp: &mut HeightPatch,
         queue: &mut Vec<i32>,
     ) {
-        const RC_NOT_CONNECTED: usize = 63;
+        const RC_NOT_CONNECTED: u8 = 63;
 
         // 9 offsets: center + 8 neighbors
         const OFFSET: [(i32, i32); 9] = [
@@ -1504,7 +1505,7 @@ impl PolyMeshDetail {
                 hp.data[(hpx + hpy * hp.width) as usize] = 1;
 
                 let cell_idx = ((new_x + bs) + (new_y + bs) * chf.width) as usize;
-                let new_ci = chf.cells[cell_idx].index.unwrap() + cs_span.con[dir];
+                let new_ci = chf.cells[cell_idx].index.unwrap() + cs_span.con[dir] as usize;
                 stack.push(new_x);
                 stack.push(new_y);
                 stack.push(new_ci as i32);

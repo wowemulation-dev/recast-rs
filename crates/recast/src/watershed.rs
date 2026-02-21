@@ -11,7 +11,7 @@ pub const RC_BORDER_REG: u16 = 0x8000;
 pub const RC_NULL_AREA: u8 = 0;
 
 /// Not connected constant
-pub const RC_NOT_CONNECTED: usize = 63;
+pub const RC_NOT_CONNECTED: u8 = 63;
 
 /// Level stack entry for watershed algorithm
 #[derive(Debug, Clone, Copy)]
@@ -141,13 +141,13 @@ fn resolve_neighbor_index(
     x: i32,
     y: i32,
     dir: usize,
-    con_offset: usize,
+    con_offset: u8,
 ) -> Option<usize> {
     let w = chf.width;
     let ax = x + chf.get_dir_offset_x(dir);
     let ay = y + chf.get_dir_offset_z(dir);
     let cell = &chf.cells[(ay * w + ax) as usize];
-    Some(cell.index? + con_offset)
+    Some(cell.index? + con_offset as usize)
 }
 
 /// Flood fills a region starting from a seed
