@@ -826,7 +826,7 @@ impl ContourSet {
         let dir_offset_x: [i32; 4] = [-1, 0, 1, 0];
         let dir_offset_z: [i32; 4] = [0, 1, 0, -1];
 
-        const RC_NOT_CONNECTED: usize = 63;
+        const RC_NOT_CONNECTED: u8 = 63;
 
         // Combine region and area codes to prevent border vertices between areas
         // from being removed
@@ -837,7 +837,7 @@ impl ContourSet {
             let ax = x + dir_offset_x[dir as usize];
             let az = y + dir_offset_z[dir as usize];
             if let Some(base_idx) = chf.cells[(ax + az * chf.width) as usize].index {
-                let ai = base_idx + span.con[dir as usize];
+                let ai = base_idx + span.con[dir as usize] as usize;
                 let as_ = &chf.spans[ai];
                 ch = ch.max(as_.y);
                 regs[1] = region_ids[ai] as u32 | ((chf.areas[ai] as u32) << 16);
@@ -847,7 +847,7 @@ impl ContourSet {
                     let ax2 = ax + dir_offset_x[dirp];
                     let az2 = az + dir_offset_z[dirp];
                     if let Some(base_idx2) = chf.cells[(ax2 + az2 * chf.width) as usize].index {
-                        let ai2 = base_idx2 + as_.con[dirp];
+                        let ai2 = base_idx2 + as_.con[dirp] as usize;
                         let as2 = &chf.spans[ai2];
                         ch = ch.max(as2.y);
                         regs[2] = region_ids[ai2] as u32 | ((chf.areas[ai2] as u32) << 16);
@@ -861,7 +861,7 @@ impl ContourSet {
             let ax = x + dir_offset_x[dirp];
             let az = y + dir_offset_z[dirp];
             if let Some(base_idx) = chf.cells[(ax + az * chf.width) as usize].index {
-                let ai = base_idx + span.con[dirp];
+                let ai = base_idx + span.con[dirp] as usize;
                 let as_ = &chf.spans[ai];
                 ch = ch.max(as_.y);
                 regs[3] = region_ids[ai] as u32 | ((chf.areas[ai] as u32) << 16);
@@ -871,7 +871,7 @@ impl ContourSet {
                     let ax2 = ax + dir_offset_x[dir as usize];
                     let az2 = az + dir_offset_z[dir as usize];
                     if let Some(base_idx2) = chf.cells[(ax2 + az2 * chf.width) as usize].index {
-                        let ai2 = base_idx2 + as_.con[dir as usize];
+                        let ai2 = base_idx2 + as_.con[dir as usize] as usize;
                         let as2 = &chf.spans[ai2];
                         ch = ch.max(as2.y);
                         regs[2] = region_ids[ai2] as u32 | ((chf.areas[ai2] as u32) << 16);

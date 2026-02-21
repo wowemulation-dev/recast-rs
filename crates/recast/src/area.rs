@@ -78,7 +78,7 @@ pub fn erode_walkable_area(
     let h = chf.height;
     let span_count = chf.spans.len();
 
-    const NOT_CONNECTED: usize = 63; // RC_NOT_CONNECTED
+    const NOT_CONNECTED: u8 = 63; // RC_NOT_CONNECTED
 
     // Allocate distance buffer
     let mut dist = vec![0xff_u8; span_count];
@@ -112,7 +112,7 @@ pub fn erode_walkable_area(
                                 let ncell = &chf.cells[ncell_idx];
 
                                 if let Some(nindex) = ncell.index {
-                                    let ni = nindex + span.con[dir];
+                                    let ni = nindex + span.con[dir] as usize;
                                     if chf.areas[ni] != 0 {
                                         neighbor_count += 1;
                                         continue;
@@ -145,7 +145,7 @@ pub fn erode_walkable_area(
             return None;
         }
         let ncell = &chf.cells[(nz * w + nx) as usize];
-        ncell.index.map(|ni| ni + span.con[dir])
+        ncell.index.map(|ni| ni + span.con[dir] as usize)
     };
 
     // Pass 1 - forward propagation (top-left to bottom-right)
