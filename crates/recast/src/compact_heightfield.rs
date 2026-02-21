@@ -1125,7 +1125,11 @@ mod tests {
         assert_eq!(chf.cells.len(), (width * height) as usize);
         assert_eq!(chf.spans.len(), 4); // 4 spans total
         // Verify spans have connections (at least one con[] != RC_NOT_CONNECTED)
-        assert!(chf.spans.iter().any(|s| s.con.iter().any(|&c| c != RC_NOT_CONNECTED)));
+        assert!(
+            chf.spans
+                .iter()
+                .any(|s| s.con.iter().any(|&c| c != RC_NOT_CONNECTED))
+        );
     }
 
     #[test]
