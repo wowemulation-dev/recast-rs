@@ -173,17 +173,17 @@ fn divide_poly(
         return;
     }
 
-    // Determine side of each vertex
-    let mut sides = Vec::with_capacity(n);
+    // Determine side of each vertex (stack array, max 12 vertices per C++ assertion)
+    let mut sides = [0i8; 12];
     for i in 0..n {
-        let v = &in_verts[i * 3..];
-        if v[axis_idx] < axis_offset {
-            sides.push(-1);
-        } else if v[axis_idx] > axis_offset {
-            sides.push(1);
+        let v = in_verts[i * 3 + axis_idx];
+        sides[i] = if v < axis_offset {
+            -1
+        } else if v > axis_offset {
+            1
         } else {
-            sides.push(0);
-        }
+            0
+        };
     }
 
     // Clip polygon
@@ -270,38 +270,34 @@ fn rasterize_tri(
     let z0 = z0.clamp(-1, h - 1);
     let z1 = z1.clamp(0, h - 1);
 
-    // Build initial triangle vertex list
-    let in_verts = vec![
+    // 4 reusable polygon buffers - matches C++ stack buffers buf[7*3*4].
+    // Max 7 vertices per clipped polygon x 3 coords = 21 floats.
+    // std::mem::swap on Vec is O(1) (swaps ptr+len+cap), matching C++ rcSwap on pointers.
+    let mut buf_in = vec![
         v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2],
     ];
+    let mut buf_row = Vec::with_capacity(7 * 3);
+    let mut buf_p1 = Vec::with_capacity(7 * 3);
+    let mut buf_p2 = Vec::with_capacity(7 * 3);
 
-    let mut out_verts1 = Vec::with_capacity(21);
-    let mut out_verts2 = Vec::with_capacity(21);
-    let mut in_row = Vec::with_capacity(21);
-
-    // Initial polygon vertices
-    let mut p1 = in_verts.clone();
-
-    // Clip triangle to each grid cell
     for z in z0..=z1 {
-        // Clip polygon to row. Store the remaining polygon as well
+        // Clip polygon to row. buf_row = clipped row, buf_p1 = remainder above row
         let cz_max = heightfield.bmin.z + (z + 1) as f32 * heightfield.cs;
-        divide_poly(&p1, &mut in_row, &mut out_verts1, cz_max, Axis::Z);
+        divide_poly(&buf_in, &mut buf_row, &mut buf_p1, cz_max, Axis::Z);
+        // buf_in <-> buf_p1: buf_in becomes remainder for next Z iteration
+        std::mem::swap(&mut buf_in, &mut buf_p1);
 
-        // Swap for next iteration
-        p1 = out_verts1.clone();
-
-        let nv_row = in_row.len() / 3;
+        let nv_row = buf_row.len() / 3;
         if nv_row < 3 || z < 0 {
             continue;
         }
 
         // Find X-axis bounds of the row polygon (matches C++)
-        let mut min_x = in_row[0];
-        let mut max_x = in_row[0];
+        let mut min_x = buf_row[0];
+        let mut max_x = buf_row[0];
         for vert in 1..nv_row {
-            min_x = min_x.min(in_row[vert * 3]);
-            max_x = max_x.max(in_row[vert * 3]);
+            min_x = min_x.min(buf_row[vert * 3]);
+            max_x = max_x.max(buf_row[vert * 3]);
         }
 
         let x0 = ((min_x - heightfield.bmin.x) * inverse_cell_size) as i32;
@@ -310,19 +306,17 @@ fn rasterize_tri(
         let x0 = x0.clamp(-1, w - 1);
         let x1 = x1.clamp(0, w - 1);
 
-        // Initialize row polygon for X clipping
-        let mut p2 = in_row.clone();
+        // buf_row <-> buf_p2: buf_p2 becomes X clipping input
+        std::mem::swap(&mut buf_p2, &mut buf_row);
 
-        // Process each column
         for x in x0..=x1 {
-            // Clip polygon to column
+            // Clip polygon to column. buf_p1 = clipped cell, buf_row = remainder right of cell
             let cx_max = heightfield.bmin.x + (x + 1) as f32 * heightfield.cs;
-            divide_poly(&p2, &mut out_verts2, &mut out_verts1, cx_max, Axis::X);
+            divide_poly(&buf_p2, &mut buf_p1, &mut buf_row, cx_max, Axis::X);
+            // buf_p2 <-> buf_row: buf_p2 becomes remainder for next X iteration
+            std::mem::swap(&mut buf_p2, &mut buf_row);
 
-            // Swap for next iteration
-            p2 = out_verts1.clone();
-
-            let n = out_verts2.len() / 3;
+            let n = buf_p1.len() / 3;
             if n < 3 {
                 continue;
             }
@@ -333,11 +327,11 @@ fn rasterize_tri(
             }
 
             // Find min/max Y in the clipped polygon
-            let mut span_min_f = out_verts2[1];
-            let mut span_max_f = out_verts2[1];
+            let mut span_min_f = buf_p1[1];
+            let mut span_max_f = buf_p1[1];
 
             for i in 1..n {
-                let y = out_verts2[i * 3 + 1];
+                let y = buf_p1[i * 3 + 1];
                 span_min_f = span_min_f.min(y);
                 span_max_f = span_max_f.max(y);
             }
