@@ -5,18 +5,8 @@
 !.gitignore
 !.gitattributes
 
-# Project files
-/.cache/
-/.fleet/
-/.idea/
-/.vscode/
-
-# OS specific temporary files
-.DS_Store
-Thumbs.db
-
-# Rust/Cargo
-/target/
+# Added by cargo
+/target
 
 # Profiling artifacts
 *.svg
