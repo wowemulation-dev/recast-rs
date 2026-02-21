@@ -73,6 +73,12 @@ lto = true
 codegen-units = 1
 strip = true
 
+[profile.profiling]
+inherits = "release"
+debug = 2
+strip = false
+lto = false
+
 [workspace.lints.rust]
 # Allow unsafe code - navigation library uses unsafe for performance-critical paths
 unsafe_code = "allow"
