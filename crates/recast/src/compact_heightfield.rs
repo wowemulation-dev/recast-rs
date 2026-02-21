@@ -6,7 +6,7 @@
 
 use glam::Vec3;
 
-use super::heightfield::Heightfield;
+use super::heightfield::{Heightfield, SPAN_NULL};
 use super::watershed;
 use crate::error::BuildError;
 
@@ -347,14 +347,16 @@ impl CompactHeightfield {
 
         // Count walkable spans only (matching C++)
         let mut span_count = 0;
-        for column in heightfield.spans.values() {
-            let mut current = column.clone();
-            while let Some(span_rc) = current {
-                let span = span_rc.borrow();
-                if span.area != 0 {
-                    span_count += 1;
+        for z in 0..height {
+            for x in 0..width {
+                let mut si = heightfield.column_first_span(x, z);
+                while si != SPAN_NULL {
+                    let s = heightfield.span(si);
+                    if s.area != 0 {
+                        span_count += 1;
+                    }
+                    si = s.next;
                 }
-                current = span.next.clone();
             }
         }
 
@@ -370,32 +372,27 @@ impl CompactHeightfield {
 
         for z in 0..height {
             for x in 0..width {
-                let column = heightfield
-                    .spans
-                    .get(&(x, z))
-                    .ok_or_else(|| BuildError::MissingColumn { x, z })?;
+                let first_si = heightfield.column_first_span(x, z);
 
                 // If the column has no spans, add an empty cell
-                if column.is_none() {
+                if first_si == SPAN_NULL {
                     cells.push(CompactCell::new(None, 0));
                     continue;
                 }
 
                 // Count walkable spans in this cell
                 let mut walkable_count = 0;
-                let mut current = column.clone();
-                while let Some(span_rc) = current {
-                    let span = span_rc.borrow();
-                    if span.area != 0 {
+                let mut si = first_si;
+                while si != SPAN_NULL {
+                    let s = heightfield.span(si);
+                    if s.area != 0 {
                         walkable_count += 1;
                     }
-                    current = span.next.clone();
+                    si = s.next;
                 }
 
                 if walkable_count == 0 {
                     cells.push(CompactCell::new(None, 0));
-                    current = column.clone();
-                    // Still need to advance past this column
                     continue;
                 }
 
@@ -403,39 +400,39 @@ impl CompactHeightfield {
                 cells.push(CompactCell::new(Some(spans.len()), walkable_count));
 
                 // Add only walkable spans (matching C++ rcBuildCompactHeightfield)
-                current = column.clone();
-                while let Some(span_rc) = current {
-                    let span = span_rc.borrow();
+                si = first_si;
+                while si != SPAN_NULL {
+                    let s = heightfield.span(si);
 
-                    if span.area != 0 {
+                    if s.area != 0 {
                         // C++ convention: y = smax (top of solid = walkable surface)
-                        let bot = span.max as i32;
+                        let bot = s.max as i32;
                         // Air gap: from top of this solid to bottom of next solid above
-                        let top = if let Some(ref next) = span.next {
-                            next.borrow().min as i32
+                        let top = if s.next != SPAN_NULL {
+                            heightfield.span(s.next).min as i32
                         } else {
                             MAX_HEIGHT
                         };
                         let air_height = (top - bot).clamp(0, 255);
 
                         spans.push(CompactSpan {
-                            min: span.min,
-                            max: span.max,
-                            area: span.area,
+                            min: s.min,
+                            max: s.max,
+                            area: s.area,
                             reg: 0,
                             first_connection: None,
                             y: bot,
                             h: air_height as u8,
                             con: [63; 4], // RC_NOT_CONNECTED
                         });
-                        areas.push(span.area);
+                        areas.push(s.area);
 
                         // Track max height
-                        max_height = max_height.max(span.max as u16);
+                        max_height = max_height.max(s.max as u16);
                         walkable_span_count += 1;
                     }
 
-                    current = span.next.clone();
+                    si = s.next;
                 }
             }
         }

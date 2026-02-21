@@ -33,7 +33,7 @@ pub use detail_mesh::{PolyMeshDetail, merge_poly_mesh_details};
 pub use distance_field::{build_layer_regions, build_regions_monotone, build_regions_watershed};
 pub use error::{BuildError, ConfigError, ConvexVolumeError};
 // Region building functions are not exported directly - use CompactHeightfield methods instead
-pub use heightfield::{Heightfield, Span};
+pub use heightfield::{ColumnSpanIter, Heightfield, SPAN_NULL, SpanEntry, SpanIndex};
 pub use heightfield_layers::{HeightfieldLayer, LayerConnection, LayeredHeightfield};
 pub use mesh_merging::{MergeResult, MergeStats, MeshMergeConfig, MeshMerger, copy_poly_mesh};
 pub use polymesh::{MESH_NULL_IDX, PolyMesh};

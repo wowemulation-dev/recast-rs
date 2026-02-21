@@ -6,7 +6,6 @@
 
 use crate::error::BuildError;
 use glam::Vec3;
-use std::rc::Rc;
 
 use crate::error::ConvexVolumeError;
 
@@ -412,23 +411,18 @@ impl ConvexVolumeSet {
                 let world_z = origin.z + (z as f32 + 0.5) * cell_size;
 
                 // Get the span column for this cell
-                if let Some(Some(span_ref)) = heightfield.spans.get(&(x, z)) {
-                    // Process each span in the column
-                    let mut current_span = Some(Rc::clone(span_ref));
+                let mut si = heightfield.column_first_span(x, z);
+                while si != super::heightfield::SPAN_NULL {
+                    let span = &mut heightfield.spans[si as usize];
 
-                    while let Some(span_rc) = current_span {
-                        let mut span = span_rc.borrow_mut();
+                    // Calculate world height of span top
+                    let world_y = origin.y + span.max as f32 * cell_height;
+                    let point = Vec3::new(world_x, world_y, world_z);
 
-                        // Calculate world height of span top
-                        let world_y = origin.y + span.max as f32 * cell_height;
-                        let point = Vec3::new(world_x, world_y, world_z);
+                    // Apply area from convex volumes
+                    span.area = self.get_area_at_point(point, span.area);
 
-                        // Apply area from convex volumes
-                        span.area = self.get_area_at_point(point, span.area);
-
-                        // Move to next span
-                        current_span = span.next.as_ref().map(Rc::clone);
-                    }
+                    si = span.next;
                 }
             }
         }

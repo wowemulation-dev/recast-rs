@@ -1,7 +1,5 @@
 use recast::Heightfield;
-use std::cell::RefCell;
 use std::collections::HashSet;
-use std::rc::Rc;
 
 /// Checkpoint system for saving and restoring heightfield states
 ///
@@ -37,27 +35,19 @@ impl DynamicTileCheckpoint {
             source.ch(),
         );
 
-        // Clone all spans
+        // Clone all spans column by column
         for z in 0..source.height() {
             for x in 0..source.width() {
-                if let Some(Some(span_rc)) = source.spans().get(&(x, z)) {
-                    Self::clone_span_chain(&mut clone, x, z, span_rc.clone());
+                let mut si = source.column_first_span(x, z);
+                while si != recast::SPAN_NULL {
+                    let s = source.span(si);
+                    let _ = clone.add_span(x, z, s.min, s.max, s.area);
+                    si = s.next;
                 }
             }
         }
 
         clone
-    }
-
-    /// Recursively clones a chain of spans
-    fn clone_span_chain(target: &mut Heightfield, x: i32, z: i32, span: Rc<RefCell<recast::Span>>) {
-        let span_borrow = span.borrow();
-        let _ = target.add_span(x, z, span_borrow.min, span_borrow.max, span_borrow.area);
-
-        // Clone next span in the chain if it exists
-        if let Some(next_span) = &span_borrow.next {
-            Self::clone_span_chain(target, x, z, next_span.clone());
-        }
     }
 
     /// Checks if this checkpoint can be used for the given set of colliders
@@ -75,9 +65,9 @@ impl DynamicTileCheckpoint {
         // Add heightfield memory
         size += std::mem::size_of::<Heightfield>();
 
-        // Estimate span memory (this is approximate)
-        size += self.heightfield.spans().len() * std::mem::size_of::<(i32, i32)>();
-        size += self.heightfield.spans().len() * 64; // Approximate span memory
+        // Estimate span memory
+        size += self.heightfield.columns().len() * std::mem::size_of::<u32>();
+        size += self.heightfield.spans_arena().len() * std::mem::size_of::<recast::SpanEntry>();
 
         // Add collider set memory
         size += self.colliders.len() * std::mem::size_of::<u64>();

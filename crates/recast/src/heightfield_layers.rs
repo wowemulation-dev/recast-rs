@@ -736,18 +736,17 @@ impl LayeredHeightfield {
         // Process each column in the heightfield
         for z in 0..heightfield.height {
             for x in 0..heightfield.width {
-                if let Some(Some(first_span)) = heightfield.spans.get(&(x, z)) {
-                    let mut current_span = Some(first_span.clone());
+                {
                     let mut column_spans = Vec::new();
 
                     // Collect all spans in this column
-                    while let Some(span_rc) = current_span {
-                        let span = span_rc.borrow();
-                        if span.area != 0 {
-                            // Only include walkable spans
-                            column_spans.push((span.min, span.max, span.area));
+                    let mut si = heightfield.column_first_span(x, z);
+                    while si != super::heightfield::SPAN_NULL {
+                        let s = heightfield.span(si);
+                        if s.area != 0 {
+                            column_spans.push((s.min, s.max, s.area));
                         }
-                        current_span = span.next.clone();
+                        si = s.next;
                     }
 
                     // Separate spans into layers based on height gaps

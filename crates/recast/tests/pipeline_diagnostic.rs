@@ -75,17 +75,19 @@ fn run_pipeline_diagnostic(obj_name: &str) {
     let mut total_spans = 0u64;
     let mut walkable_spans = 0u64;
     let mut cells_with_spans = 0u64;
-    for (_coord, span_opt) in heightfield.spans() {
-        if let Some(first_span_rc) = span_opt {
-            cells_with_spans += 1;
-            let mut current = Some(first_span_rc.clone());
-            while let Some(span_rc) = current {
-                let span = span_rc.borrow();
+    for z in 0..heightfield.height() {
+        for x in 0..heightfield.width() {
+            let mut si = heightfield.column_first_span(x, z);
+            if si != recast::SPAN_NULL {
+                cells_with_spans += 1;
+            }
+            while si != recast::SPAN_NULL {
+                let s = heightfield.span(si);
                 total_spans += 1;
-                if span.area != 0 {
+                if s.area != 0 {
                     walkable_spans += 1;
                 }
-                current = span.next.clone();
+                si = s.next;
             }
         }
     }
@@ -419,16 +421,16 @@ fn pipeline_diagnostic_bridge() {
 fn count_walkable_spans(hf: &recast::Heightfield) -> (u64, u64) {
     let mut total = 0u64;
     let mut walkable = 0u64;
-    for (_coord, span_opt) in hf.spans() {
-        if let Some(first) = span_opt {
-            let mut current = Some(first.clone());
-            while let Some(span_rc) = current {
-                let span = span_rc.borrow();
+    for z in 0..hf.height() {
+        for x in 0..hf.width() {
+            let mut si = hf.column_first_span(x, z);
+            while si != recast::SPAN_NULL {
+                let s = hf.span(si);
                 total += 1;
-                if span.area != 0 {
+                if s.area != 0 {
                     walkable += 1;
                 }
-                current = span.next.clone();
+                si = s.next;
             }
         }
     }
