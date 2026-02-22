@@ -4,7 +4,7 @@ A Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavi
 
 <div align="center">
 
-[![Discord](https://img.shields.io/discord/1394228766414471219?logo=discord&style=flat-square)](https://discord.gg/Q44pPMvGEd)
+[![Discord](https://img.shields.io/discord/1394228766414471219?logo=discord&style=flat-square)](https://discord.gg/Jj4uWy3DGP)
 [![Sponsor](https://img.shields.io/github/sponsors/danielsreichenbach?logo=github&style=flat-square)](https://github.com/sponsors/danielsreichenbach)
 [![CI Status](https://github.com/wowemulation-dev/recast-rs/workflows/CI/badge.svg)](https://github.com/wowemulation-dev/recast-rs/actions)
 [![WASM](https://img.shields.io/badge/WASM-compatible-blueviolet.svg)](https://webassembly.org/)
