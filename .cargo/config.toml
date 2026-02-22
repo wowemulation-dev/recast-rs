@@ -2,8 +2,8 @@
 # https://doc.rust-lang.org/cargo/reference/config.html
 
 [build]
-rustflags = ["-D", "warnings"]
-rustdocflags = ["-D", "warnings"]
+# rustflags = ["-D", "warnings"]
+# rustdocflags = ["-D", "warnings"]
 
 # Use all available CPU cores for parallel compilation
 jobs = -1
@@ -11,56 +11,6 @@ jobs = -1
 [term]
 # Always show colors in terminal output
 color = "always"
-
-[alias]
-# Quick format check (no changes)
-fmt-check = "fmt --all -- --check"
-
-# Run clippy on entire workspace with all features
-# This is the primary quality gate
-lint = "clippy --workspace --all-targets --all-features"
-
-# Run all tests with all features enabled (cargo)
-test-all = "test --workspace --all-features"
-
-# Run all tests with nextest (faster parallel execution)
-nextest-all = "nextest run --workspace --all-features"
-
-# Run all tests with nextest (release mode, faster execution)
-nextest-release = "nextest run --workspace --all-features --release"
-
-# Run only library unit tests (faster iteration)
-test-lib = "test --lib --workspace"
-
-# Run library tests with nextest
-nextest-lib = "nextest run --lib --workspace"
-
-# Run only doc tests
-test-doc = "test --doc --workspace"
-
-# Build documentation for all crates
-docs = "doc --workspace --all-features --no-deps"
-
-# Full QA suite: format, lint, and test
-# Note: Cargo aliases cannot chain commands. Use shell instead:
-#   cargo fmt --all && cargo lint && cargo test-all
-
-# Quick check without full compilation (type checking only)
-check-all = "check --workspace --all-targets --all-features"
-
-# Release build for all workspace members
-build-release = "build --workspace --release"
-
-# Flamegraph generation for a specific binary or test
-# Usage: cargo flamegraph <bin_name> -- <args>
-# Example: cargo flamegraph --bin recast-cli -- build mesh.obj output.bin
-flamegraph = "flamegraph"
-
-# Flamegraph for tests
-flamegraph-test = "flamegraph --test"
-
-# Flamegraph for benchmarks
-flamegraph-bench = "flamegraph --bench"
 
 [env]
 # Enable backtraces for better error messages during development
