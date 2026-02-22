@@ -367,9 +367,9 @@ impl ContourSet {
         );
 
         // Count spans per region
-        let mut region_span_counts = std::collections::HashMap::new();
+        let mut region_span_counts = vec![0i32; region_count as usize + 1];
         for &region_id in &region_ids {
-            *region_span_counts.entry(region_id).or_insert(0) += 1;
+            region_span_counts[region_id as usize] += 1;
         }
         log::debug!("Region span counts: {:?}", region_span_counts);
 
@@ -602,8 +602,7 @@ impl ContourSet {
             let mut longest_border = 0i32;
 
             // Count border length with each neighbor
-            let mut neighbor_borders: std::collections::HashMap<u16, i32> =
-                std::collections::HashMap::new();
+            let mut neighbor_borders = vec![0i32; region_areas.len()];
 
             for (span_idx, &region_id) in region_ids.iter().enumerate() {
                 if region_id != small_region_id {
@@ -618,17 +617,17 @@ impl ContourSet {
 
                         // Count border with different regions
                         if neighbor_region != small_region_id && neighbor_region != 0 {
-                            *neighbor_borders.entry(neighbor_region).or_insert(0) += 1;
+                            neighbor_borders[neighbor_region as usize] += 1;
                         }
                     }
                 }
             }
 
             // Find neighbor with longest border
-            for (&neighbor_region, &border_length) in &neighbor_borders {
+            for (neighbor_region, &border_length) in neighbor_borders.iter().enumerate() {
                 if border_length > longest_border {
                     longest_border = border_length;
-                    best_neighbor = neighbor_region;
+                    best_neighbor = neighbor_region as u16;
                 }
             }
 

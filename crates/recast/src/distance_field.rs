@@ -290,9 +290,7 @@ fn find_best_merge_neighbor(
     region_id: u16,
     region_areas: &[i32],
 ) -> Result<u16, BuildError> {
-    use std::collections::HashMap;
-
-    let mut neighbor_borders: HashMap<u16, i32> = HashMap::new();
+    let mut neighbor_borders = vec![0i32; region_areas.len()];
 
     // Count border lengths with each neighbor
     for (span_idx, &span_region) in region_ids.iter().enumerate() {
@@ -307,7 +305,7 @@ fn find_best_merge_neighbor(
                 let neighbor_region = region_ids[neighbor_idx];
 
                 if neighbor_region != region_id && neighbor_region != 0 {
-                    *neighbor_borders.entry(neighbor_region).or_insert(0) += 1;
+                    neighbor_borders[neighbor_region as usize] += 1;
                 }
             }
         }
@@ -317,17 +315,17 @@ fn find_best_merge_neighbor(
     let mut best_neighbor = 0u16;
     let mut best_score = 0i32;
 
-    for (&neighbor_region, &border_length) in &neighbor_borders {
+    for (neighbor_region, &border_length) in neighbor_borders.iter().enumerate() {
+        if border_length == 0 {
+            continue;
+        }
         // Score = border_length * region_area (prefer larger regions with longer borders)
-        let neighbor_area = region_areas
-            .get(neighbor_region as usize)
-            .copied()
-            .unwrap_or(0);
+        let neighbor_area = region_areas.get(neighbor_region).copied().unwrap_or(0);
         let score = border_length * (neighbor_area + 1); // +1 to avoid zero
 
         if score > best_score {
             best_score = score;
-            best_neighbor = neighbor_region;
+            best_neighbor = neighbor_region as u16;
         }
     }
 

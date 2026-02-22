@@ -16,6 +16,74 @@ enum Axis {
     Z = 2,
 }
 
+/// Fixed-size polygon buffer for clipping operations.
+///
+/// Replaces `Vec<f32>` in the clipping loop to avoid heap allocation and
+/// per-push capacity checks. Max 7 vertices (triangle clipped twice = 3+2+2)
+/// times 3 coordinates = 21 floats, matching the C++ `buf[7*3*4]` layout.
+#[derive(Clone, Copy)]
+struct PolyBuf {
+    data: [f32; 21], // 7 verts * 3 coords
+    len: usize,      // vertex count (not float count)
+}
+
+impl PolyBuf {
+    #[inline(always)]
+    const fn new() -> Self {
+        Self {
+            data: [0.0; 21],
+            len: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn clear(&mut self) {
+        self.len = 0;
+    }
+
+    #[inline(always)]
+    fn push_vertex(&mut self, v: &[f32]) {
+        let base = self.len * 3;
+        self.data[base] = v[0];
+        self.data[base + 1] = v[1];
+        self.data[base + 2] = v[2];
+        self.len += 1;
+    }
+
+    #[inline(always)]
+    fn push_xyz(&mut self, x: f32, y: f32, z: f32) {
+        let base = self.len * 3;
+        self.data[base] = x;
+        self.data[base + 1] = y;
+        self.data[base + 2] = z;
+        self.len += 1;
+    }
+
+    #[inline(always)]
+    #[allow(dead_code)]
+    fn as_slice(&self) -> &[f32] {
+        &self.data[..self.len * 3]
+    }
+
+    #[inline(always)]
+    fn vertex(&self, i: usize) -> &[f32] {
+        &self.data[i * 3..(i + 1) * 3]
+    }
+
+    #[inline(always)]
+    fn nv(&self) -> usize {
+        self.len
+    }
+
+    fn from_triangle(v0: &[f32], v1: &[f32], v2: &[f32]) -> Self {
+        let mut buf = Self::new();
+        buf.push_vertex(v0);
+        buf.push_vertex(v1);
+        buf.push_vertex(v2);
+        buf
+    }
+}
+
 /// Adds a span to the heightfield at the specified position
 /// Matches C++ rcAddSpan exactly
 pub fn add_span(
@@ -154,20 +222,21 @@ fn add_span_internal(
     Ok(())
 }
 
-/// Divides a convex polygon by an axis-aligned line
-/// Matches C++ dividePoly exactly
+/// Divides a convex polygon by an axis-aligned line.
+/// Matches C++ dividePoly exactly, using fixed-size stack buffers.
+#[inline(always)]
 fn divide_poly(
-    in_verts: &[f32],
-    out_verts1: &mut Vec<f32>,
-    out_verts2: &mut Vec<f32>,
+    in_buf: &PolyBuf,
+    out1: &mut PolyBuf,
+    out2: &mut PolyBuf,
     axis_offset: f32,
     axis: Axis,
 ) {
-    out_verts1.clear();
-    out_verts2.clear();
+    out1.clear();
+    out2.clear();
 
     let axis_idx = axis as usize;
-    let n = in_verts.len() / 3;
+    let n = in_buf.nv();
 
     if n == 0 {
         return;
@@ -176,7 +245,7 @@ fn divide_poly(
     // Determine side of each vertex (stack array, max 12 vertices per C++ assertion)
     let mut sides = [0i8; 12];
     for i in 0..n {
-        let v = in_verts[i * 3 + axis_idx];
+        let v = in_buf.data[i * 3 + axis_idx];
         sides[i] = if v < axis_offset {
             -1
         } else if v > axis_offset {
@@ -189,40 +258,44 @@ fn divide_poly(
     // Clip polygon
     for i in 0..n {
         let j = (i + 1) % n;
-        let vi = &in_verts[i * 3..(i + 1) * 3];
-        let vj = &in_verts[j * 3..(j + 1) * 3];
+        let vi = in_buf.vertex(i);
+        let vj = in_buf.vertex(j);
         let si = sides[i];
         let sj = sides[j];
 
         if si == 0 {
             // Vertex on split line
-            out_verts1.extend_from_slice(vi);
-            out_verts2.extend_from_slice(vi);
+            out1.push_vertex(vi);
+            out2.push_vertex(vi);
         } else if si < 0 {
             // Vertex on negative side
-            out_verts1.extend_from_slice(vi);
+            out1.push_vertex(vi);
             if sj > 0 {
                 // Edge crosses split line
                 let t = (axis_offset - vi[axis_idx]) / (vj[axis_idx] - vi[axis_idx]);
-                let mut intersection = [0.0; 3];
-                for k in 0..3 {
-                    intersection[k] = vi[k] + t * (vj[k] - vi[k]);
-                }
-                out_verts1.extend_from_slice(&intersection);
-                out_verts2.extend_from_slice(&intersection);
+                out1.push_xyz(
+                    vi[0] + t * (vj[0] - vi[0]),
+                    vi[1] + t * (vj[1] - vi[1]),
+                    vi[2] + t * (vj[2] - vi[2]),
+                );
+                // Copy the same intersection point to out2
+                let last = out1.vertex(out1.nv() - 1);
+                out2.push_vertex(last);
             }
         } else {
             // Vertex on positive side
-            out_verts2.extend_from_slice(vi);
+            out2.push_vertex(vi);
             if sj < 0 {
                 // Edge crosses split line
                 let t = (axis_offset - vi[axis_idx]) / (vj[axis_idx] - vi[axis_idx]);
-                let mut intersection = [0.0; 3];
-                for k in 0..3 {
-                    intersection[k] = vi[k] + t * (vj[k] - vi[k]);
-                }
-                out_verts1.extend_from_slice(&intersection);
-                out_verts2.extend_from_slice(&intersection);
+                out1.push_xyz(
+                    vi[0] + t * (vj[0] - vi[0]),
+                    vi[1] + t * (vj[1] - vi[1]),
+                    vi[2] + t * (vj[2] - vi[2]),
+                );
+                // Copy the same intersection point to out2
+                let last = out1.vertex(out1.nv() - 1);
+                out2.push_vertex(last);
             }
         }
     }
@@ -270,15 +343,12 @@ fn rasterize_tri(
     let z0 = z0.clamp(-1, h - 1);
     let z1 = z1.clamp(0, h - 1);
 
-    // 4 reusable polygon buffers - matches C++ stack buffers buf[7*3*4].
-    // Max 7 vertices per clipped polygon x 3 coords = 21 floats.
-    // std::mem::swap on Vec is O(1) (swaps ptr+len+cap), matching C++ rcSwap on pointers.
-    let mut buf_in = vec![
-        v0[0], v0[1], v0[2], v1[0], v1[1], v1[2], v2[0], v2[1], v2[2],
-    ];
-    let mut buf_row = Vec::with_capacity(7 * 3);
-    let mut buf_p1 = Vec::with_capacity(7 * 3);
-    let mut buf_p2 = Vec::with_capacity(7 * 3);
+    // 4 fixed-size polygon buffers on the stack, matching C++ buf[7*3*4].
+    // PolyBuf is Copy (88 bytes), so swapping is a fast memcpy.
+    let mut buf_in = PolyBuf::from_triangle(v0, v1, v2);
+    let mut buf_row = PolyBuf::new();
+    let mut buf_p1 = PolyBuf::new();
+    let mut buf_p2 = PolyBuf::new();
 
     for z in z0..=z1 {
         // Clip polygon to row. buf_row = clipped row, buf_p1 = remainder above row
@@ -287,17 +357,17 @@ fn rasterize_tri(
         // buf_in <-> buf_p1: buf_in becomes remainder for next Z iteration
         std::mem::swap(&mut buf_in, &mut buf_p1);
 
-        let nv_row = buf_row.len() / 3;
+        let nv_row = buf_row.nv();
         if nv_row < 3 || z < 0 {
             continue;
         }
 
         // Find X-axis bounds of the row polygon (matches C++)
-        let mut min_x = buf_row[0];
-        let mut max_x = buf_row[0];
+        let mut min_x = buf_row.data[0];
+        let mut max_x = buf_row.data[0];
         for vert in 1..nv_row {
-            min_x = min_x.min(buf_row[vert * 3]);
-            max_x = max_x.max(buf_row[vert * 3]);
+            min_x = min_x.min(buf_row.data[vert * 3]);
+            max_x = max_x.max(buf_row.data[vert * 3]);
         }
 
         let x0 = ((min_x - heightfield.bmin.x) * inverse_cell_size) as i32;
@@ -316,7 +386,7 @@ fn rasterize_tri(
             // buf_p2 <-> buf_row: buf_p2 becomes remainder for next X iteration
             std::mem::swap(&mut buf_p2, &mut buf_row);
 
-            let n = buf_p1.len() / 3;
+            let n = buf_p1.nv();
             if n < 3 {
                 continue;
             }
@@ -327,11 +397,11 @@ fn rasterize_tri(
             }
 
             // Find min/max Y in the clipped polygon
-            let mut span_min_f = buf_p1[1];
-            let mut span_max_f = buf_p1[1];
+            let mut span_min_f = buf_p1.data[1];
+            let mut span_max_f = buf_p1.data[1];
 
             for i in 1..n {
-                let y = buf_p1[i * 3 + 1];
+                let y = buf_p1.data[i * 3 + 1];
                 span_min_f = span_min_f.min(y);
                 span_max_f = span_max_f.max(y);
             }
