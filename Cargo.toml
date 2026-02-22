@@ -36,7 +36,7 @@ thiserror = "2.0"
 anyhow = "1.0"
 
 # Math
-glam = { version = "0.31", features = ["serde"] }
+glam = { version = "0.30", features = ["serde"] }
 
 # Utilities
 bitflags = { version = "2.10", features = ["serde"] }
