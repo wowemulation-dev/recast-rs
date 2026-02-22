@@ -145,32 +145,28 @@ impl Heightfield {
 
     // ── Public accessors ──────────────────────────────────────────────
 
-    /// Returns the width of the heightfield along the x-axis.
     pub fn width(&self) -> i32 {
         self.width
     }
 
-    /// Returns the height (depth) of the heightfield along the z-axis.
     pub fn height(&self) -> i32 {
         self.height
     }
 
-    /// Returns the minimum bounds of the heightfield's AABB.
     pub fn bmin(&self) -> Vec3 {
         self.bmin
     }
 
-    /// Returns the maximum bounds of the heightfield's AABB.
     pub fn bmax(&self) -> Vec3 {
         self.bmax
     }
 
-    /// Returns the cell size (horizontal resolution).
+    /// Cell size in the xz-plane (horizontal voxel resolution).
     pub fn cs(&self) -> f32 {
         self.cs
     }
 
-    /// Returns the cell height (vertical resolution).
+    /// Cell height along the y-axis (vertical voxel resolution).
     pub fn ch(&self) -> f32 {
         self.ch
     }

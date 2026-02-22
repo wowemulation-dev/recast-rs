@@ -24,33 +24,22 @@ pub const MESH_NULL_IDX: u16 = 0xffff;
 /// A polygon mesh following the exact C++ rcPolyMesh structure
 #[derive(Debug, Clone)]
 pub struct PolyMesh {
-    /// Mesh vertices `[x,y,z]` * nverts (matches C++ verts)
+    /// Vertex coords as `[x, y, z]` triples in voxel space.
     pub(crate) verts: Vec<u16>,
-    /// Polygon and neighbor data `[poly data]` * npolys * nvp * 2 (matches C++ polys)
+    /// Per-polygon vertex indices and adjacency, layout: `[nvp vertex indices | nvp neighbor indices] * npolys`.
     pub(crate) polys: Vec<u16>,
-    /// Region IDs for each polygon (matches C++ regs)
     pub(crate) regs: Vec<u16>,
-    /// Area IDs for each polygon (matches C++ areas)
     pub(crate) areas: Vec<u8>,
-    /// User defined flags for each polygon (matches C++ flags)
     pub(crate) flags: Vec<u16>,
-    /// Number of vertices (matches C++ nverts)
     pub(crate) nverts: usize,
-    /// Number of polygons (matches C++ npolys)
     pub(crate) npolys: usize,
-    /// Maximum number of polygons (matches C++ maxpolys)
     pub(crate) maxpolys: usize,
-    /// Max vertices per polygon (matches C++ nvp)
     pub(crate) nvp: usize,
-    /// Bounds of the mesh (matches C++ bmin/bmax)
     pub(crate) bmin: Vec3,
     pub(crate) bmax: Vec3,
-    /// Cell size and height (matches C++ cs/ch)
     pub(crate) cs: f32,
     pub(crate) ch: f32,
-    /// Border size (matches C++ borderSize)
     pub(crate) border_size: i32,
-    /// Max edge error (matches C++ maxEdgeError)
     pub(crate) max_edge_error: f32,
 }
 
@@ -76,97 +65,82 @@ impl PolyMesh {
         }
     }
 
-    /// Returns the mesh vertices as `[x, y, z]` triples in voxel coordinates.
     pub fn verts(&self) -> &[u16] {
         &self.verts
     }
 
-    /// Returns the polygon and neighbor data.
     pub fn polys(&self) -> &[u16] {
         &self.polys
     }
 
-    /// Returns the region IDs for each polygon.
     pub fn regs(&self) -> &[u16] {
         &self.regs
     }
 
-    /// Returns the area IDs for each polygon.
     pub fn areas(&self) -> &[u8] {
         &self.areas
     }
 
-    /// Returns the user-defined flags for each polygon.
     pub fn flags(&self) -> &[u16] {
         &self.flags
     }
 
-    /// Returns a mutable reference to the polygon flags.
     pub fn flags_mut(&mut self) -> &mut [u16] {
         &mut self.flags
     }
 
-    /// Returns the number of vertices.
     pub fn vert_count(&self) -> usize {
         self.nverts
     }
 
-    /// Returns the number of polygons.
     pub fn poly_count(&self) -> usize {
         self.npolys
     }
 
-    /// Returns the maximum polygon capacity.
     pub fn max_polys(&self) -> usize {
         self.maxpolys
     }
 
-    /// Returns the maximum number of vertices per polygon.
     pub fn max_verts_per_poly(&self) -> usize {
         self.nvp
     }
 
-    /// Returns the minimum bounds of the mesh.
     pub fn bmin(&self) -> Vec3 {
         self.bmin
     }
 
-    /// Returns the maximum bounds of the mesh.
     pub fn bmax(&self) -> Vec3 {
         self.bmax
     }
 
-    /// Returns the mesh bounds as `(min, max)`.
     pub fn bounds(&self) -> (Vec3, Vec3) {
         (self.bmin, self.bmax)
     }
 
-    /// Returns the cell size (xz-plane voxel size).
+    /// Cell size in the xz-plane (horizontal voxel resolution).
     pub fn cs(&self) -> f32 {
         self.cs
     }
 
-    /// Returns the cell height (y-axis voxel size).
+    /// Cell height along the y-axis (vertical voxel resolution).
     pub fn ch(&self) -> f32 {
         self.ch
     }
 
-    /// Returns the cell size (xz-plane voxel size).
+    /// See [`cs`](Self::cs).
     pub fn cell_size(&self) -> f32 {
         self.cs
     }
 
-    /// Returns the cell height (y-axis voxel size).
+    /// See [`ch`](Self::ch).
     pub fn cell_height(&self) -> f32 {
         self.ch
     }
 
-    /// Returns the border size in voxels.
     pub fn border_size(&self) -> i32 {
         self.border_size
     }
 
-    /// Returns the maximum edge error.
     pub fn max_edge_error(&self) -> f32 {
         self.max_edge_error
     }

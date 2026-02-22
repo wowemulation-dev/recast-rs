@@ -146,82 +146,69 @@ pub struct CompactHeightfield {
 
 #[allow(dead_code)]
 impl CompactHeightfield {
-    /// Returns the width along the x-axis.
     pub fn width(&self) -> i32 {
         self.width
     }
 
-    /// Returns the height (depth) along the z-axis.
     pub fn height(&self) -> i32 {
         self.height
     }
 
-    /// Returns the minimum bounds of the AABB.
     pub fn bmin(&self) -> Vec3 {
         self.bmin
     }
 
-    /// Returns the maximum bounds of the AABB.
     pub fn bmax(&self) -> Vec3 {
         self.bmax
     }
 
-    /// Returns the cell size (horizontal resolution).
+    /// Cell size in the xz-plane (horizontal voxel resolution).
     pub fn cs(&self) -> f32 {
         self.cs
     }
 
-    /// Returns the cell height (vertical resolution).
+    /// Cell height along the y-axis (vertical voxel resolution).
     pub fn ch(&self) -> f32 {
         self.ch
     }
 
-    /// Returns the compact cells.
     pub fn cells(&self) -> &[CompactCell] {
         &self.cells
     }
 
-    /// Returns a mutable reference to the compact cells.
     pub fn cells_mut(&mut self) -> &mut [CompactCell] {
         &mut self.cells
     }
 
-    /// Returns the compact spans.
     pub fn spans(&self) -> &[CompactSpan] {
         &self.spans
     }
 
-    /// Returns a mutable reference to the compact spans.
     pub fn spans_mut(&mut self) -> &mut [CompactSpan] {
         &mut self.spans
     }
 
-    /// Returns the span-to-cell reverse mapping.
     pub fn span_cells(&self) -> &[u32] {
         &self.span_cells
     }
 
-    /// Returns the area IDs for each span.
     pub fn areas(&self) -> &[u8] {
         &self.areas
     }
 
-    /// Returns the distance values per span.
+    /// Distance field values per span, computed by `build_distance_field`.
     pub fn dist(&self) -> &[u16] {
         &self.dist
     }
 
-    /// Returns the count of walkable spans.
     pub fn walkable_span_count(&self) -> usize {
         self.walkable_span_count
     }
 
-    /// Returns the count of spans assigned to an area.
     pub fn walkable_area_count(&self) -> usize {
         self.walkable_area_count
     }
 
-    /// Returns the cell count (width * height).
     pub fn cell_count(&self) -> usize {
         self.cell_count
     }

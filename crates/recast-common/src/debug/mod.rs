@@ -17,17 +17,15 @@ pub struct Color {
 }
 
 impl Color {
-    /// Creates a new color
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
 
-    /// Creates a color from RGB values (alpha = 1.0)
+    /// Alpha defaults to 1.0.
     pub const fn rgb(r: f32, g: f32, b: f32) -> Self {
         Self::new(r, g, b, 1.0)
     }
 
-    /// Creates a color from RGBA bytes
     pub const fn from_rgba_bytes(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::new(
             r as f32 / 255.0,
@@ -37,7 +35,7 @@ impl Color {
         )
     }
 
-    /// Creates a color from RGB bytes (alpha = 1.0)
+    /// Alpha defaults to 1.0.
     pub const fn from_rgb_bytes(r: u8, g: u8, b: u8) -> Self {
         Self::from_rgba_bytes(r, g, b, 255)
     }
@@ -68,7 +66,6 @@ pub struct DebugVertex {
 }
 
 impl DebugVertex {
-    /// Creates a new debug vertex
     pub const fn new(position: [f32; 3], color: Color) -> Self {
         Self { position, color }
     }
@@ -84,7 +81,6 @@ pub struct DebugLine {
 }
 
 impl DebugLine {
-    /// Creates a new debug line
     pub fn new(start: [f32; 3], end: [f32; 3], color: Color) -> Self {
         Self {
             start,
@@ -94,7 +90,6 @@ impl DebugLine {
         }
     }
 
-    /// Creates a debug line with custom thickness
     pub fn with_thickness(start: [f32; 3], end: [f32; 3], color: Color, thickness: f32) -> Self {
         Self {
             start,
@@ -113,7 +108,6 @@ pub struct DebugTriangle {
 }
 
 impl DebugTriangle {
-    /// Creates a new debug triangle
     pub fn new(v0: DebugVertex, v1: DebugVertex, v2: DebugVertex) -> Self {
         Self {
             vertices: [v0, v1, v2],
@@ -121,7 +115,6 @@ impl DebugTriangle {
         }
     }
 
-    /// Creates a wireframe debug triangle
     pub fn wireframe(v0: DebugVertex, v1: DebugVertex, v2: DebugVertex) -> Self {
         Self {
             vertices: [v0, v1, v2],
@@ -129,7 +122,6 @@ impl DebugTriangle {
         }
     }
 
-    /// Creates a triangle with single color
     pub fn colored(p0: [f32; 3], p1: [f32; 3], p2: [f32; 3], color: Color) -> Self {
         Self::new(
             DebugVertex::new(p0, color),
@@ -149,7 +141,6 @@ pub struct DebugText {
 }
 
 impl DebugText {
-    /// Creates a new debug text
     pub fn new(position: [f32; 3], text: String, color: Color) -> Self {
         Self {
             position,
@@ -159,7 +150,6 @@ impl DebugText {
         }
     }
 
-    /// Creates debug text with custom size
     pub fn with_size(position: [f32; 3], text: String, color: Color, size: f32) -> Self {
         Self {
             position,
@@ -180,7 +170,6 @@ pub struct DebugCircle {
 }
 
 impl DebugCircle {
-    /// Creates a new debug circle
     pub fn new(center: [f32; 3], radius: f32, color: Color) -> Self {
         Self {
             center,
@@ -190,7 +179,6 @@ impl DebugCircle {
         }
     }
 
-    /// Creates a debug circle with custom segment count
     pub fn with_segments(center: [f32; 3], radius: f32, color: Color, segments: u32) -> Self {
         Self {
             center,
@@ -211,7 +199,6 @@ pub struct DebugSphere {
 }
 
 impl DebugSphere {
-    /// Creates a new debug sphere
     pub fn new(center: [f32; 3], radius: f32, color: Color) -> Self {
         Self {
             center,
@@ -221,7 +208,6 @@ impl DebugSphere {
         }
     }
 
-    /// Creates a wireframe debug sphere
     pub fn wireframe(center: [f32; 3], radius: f32, color: Color) -> Self {
         Self {
             center,
@@ -242,7 +228,6 @@ pub struct DebugBounds {
 }
 
 impl DebugBounds {
-    /// Creates a new debug bounding box
     pub fn new(min: [f32; 3], max: [f32; 3], color: Color) -> Self {
         Self {
             min,
@@ -252,7 +237,6 @@ impl DebugBounds {
         }
     }
 
-    /// Creates a filled debug bounding box
     pub fn filled(min: [f32; 3], max: [f32; 3], color: Color) -> Self {
         Self {
             min,
@@ -273,7 +257,6 @@ pub struct DebugArrow {
 }
 
 impl DebugArrow {
-    /// Creates a new debug arrow
     pub fn new(start: [f32; 3], end: [f32; 3], color: Color) -> Self {
         Self {
             start,
@@ -283,7 +266,6 @@ impl DebugArrow {
         }
     }
 
-    /// Creates a debug arrow with custom head size
     pub fn with_head_size(start: [f32; 3], end: [f32; 3], color: Color, head_size: f32) -> Self {
         Self {
             start,
@@ -307,12 +289,10 @@ pub struct DebugDraw {
 }
 
 impl DebugDraw {
-    /// Creates a new debug draw collection
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Clears all debug drawing primitives
     pub fn clear(&mut self) {
         self.lines.clear();
         self.triangles.clear();
@@ -323,36 +303,30 @@ impl DebugDraw {
         self.arrows.clear();
     }
 
-    /// Adds a debug line
     pub fn line(&mut self, start: [f32; 3], end: [f32; 3], color: Color) {
         self.lines.push(DebugLine::new(start, end, color));
     }
 
-    /// Adds a debug line with thickness
     pub fn thick_line(&mut self, start: [f32; 3], end: [f32; 3], color: Color, thickness: f32) {
         self.lines
             .push(DebugLine::with_thickness(start, end, color, thickness));
     }
 
-    /// Adds a debug triangle
     pub fn triangle(&mut self, p0: [f32; 3], p1: [f32; 3], p2: [f32; 3], color: Color) {
         self.triangles
             .push(DebugTriangle::colored(p0, p1, p2, color));
     }
 
-    /// Adds a wireframe debug triangle
     pub fn wireframe_triangle(&mut self, p0: [f32; 3], p1: [f32; 3], p2: [f32; 3], color: Color) {
         let mut tri = DebugTriangle::colored(p0, p1, p2, color);
         tri.wireframe = true;
         self.triangles.push(tri);
     }
 
-    /// Adds debug text
     pub fn text(&mut self, position: [f32; 3], text: impl Into<String>, color: Color) {
         self.text.push(DebugText::new(position, text.into(), color));
     }
 
-    /// Adds debug text with size
     pub fn sized_text(
         &mut self,
         position: [f32; 3],
@@ -364,44 +338,36 @@ impl DebugDraw {
             .push(DebugText::with_size(position, text.into(), color, size));
     }
 
-    /// Adds a debug circle
     pub fn circle(&mut self, center: [f32; 3], radius: f32, color: Color) {
         self.circles.push(DebugCircle::new(center, radius, color));
     }
 
-    /// Adds a debug sphere
     pub fn sphere(&mut self, center: [f32; 3], radius: f32, color: Color) {
         self.spheres.push(DebugSphere::new(center, radius, color));
     }
 
-    /// Adds a wireframe debug sphere
     pub fn wireframe_sphere(&mut self, center: [f32; 3], radius: f32, color: Color) {
         self.spheres
             .push(DebugSphere::wireframe(center, radius, color));
     }
 
-    /// Adds debug bounding box
     pub fn bounds(&mut self, min: [f32; 3], max: [f32; 3], color: Color) {
         self.bounds.push(DebugBounds::new(min, max, color));
     }
 
-    /// Adds filled debug bounding box
     pub fn filled_bounds(&mut self, min: [f32; 3], max: [f32; 3], color: Color) {
         self.bounds.push(DebugBounds::filled(min, max, color));
     }
 
-    /// Adds a debug arrow
     pub fn arrow(&mut self, start: [f32; 3], end: [f32; 3], color: Color) {
         self.arrows.push(DebugArrow::new(start, end, color));
     }
 
-    /// Adds a debug arrow with custom head size
     pub fn sized_arrow(&mut self, start: [f32; 3], end: [f32; 3], color: Color, head_size: f32) {
         self.arrows
             .push(DebugArrow::with_head_size(start, end, color, head_size));
     }
 
-    /// Gets the total number of debug primitives
     pub fn primitive_count(&self) -> usize {
         self.lines.len()
             + self.triangles.len()
@@ -412,7 +378,6 @@ impl DebugDraw {
             + self.arrows.len()
     }
 
-    /// Checks if the debug draw is empty
     pub fn is_empty(&self) -> bool {
         self.primitive_count() == 0
     }
@@ -421,31 +386,18 @@ impl DebugDraw {
 /// Debug visualization configuration
 #[derive(Debug, Clone)]
 pub struct DebugConfig {
-    /// Whether to show navigation mesh polygons
     pub show_nav_mesh: bool,
-    /// Whether to show navigation mesh bounds
     pub show_nav_mesh_bounds: bool,
-    /// Whether to show agent paths
     pub show_paths: bool,
-    /// Whether to show agent positions
     pub show_agents: bool,
-    /// Whether to show agent velocities
     pub show_velocities: bool,
-    /// Whether to show formations
     pub show_formations: bool,
-    /// Whether to show RVO collision circles
     pub show_rvo_circles: bool,
-    /// Whether to show obstacle bounds
     pub show_obstacles: bool,
-    /// Whether to show tile boundaries
     pub show_tile_boundaries: bool,
-    /// Whether to show off-mesh connections
     pub show_off_mesh_connections: bool,
-    /// Scale factor for velocity arrows
     pub velocity_scale: f32,
-    /// Agent radius visualization scale
     pub agent_radius_scale: f32,
-    /// Text size for labels
     pub text_size: f32,
 }
 

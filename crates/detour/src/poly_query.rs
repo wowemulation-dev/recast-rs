@@ -40,22 +40,19 @@ impl CollectPolysQuery {
         }
     }
 
-    /// Returns the collected polygon references.
     pub fn polys(&self) -> &[PolyRef] {
         &self.polys
     }
 
-    /// Returns the number of collected polygons.
     pub fn num_collected(&self) -> usize {
         self.polys.len()
     }
 
-    /// Returns true if more polygons were available than could be collected.
+    /// True if more polygons were available than could be collected.
     pub fn overflow(&self) -> bool {
         self.overflow
     }
 
-    /// Clears the collected polygons.
     pub fn clear(&mut self) {
         self.polys.clear();
         self.overflow = false;
@@ -100,22 +97,19 @@ impl<'a> FindNearestPolyQuery<'a> {
         }
     }
 
-    /// Returns the nearest polygon reference found.
     pub fn nearest_ref(&self) -> PolyRef {
         self.nearest_ref
     }
 
-    /// Returns the nearest point found.
     pub fn nearest_point(&self) -> &[f32; 3] {
         &self.nearest_point
     }
 
-    /// Returns true if the nearest point is directly over the polygon.
+    /// True if the nearest point is directly over the polygon surface.
     pub fn is_over_poly(&self) -> bool {
         self.over_poly
     }
 
-    /// Returns the squared distance to the nearest polygon.
     pub fn nearest_distance_sqr(&self) -> f32 {
         self.nearest_distance_sqr
     }

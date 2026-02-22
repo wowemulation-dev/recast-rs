@@ -3,25 +3,21 @@
 use glam::Vec3;
 use std::f32::consts::PI;
 
-/// Calculates the cross product of two 2D vectors [(x1,y1), (x2,y2)]
 #[inline]
 pub fn cross_2d(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     x1 * y2 - y1 * x2
 }
 
-/// Calculates the dot product of two 2D vectors [(x1,y1), (x2,y2)]
 #[inline]
 pub fn dot_2d(x1: f32, y1: f32, x2: f32, y2: f32) -> f32 {
     x1 * x2 + y1 * y2
 }
 
-/// Converts a floating point value to an integer by rounding
 #[inline]
 pub fn float_to_int(value: f32) -> i32 {
     value.round() as i32
 }
 
-/// Calculates the area of a triangle
 pub fn triangle_area(a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
     let ab = *b - *a;
     let ac = *c - *a;
@@ -29,7 +25,6 @@ pub fn triangle_area(a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
     cross.length() * 0.5
 }
 
-/// Checks if a point is inside a triangle
 pub fn point_in_triangle(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> bool {
     // Compute vectors
     let v0 = *c - *a;
@@ -52,19 +47,16 @@ pub fn point_in_triangle(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> bool {
     (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
 }
 
-/// Converts degrees to radians
 #[inline]
 pub fn deg_to_rad(deg: f32) -> f32 {
     deg * PI / 180.0
 }
 
-/// Converts radians to degrees
 #[inline]
 pub fn rad_to_deg(rad: f32) -> f32 {
     rad * 180.0 / PI
 }
 
-/// Clamps a value between min and max
 #[inline]
 pub fn clamp<T: PartialOrd>(v: T, min: T, max: T) -> T {
     if v < min {
@@ -76,19 +68,16 @@ pub fn clamp<T: PartialOrd>(v: T, min: T, max: T) -> T {
     }
 }
 
-/// Square a value (x²)
 #[inline]
 pub fn sqr<T: std::ops::Mul<Output = T> + Copy>(x: T) -> T {
     x * x
 }
 
-/// Linear interpolation between two values
 #[inline]
 pub fn lerp(a: f32, b: f32, t: f32) -> f32 {
     a + (b - a) * t
 }
 
-/// Get the next power of 2 greater than or equal to x
 #[inline]
 pub fn next_pow2(x: u32) -> u32 {
     if x == 0 {
@@ -103,7 +92,6 @@ pub fn next_pow2(x: u32) -> u32 {
     n + 1
 }
 
-/// Integer log base 2
 #[inline]
 pub fn ilog2(x: u32) -> u32 {
     if x == 0 {
@@ -112,91 +100,77 @@ pub fn ilog2(x: u32) -> u32 {
     31 - x.leading_zeros()
 }
 
-/// Align value to 4-byte boundary
 #[inline]
 pub fn align4(x: usize) -> usize {
     (x + 3) & !3
 }
 
-/// Component-wise minimum of two vectors
 #[inline]
 pub fn vmin(a: &Vec3, b: &Vec3) -> Vec3 {
     a.min(*b)
 }
 
-/// Component-wise maximum of two vectors
 #[inline]
 pub fn vmax(a: &Vec3, b: &Vec3) -> Vec3 {
     a.max(*b)
 }
 
-/// Component-wise minimum assignment
 #[inline]
 pub fn vmin_mut(dest: &mut Vec3, v: &Vec3) {
     *dest = dest.min(*v);
 }
 
-/// Component-wise maximum assignment
 #[inline]
 pub fn vmax_mut(dest: &mut Vec3, v: &Vec3) {
     *dest = dest.max(*v);
 }
 
-/// Vector multiply-add: dest = v1 + v2 * s
+/// Returns `v1 + v2 * s`.
 #[inline]
 pub fn vmad(v1: &Vec3, v2: &Vec3, s: f32) -> Vec3 {
     *v1 + *v2 * s
 }
 
-/// Vector linear interpolation
 #[inline]
 pub fn vlerp(v1: &Vec3, v2: &Vec3, t: f32) -> Vec3 {
     v1.lerp(*v2, t)
 }
 
-/// Set vector components
 #[inline]
 pub fn vset(x: f32, y: f32, z: f32) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-/// Zero out a vector (set all components to 0)
 #[inline]
 pub fn vzero(dest: &mut Vec3) {
     *dest = Vec3::ZERO;
 }
 
-/// Create a zero vector
 #[inline]
 pub fn vzero_new() -> Vec3 {
     Vec3::ZERO
 }
 
-/// Copy vector components from source to destination
 #[inline]
 pub fn vcopy(dest: &mut Vec3, src: &Vec3) {
     *dest = *src;
 }
 
-/// Scale a vector in place
 #[inline]
 pub fn vscale(dest: &mut Vec3, scale: f32) {
     *dest *= scale;
 }
 
-/// Add two vectors and store result in destination
 #[inline]
 pub fn vadd(dest: &mut Vec3, a: &Vec3, b: &Vec3) {
     *dest = *a + *b;
 }
 
-/// Subtract two vectors and store result in destination
 #[inline]
 pub fn vsub(dest: &mut Vec3, a: &Vec3, b: &Vec3) {
     *dest = *a - *b;
 }
 
-/// Normalize a vector in place
 #[inline]
 pub fn vnormalize(dest: &mut Vec3) {
     let len = dest.length();
@@ -205,7 +179,6 @@ pub fn vnormalize(dest: &mut Vec3) {
     }
 }
 
-/// Find the closest point on a triangle to a given point
 pub fn closest_point_on_triangle(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> Vec3 {
     // Check if P in vertex region outside A
     let ab = *b - *a;
@@ -261,13 +234,11 @@ pub fn closest_point_on_triangle(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> Vec3
     *a + ab * v + ac * w // = u*a + v*b + w*c, u = va * denom = 1.0-v-w
 }
 
-/// Calculate the squared distance from a point to a triangle
 pub fn distance_point_triangle_squared(p: &Vec3, a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
     let closest = closest_point_on_triangle(p, a, b, c);
     (*p - closest).length_squared()
 }
 
-/// Check if a cylinder overlaps with a line segment
 pub fn overlap_cylinder_segment(
     start: &Vec3,
     end: &Vec3,
@@ -333,7 +304,7 @@ pub fn overlap_cylinder_segment(
     check_point_in_cylinder(start) || check_point_in_cylinder(end)
 }
 
-/// Compute the 2D convex hull of a set of points using Graham's scan algorithm
+/// Uses Graham's scan algorithm.
 pub fn convex_hull_2d(points: &mut [(f32, f32)]) -> Vec<(f32, f32)> {
     let n = points.len();
     if n < 3 {

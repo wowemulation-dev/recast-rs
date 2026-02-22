@@ -152,25 +152,21 @@ impl DynamicNavMeshConfig {
         self
     }
 
-    /// Sets the walkable area marker value.
     pub fn with_walkable_area(mut self, area: u8) -> Self {
         self.walkable_area = area;
         self
     }
 
-    /// Sets whether to filter low-hanging obstacles.
     pub fn with_filter_low_hanging_obstacles(mut self, filter: bool) -> Self {
         self.filter_low_hanging_obstacles = filter;
         self
     }
 
-    /// Sets whether to filter ledge spans.
     pub fn with_filter_ledge_spans(mut self, filter: bool) -> Self {
         self.filter_ledge_spans = filter;
         self
     }
 
-    /// Sets whether to filter walkable low-height spans.
     pub fn with_filter_walkable_low_height_spans(mut self, filter: bool) -> Self {
         self.filter_walkable_low_height_spans = filter;
         self

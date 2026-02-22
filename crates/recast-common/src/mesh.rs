@@ -13,13 +13,11 @@ use std::path::Path;
 /// A simple triangle mesh
 #[derive(Debug, Clone, Default)]
 pub struct TriMesh {
-    /// The vertices of the mesh as a flat array of [x, y, z] coordinates
+    /// Flat array of [x, y, z] coordinates
     pub vertices: Vec<f32>,
-    /// The indices of the mesh, 3 per triangle
+    /// Triangle indices, 3 per triangle
     pub indices: Vec<i32>,
-    /// The number of vertices in the mesh
     pub vert_count: usize,
-    /// The number of triangles in the mesh
     pub tri_count: usize,
 }
 

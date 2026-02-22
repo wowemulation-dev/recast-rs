@@ -116,7 +116,6 @@ impl Default for UpdateFlags {
     }
 }
 
-// Legacy AgentParams for backwards compatibility
 /// Agent parameters for crowd
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -170,119 +169,92 @@ impl Default for AgentParams {
 }
 
 impl AgentParams {
-    /// Sets the agent radius.
     pub fn with_radius(mut self, radius: f32) -> Self {
         self.radius = radius;
         self
     }
 
-    /// Sets the agent height.
     pub fn with_height(mut self, height: f32) -> Self {
         self.height = height;
         self
     }
 
-    /// Sets the maximum acceleration.
     pub fn with_max_acceleration(mut self, accel: f32) -> Self {
         self.max_acceleration = accel;
         self
     }
 
-    /// Sets the maximum speed.
     pub fn with_max_speed(mut self, speed: f32) -> Self {
         self.max_speed = speed;
         self
     }
 
-    /// Sets the collision query range.
     pub fn with_collision_query_range(mut self, range: f32) -> Self {
         self.collision_query_range = range;
         self
     }
 
-    /// Sets the path optimization range.
     pub fn with_path_optimization_range(mut self, range: f32) -> Self {
         self.path_optimization_range = range;
         self
     }
 
-    /// Sets whether the agent uses separation behavior.
     pub fn with_separate(mut self, separate: bool) -> Self {
         self.separate = separate;
         self
     }
 
-    /// Sets the update flags controlling agent steering behavior.
     pub fn with_update_flags(mut self, flags: UpdateFlags) -> Self {
         self.update_flags = flags;
         self
     }
 
-    /// Sets the obstacle avoidance quality type (0..3).
+    /// Quality type ranges from 0 (low) to 3 (high).
     pub fn with_obstacle_avoidance_type(mut self, avoidance_type: i32) -> Self {
         self.obstacle_avoidance_type = avoidance_type;
         self
     }
 
-    /// Sets the query filter type index.
     pub fn with_query_filter_type(mut self, filter_type: i32) -> Self {
         self.query_filter_type = filter_type;
         self
     }
 
-    /// Sets optional user data attached to the agent.
     pub fn with_user_data(mut self, data: Option<usize>) -> Self {
         self.user_data = data;
         self
     }
 
-    /// Sets whether the agent uses RVO collision avoidance.
     pub fn with_use_rvo(mut self, use_rvo: bool) -> Self {
         self.use_rvo = use_rvo;
         self
     }
 
-    /// Sets the RVO configuration for the agent.
     pub fn with_rvo_config(mut self, config: RVOConfig) -> Self {
         self.rvo_config = config;
         self
     }
 }
 
-// Legacy CrowdAgent for backwards compatibility
 /// Agent in the crowd (legacy)
 #[derive(Debug, Clone)]
 pub struct CrowdAgent {
-    /// Agent parameters
     params: AgentParams,
-    /// Current state of the agent
     state: AgentState,
-    /// Current position of the agent
     pos: [f32; 3],
-    /// Desired velocity of the agent
     desired_vel: [f32; 3],
-    /// Current velocity of the agent
     vel: [f32; 3],
-    /// Current acceleration of the agent
     accel: [f32; 3],
-    /// Target position of the agent
     target: [f32; 3],
-    /// Target polygon reference
     target_ref: PolyRef,
-    /// Path corridor for the agent
     corridor: PathCorridor,
-    /// Whether the agent needs a target update
     target_updated: bool,
-    /// Whether the agent is active
     active: bool,
-    /// Agent ID
     id: usize,
-    /// RVO agent ID (if using RVO)
     rvo_agent_id: Option<usize>,
 }
 
 impl CrowdAgent {
-    /// Creates a new crowd agent
     pub fn new(params: AgentParams, id: usize) -> Self {
         Self {
             params,
@@ -301,7 +273,6 @@ impl CrowdAgent {
         }
     }
 
-    /// Resets the agent
     pub fn reset(&mut self) {
         self.state = AgentState::Invalid;
         self.pos = [0.0, 0.0, 0.0];
@@ -315,37 +286,30 @@ impl CrowdAgent {
         self.active = false;
     }
 
-    /// Gets the agent's position
     pub fn get_pos(&self) -> Vec3 {
         Vec3::from(self.pos)
     }
 
-    /// Gets the agent's velocity
     pub fn get_vel(&self) -> Vec3 {
         Vec3::from(self.vel)
     }
 
-    /// Gets the agent's target
     pub fn get_target(&self) -> Vec3 {
         Vec3::from(self.target)
     }
 
-    /// Gets the agent's state
     pub fn get_state(&self) -> AgentState {
         self.state
     }
 
-    /// Gets the agent's parameters
     pub fn get_params(&self) -> &AgentParams {
         &self.params
     }
 
-    /// Gets the agent's ID
     pub fn get_id(&self) -> usize {
         self.id
     }
 
-    /// Gets whether the agent is active
     pub fn is_active(&self) -> bool {
         self.active
     }
@@ -354,48 +318,33 @@ impl CrowdAgent {
 /// Legacy crowd manager for Detour
 #[derive(Debug)]
 pub struct Crowd<'a> {
-    /// Reference to the navigation mesh
-    /// TODO: Currently stored but not used directly - access through query instead
+    // TODO: Currently stored but not used directly - access through query instead
     #[allow(dead_code)]
     nav_mesh: &'a NavMesh,
-    /// Navigation mesh query
     query: NavMeshQuery<'a>,
-    /// Maximum number of agents
     max_agents: usize,
-    /// Current agents
     agents: Vec<Option<CrowdAgent>>,
-    /// Active agents
     active_agents: Vec<usize>,
-    /// Query filters
     filters: Vec<QueryFilter>,
-    /// Time delta for updates
     delta_time: f32,
-    /// Maximum agent radius
     max_agent_radius: f32,
-    /// RVO simulator for collision avoidance
     rvo_simulator: Option<RVOSimulator>,
-    /// Formation manager for organizing agents into formations
     formation_manager: FormationManager,
-    /// Proximity grid for efficient spatial queries
     proximity_grid: ProximityGrid,
 }
 
 impl<'a> Crowd<'a> {
-    /// Creates a new crowd manager
     pub fn new(nav_mesh: &'a NavMesh, max_agents: usize, max_agent_radius: f32) -> Self {
         let query = NavMeshQuery::new(nav_mesh);
 
-        // Create agent slots
         let mut agents = Vec::with_capacity(max_agents);
         for _i in 0..max_agents {
             agents.push(None);
         }
 
-        // Create a default query filter
         let default_filter = QueryFilter::default();
 
-        // Calculate appropriate cell size for proximity grid
-        // Use 2x the max agent radius to ensure good spatial distribution
+        // 4x max agent radius gives good spatial distribution for the proximity grid
         let grid_cell_size = (max_agent_radius * 4.0).max(2.0);
 
         Self {
@@ -413,9 +362,7 @@ impl<'a> Crowd<'a> {
         }
     }
 
-    /// Adds an agent to the crowd
     pub fn add_agent(&mut self, pos: Vec3, params: AgentParams) -> Result<usize, CrowdError> {
-        // Find a free slot
         let mut slot = usize::MAX;
         for i in 0..self.max_agents {
             if self.agents[i].is_none() {
@@ -428,7 +375,6 @@ impl<'a> Crowd<'a> {
             return Err(CrowdError::InvalidParam);
         }
 
-        // Find nearest polygon to position
         let ext = Vec3::new(
             params.radius * 2.0,
             params.height * 0.5,
@@ -448,25 +394,18 @@ impl<'a> Crowd<'a> {
             }
         };
 
-        // Update max agent radius before moving params
         self.max_agent_radius = self.max_agent_radius.max(params.radius);
 
-        // Create the agent
         let mut agent = CrowdAgent::new(params.clone(), slot);
-
-        // Initialize the agent
         agent.state = AgentState::Active;
         agent.pos = nearest_pos.to_array();
         agent.desired_vel = [0.0, 0.0, 0.0];
         agent.vel = [0.0, 0.0, 0.0];
         agent.active = true;
 
-        // Init path corridor
         agent.corridor.reset(nearest_ref, nearest_pos);
 
-        // Handle RVO integration
         if params.use_rvo {
-            // Initialize RVO simulator if needed
             if self.rvo_simulator.is_none() {
                 self.rvo_simulator = Some(RVOSimulator::new());
             }
@@ -478,7 +417,6 @@ impl<'a> Crowd<'a> {
             }
         }
 
-        // Add the agent to the proximity grid
         let grid_agent = GridAgent {
             id: slot,
             pos: nearest_pos.to_array(),
@@ -486,14 +424,12 @@ impl<'a> Crowd<'a> {
         };
         let _ = self.proximity_grid.update_agent(grid_agent);
 
-        // Add the agent to the crowd
         self.agents[slot] = Some(agent);
         self.active_agents.push(slot);
 
         Ok(slot)
     }
 
-    /// Removes an agent from the crowd
     pub fn remove_agent(&mut self, agent_idx: usize) -> Result<(), CrowdError> {
         if agent_idx >= self.max_agents {
             return Err(CrowdError::AgentNotFound { index: agent_idx });
@@ -503,7 +439,6 @@ impl<'a> Crowd<'a> {
             return Err(CrowdError::AgentNotFound { index: agent_idx });
         }
 
-        // Handle RVO agent removal
         if let Some(agent) = &self.agents[agent_idx] {
             if let Some(rvo_agent_id) = agent.rvo_agent_id {
                 if let Some(rvo_sim) = &mut self.rvo_simulator {
@@ -512,22 +447,17 @@ impl<'a> Crowd<'a> {
             }
         }
 
-        // Remove from proximity grid
         self.proximity_grid.remove_agent(agent_idx);
 
-        // Remove from active agents
         if let Some(pos) = self.active_agents.iter().position(|&idx| idx == agent_idx) {
             self.active_agents.swap_remove(pos);
         }
 
-        // Reset the agent slot
         self.agents[agent_idx] = None;
 
-        // Update max agent radius
         if self.max_agent_radius > DEFAULT_AGENT_RADIUS {
             self.max_agent_radius = DEFAULT_AGENT_RADIUS;
 
-            // Recalculate max agent radius
             for agent in self.agents.iter().flatten() {
                 self.max_agent_radius = self.max_agent_radius.max(agent.params.radius);
             }
@@ -555,12 +485,10 @@ impl<'a> Crowd<'a> {
             }
         };
 
-        // Initialize request
         agent.target = target_pos;
         agent.target_ref = target_ref;
         agent.target_updated = true;
 
-        // If the agent is inactive, activate it
         if !agent.active {
             agent.active = true;
             self.active_agents.push(agent_idx);
@@ -573,26 +501,21 @@ impl<'a> Crowd<'a> {
     pub fn update(&mut self, delta_time: f32) -> Result<(), CrowdError> {
         self.delta_time = delta_time;
 
-        // Reset dynamic avoidance grid
         // TODO: Implement dynamic avoidance grid
 
-        // Update all active agents
         for &agent_idx in &self.active_agents.clone() {
-            // Find paths for agents that need them
             if let Some(agent) = self.agents[agent_idx].as_ref() {
                 if agent.target_updated {
                     let filter_idx = agent.params.query_filter_type as usize;
                     let filter = self.get_filter(filter_idx)?.clone();
 
-                    // Check if we have a valid path
                     if agent.corridor.get_path().is_empty() {
-                        continue; // Skip this agent if no valid path
+                        continue;
                     }
 
                     let target_ref = agent.target_ref;
                     let target_pos = agent.target;
 
-                    // Update agent after path finding
                     if let Some(agent) = self.agents[agent_idx].as_mut() {
                         agent.target_updated = false;
 
@@ -613,16 +536,14 @@ impl<'a> Crowd<'a> {
                 }
             }
 
-            // Update path corridor for active agents
             if let Some(agent) = self.agents[agent_idx].as_ref() {
                 if agent.state == AgentState::Active && !agent.corridor.get_path().is_empty() {
                     let filter_idx = agent.params.query_filter_type as usize;
                     let filter = self.get_filter(filter_idx)?.clone();
                     let agent_pos = agent.pos;
 
-                    // Update corridor advance in a separate scope to avoid borrow issues
+                    // Separate scope to avoid borrow issues with self.agents and self.query
                     if let Some(agent) = self.agents[agent_idx].as_mut() {
-                        // First try to optimize the path corridor
                         if let Err(e) = agent.corridor.optimize_path(&mut self.query, &filter) {
                             // If optimization fails, log but continue - it's not critical
                             eprintln!(
@@ -631,7 +552,6 @@ impl<'a> Crowd<'a> {
                             );
                         }
 
-                        // Advance the corridor towards the target
                         match agent.corridor.advance(
                             Vec3::from(agent_pos),
                             &mut self.query,
@@ -639,19 +559,16 @@ impl<'a> Crowd<'a> {
                         ) {
                             Ok(reached_target) => {
                                 if reached_target {
-                                    // Agent has reached their target
                                     agent.state = AgentState::Completed;
                                     agent.target_ref = PolyRef::new(0);
                                 }
                             }
                             Err(e) => {
-                                // If corridor advance fails, try to recover by moving position only
                                 eprintln!(
                                     "DEBUG: Corridor advance failed for agent {}: {:?}",
                                     agent_idx, e
                                 );
 
-                                // Fallback: just update corridor position without advancing
                                 if let Err(e2) = agent.corridor.move_position(
                                     Vec3::from(agent_pos),
                                     &mut self.query,
@@ -661,7 +578,6 @@ impl<'a> Crowd<'a> {
                                         "DEBUG: Corridor move_position fallback also failed for agent {}: {:?}",
                                         agent_idx, e2
                                     );
-                                    // If both fail, mark agent as failed
                                     agent.state = AgentState::Failed;
                                 }
                             }
@@ -671,28 +587,23 @@ impl<'a> Crowd<'a> {
             }
         }
 
-        // Update formations
         self.update_formations(delta_time)?;
 
-        // Calculate steering (includes formation steering)
         if let Err(e) = self.calculate_steering() {
             eprintln!("DEBUG: calculate_steering failed: {:?}", e);
             return Err(e);
         }
 
-        // Calculate velocity
         if let Err(e) = self.calculate_velocity(delta_time) {
             eprintln!("DEBUG: calculate_velocity failed: {:?}", e);
             return Err(e);
         }
 
-        // Move agents
         if let Err(e) = self.move_agents(delta_time) {
             eprintln!("DEBUG: move_agents failed: {:?}", e);
             return Err(e);
         }
 
-        // Clean up inactive agents
         self.purge_inactive_agents();
 
         Ok(())
@@ -700,11 +611,10 @@ impl<'a> Crowd<'a> {
 
     /// Calculates steering for all active agents
     fn calculate_steering(&mut self) -> Result<(), CrowdError> {
-        // Collect agent data first to avoid borrow checker issues
+        // Clone needed to avoid borrowing self.active_agents while mutating self.agents
         let active_agents = self.active_agents.clone();
 
         for &agent_idx in &active_agents {
-            // Skip if agent doesn't exist or isn't active
             let Some(agent) = self.agents[agent_idx].as_ref() else {
                 continue;
             };
@@ -712,23 +622,18 @@ impl<'a> Crowd<'a> {
                 continue;
             }
 
-            // Get agent data
             let path = agent.corridor.get_path().to_vec();
             let agent_pos = agent.pos;
             let max_speed = agent.params.max_speed;
             let target_pos = agent.corridor.get_target();
 
-            // Calculate steering direction
             let mut steer_dir = [0.0; 3];
 
-            // Calculate steer direction based on the remaining path
             if !path.is_empty() {
-                // Simple steering: move directly towards the target
                 steer_dir[0] = target_pos[0] - agent_pos[0];
                 steer_dir[1] = target_pos[1] - agent_pos[1];
                 steer_dir[2] = target_pos[2] - agent_pos[2];
 
-                // Normalize direction
                 let dist = (steer_dir[0] * steer_dir[0]
                     + steer_dir[1] * steer_dir[1]
                     + steer_dir[2] * steer_dir[2])
@@ -740,10 +645,8 @@ impl<'a> Crowd<'a> {
                 }
             }
 
-            // Apply formation steering if agent is in a formation
             let formation_positions = self.formation_manager.get_formation_positions();
             if let Some(formation_pos) = formation_positions.get(&agent_idx) {
-                // Calculate formation steering
                 let formation_steer = [
                     formation_pos[0] - agent_pos[0],
                     formation_pos[1] - agent_pos[1],
@@ -756,15 +659,13 @@ impl<'a> Crowd<'a> {
                     .sqrt();
 
                 if formation_dist > 0.001 {
-                    // Normalize formation steering
                     let formation_steer_normalized = [
                         formation_steer[0] / formation_dist,
                         formation_steer[1] / formation_dist,
                         formation_steer[2] / formation_dist,
                     ];
 
-                    // Blend path steering with formation steering
-                    let formation_weight = 0.6; // Formation has moderate influence
+                    let formation_weight = 0.6;
                     let path_weight = 1.0 - formation_weight;
 
                     steer_dir[0] = path_weight * steer_dir[0]
@@ -774,7 +675,6 @@ impl<'a> Crowd<'a> {
                     steer_dir[2] = path_weight * steer_dir[2]
                         + formation_weight * formation_steer_normalized[2];
 
-                    // Renormalize blended steering
                     let blended_length = (steer_dir[0] * steer_dir[0]
                         + steer_dir[1] * steer_dir[1]
                         + steer_dir[2] * steer_dir[2])
@@ -787,7 +687,6 @@ impl<'a> Crowd<'a> {
                 }
             }
 
-            // Set desired velocity based on steering direction and speed
             if let Some(agent) = self.agents[agent_idx].as_mut() {
                 agent.desired_vel[0] = steer_dir[0] * max_speed;
                 agent.desired_vel[1] = steer_dir[1] * max_speed;
@@ -800,10 +699,8 @@ impl<'a> Crowd<'a> {
 
     /// Calculates velocity for all active agents
     fn calculate_velocity(&mut self, delta_time: f32) -> Result<(), CrowdError> {
-        // Do collision avoidance between agents
         self.perform_collision_avoidance(delta_time)?;
 
-        // Update each agent's velocity
         for &agent_idx in &self.active_agents {
             let agent = match self.agents[agent_idx].as_mut() {
                 Some(agent) => agent,
@@ -814,15 +711,11 @@ impl<'a> Crowd<'a> {
                 continue;
             }
 
-            // Calculate acceleration
             let mut accel = [0.0; 3];
-
-            // Acceleration from desired velocity
             accel[0] = (agent.desired_vel[0] - agent.vel[0]) * agent.params.max_acceleration;
             accel[1] = (agent.desired_vel[1] - agent.vel[1]) * agent.params.max_acceleration;
             accel[2] = (agent.desired_vel[2] - agent.vel[2]) * agent.params.max_acceleration;
 
-            // Limit acceleration
             let accel_sq = accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2];
             if accel_sq > agent.params.max_acceleration * agent.params.max_acceleration {
                 let accel_mag = accel_sq.sqrt();
@@ -831,7 +724,6 @@ impl<'a> Crowd<'a> {
                 accel[2] = accel[2] * agent.params.max_acceleration / accel_mag;
             }
 
-            // Update agent's acceleration
             agent.accel = accel;
         }
 
@@ -850,12 +742,10 @@ impl<'a> Crowd<'a> {
                 continue;
             }
 
-            // Update velocity
             agent.vel[0] += agent.accel[0] * delta_time;
             agent.vel[1] += agent.accel[1] * delta_time;
             agent.vel[2] += agent.accel[2] * delta_time;
 
-            // Limit velocity
             let vel_sq = agent.vel[0] * agent.vel[0]
                 + agent.vel[1] * agent.vel[1]
                 + agent.vel[2] * agent.vel[2];
@@ -866,18 +756,16 @@ impl<'a> Crowd<'a> {
                 agent.vel[2] = agent.vel[2] * agent.params.max_speed / vel_mag;
             }
 
-            // Calculate new position
             let new_pos = [
                 agent.pos[0] + agent.vel[0] * delta_time,
                 agent.pos[1] + agent.vel[1] * delta_time,
                 agent.pos[2] + agent.vel[2] * delta_time,
             ];
 
-            // Update agent position temporarily
             agent.pos = new_pos;
         }
 
-        // Update path corridors in a separate pass to avoid borrow issues
+        // Separate pass: self.agents and self.query can't be borrowed together above
         let active_agents = self.active_agents.clone();
         for &agent_idx in &active_agents {
             if let Some(agent) = self.agents[agent_idx].as_ref() {
@@ -900,7 +788,6 @@ impl<'a> Crowd<'a> {
             }
         }
 
-        // Update all agent positions in the proximity grid after movement
         self.update_proximity_grid()?;
 
         Ok(())
@@ -908,7 +795,6 @@ impl<'a> Crowd<'a> {
 
     /// Performs collision avoidance between agents
     fn perform_collision_avoidance(&mut self, delta_time: f32) -> Result<(), CrowdError> {
-        // Check if we should use RVO for collision avoidance
         let use_rvo = self.rvo_simulator.is_some() && self.has_rvo_agents();
 
         if use_rvo {
@@ -920,7 +806,6 @@ impl<'a> Crowd<'a> {
         Ok(())
     }
 
-    /// Checks if any agents are using RVO
     fn has_rvo_agents(&self) -> bool {
         self.active_agents.iter().any(|&agent_idx| {
             if let Some(agent) = &self.agents[agent_idx] {
@@ -933,7 +818,6 @@ impl<'a> Crowd<'a> {
 
     /// Performs RVO-based collision avoidance
     fn perform_rvo_collision_avoidance(&mut self, delta_time: f32) -> Result<(), CrowdError> {
-        // Synchronize crowd agents with RVO agents
         for &agent_idx in &self.active_agents {
             if let Some(agent) = &mut self.agents[agent_idx] {
                 if agent.state != AgentState::Active || !agent.params.use_rvo {
@@ -943,7 +827,6 @@ impl<'a> Crowd<'a> {
                 if let Some(rvo_agent_id) = agent.rvo_agent_id {
                     if let Some(rvo_sim) = &mut self.rvo_simulator {
                         if let Some(rvo_agent) = rvo_sim.get_agent_mut(rvo_agent_id) {
-                            // Update RVO agent position and preferred velocity
                             rvo_agent.position = position_3d_to_2d(Vec3::from(agent.pos));
                             rvo_agent.velocity = velocity_3d_to_2d(Vec3::from(agent.vel));
                             rvo_agent.pref_velocity =
@@ -954,12 +837,10 @@ impl<'a> Crowd<'a> {
             }
         }
 
-        // Run RVO simulation step
         if let Some(rvo_sim) = &mut self.rvo_simulator {
             rvo_sim.step(delta_time)?;
         }
 
-        // Apply RVO results back to crowd agents
         for &agent_idx in &self.active_agents {
             if let Some(agent) = &mut self.agents[agent_idx] {
                 if agent.state != AgentState::Active || !agent.params.use_rvo {
@@ -969,7 +850,6 @@ impl<'a> Crowd<'a> {
                 if let Some(rvo_agent_id) = agent.rvo_agent_id {
                     if let Some(rvo_sim) = &self.rvo_simulator {
                         if let Some(rvo_agent) = rvo_sim.get_agent(rvo_agent_id) {
-                            // Apply RVO velocity to desired velocity
                             let new_vel_3d = velocity_2d_to_3d(&rvo_agent.get_new_velocity());
                             agent.desired_vel = new_vel_3d.to_array();
                         }
@@ -983,12 +863,10 @@ impl<'a> Crowd<'a> {
 
     /// Performs basic collision avoidance using proximity grid for efficiency
     fn perform_basic_collision_avoidance(&mut self) -> Result<(), CrowdError> {
-        // Skip if there are too few agents
         if self.active_agents.len() <= 1 {
             return Ok(());
         }
 
-        // For each active agent, avoid collisions with nearby agents
         for i in 0..self.active_agents.len() {
             let agent_idx_i = self.active_agents[i];
 
@@ -1001,7 +879,6 @@ impl<'a> Crowd<'a> {
                 continue;
             }
 
-            // Skip if agent doesn't need separation
             if !agent_i.params.separate
                 || !agent_i
                     .params
@@ -1011,23 +888,19 @@ impl<'a> Crowd<'a> {
                 continue;
             }
 
-            // Use proximity grid to find nearby agents efficiently
             let query_radius = agent_i.params.collision_query_range;
             let nearby_agents = self
                 .proximity_grid
                 .query_agents(Vec3::from(agent_i.pos), query_radius);
 
-            // Calculate a separation vector from nearby agents
             let mut sep = [0.0, 0.0, 0.0];
             let mut weight = 0.0;
 
             for grid_agent in nearby_agents {
-                // Skip self
                 if grid_agent.id == agent_idx_i {
                     continue;
                 }
 
-                // Get the actual agent data
                 let agent_j = match self.agents.get(grid_agent.id).and_then(|a| a.as_ref()) {
                     Some(agent) => agent,
                     None => continue,
@@ -1037,20 +910,17 @@ impl<'a> Crowd<'a> {
                     continue;
                 }
 
-                // Calculate distance between agents
                 let dist_x = agent_i.pos[0] - agent_j.pos[0];
                 let dist_y = agent_i.pos[1] - agent_j.pos[1];
                 let dist_z = agent_i.pos[2] - agent_j.pos[2];
 
                 let dist_sq = dist_x * dist_x + dist_y * dist_y + dist_z * dist_z;
 
-                // Skip if too far away
                 let min_dist = agent_i.params.radius + agent_j.params.radius;
                 if dist_sq > min_dist * min_dist * 4.0 {
                     continue;
                 }
 
-                // Calculate separation vector
                 let dist = dist_sq.sqrt();
                 let weight_j = if dist < 0.0001 { 1.0 } else { 1.0 / dist };
 
@@ -1060,26 +930,21 @@ impl<'a> Crowd<'a> {
                 weight += weight_j;
             }
 
-            // Apply separation to desired velocity
             if weight > 0.0001 {
-                // Normalize separation vector
                 sep[0] /= weight;
                 sep[1] /= weight;
                 sep[2] /= weight;
 
-                // Get agent (mutable) again
                 let agent_i = match self.agents[agent_idx_i].as_mut() {
                     Some(agent) => agent,
                     None => continue,
                 };
 
-                // Blend with desired velocity
                 let blend = 0.5;
                 agent_i.desired_vel[0] = agent_i.desired_vel[0] * (1.0 - blend) + sep[0] * blend;
                 agent_i.desired_vel[1] = agent_i.desired_vel[1] * (1.0 - blend) + sep[1] * blend;
                 agent_i.desired_vel[2] = agent_i.desired_vel[2] * (1.0 - blend) + sep[2] * blend;
 
-                // Normalize desired velocity
                 let desired_vel_sq = agent_i.desired_vel[0] * agent_i.desired_vel[0]
                     + agent_i.desired_vel[1] * agent_i.desired_vel[1]
                     + agent_i.desired_vel[2] * agent_i.desired_vel[2];
@@ -1099,7 +964,6 @@ impl<'a> Crowd<'a> {
         Ok(())
     }
 
-    /// Purges inactive agents from the active list
     fn purge_inactive_agents(&mut self) {
         let mut i = 0;
         while i < self.active_agents.len() {
@@ -1118,7 +982,6 @@ impl<'a> Crowd<'a> {
         }
     }
 
-    /// Gets a query filter by index
     fn get_filter(&self, idx: usize) -> Result<&QueryFilter, CrowdError> {
         if idx >= self.filters.len() {
             return Err(CrowdError::InvalidParam);
@@ -1127,7 +990,6 @@ impl<'a> Crowd<'a> {
         Ok(&self.filters[idx])
     }
 
-    /// Gets an agent by index
     pub fn get_agent(&self, idx: usize) -> Option<&CrowdAgent> {
         if idx >= self.agents.len() {
             return None;
@@ -1139,7 +1001,6 @@ impl<'a> Crowd<'a> {
         }
     }
 
-    /// Gets an agent by index (mutable)
     pub fn get_agent_mut(&mut self, idx: usize) -> Option<&mut CrowdAgent> {
         if idx >= self.agents.len() {
             return None;
@@ -1151,18 +1012,15 @@ impl<'a> Crowd<'a> {
         }
     }
 
-    /// Gets the number of active agents
     pub fn get_active_agent_count(&self) -> usize {
         self.active_agents.len()
     }
 
-    /// Adds a query filter
     pub fn add_query_filter(&mut self, filter: QueryFilter) -> usize {
         self.filters.push(filter);
         self.filters.len() - 1
     }
 
-    /// Gets a query filter by index (mutable)
     pub fn get_filter_mut(&mut self, idx: usize) -> Result<&mut QueryFilter, CrowdError> {
         if idx >= self.filters.len() {
             return Err(CrowdError::InvalidParam);
@@ -1171,44 +1029,34 @@ impl<'a> Crowd<'a> {
         Ok(&mut self.filters[idx])
     }
 
-    /// Enables RVO collision avoidance for the crowd
     pub fn enable_rvo(&mut self, default_config: Option<RVOConfig>) {
         let config = default_config.unwrap_or_default();
         self.rvo_simulator = Some(RVOSimulator::new_with_config(config));
     }
 
-    /// Disables RVO collision avoidance for the crowd
     pub fn disable_rvo(&mut self) {
-        // Remove RVO agent IDs from all agents
         for agent in self.agents.iter_mut().flatten() {
             agent.rvo_agent_id = None;
         }
         self.rvo_simulator = None;
     }
 
-    /// Gets a reference to the RVO simulator (if enabled)
     pub fn get_rvo_simulator(&self) -> Option<&RVOSimulator> {
         self.rvo_simulator.as_ref()
     }
 
-    /// Gets a mutable reference to the RVO simulator (if enabled)
     pub fn get_rvo_simulator_mut(&mut self) -> Option<&mut RVOSimulator> {
         self.rvo_simulator.as_mut()
     }
 
-    /// Checks if RVO is enabled for this crowd
     pub fn is_rvo_enabled(&self) -> bool {
         self.rvo_simulator.is_some()
     }
 
-    // Formation Management Methods
-
-    /// Creates a new formation with the specified configuration
     pub fn create_formation(&mut self, config: FormationConfig) -> usize {
         self.formation_manager.create_formation(config)
     }
 
-    /// Adds an agent to a formation with the specified role
     pub fn add_agent_to_formation(
         &mut self,
         formation_id: usize,
@@ -1222,17 +1070,14 @@ impl<'a> Crowd<'a> {
             .add_agent_to_formation(formation_id, agent_id, role)
     }
 
-    /// Removes an agent from their current formation
     pub fn remove_agent_from_formation(&mut self, agent_id: usize) -> Result<(), CrowdError> {
         self.formation_manager.remove_agent_from_formation(agent_id)
     }
 
-    /// Gets the formation ID for an agent (if any)
     pub fn get_agent_formation(&self, agent_id: usize) -> Option<usize> {
         self.formation_manager.get_agent_formation(agent_id)
     }
 
-    /// Sets a target destination for a formation
     pub fn set_formation_target(
         &mut self,
         formation_id: usize,
@@ -1242,29 +1087,24 @@ impl<'a> Crowd<'a> {
             .set_formation_target(formation_id, target)
     }
 
-    /// Gets the formation manager for direct access
     pub fn get_formation_manager(&self) -> &FormationManager {
         &self.formation_manager
     }
 
-    /// Gets the formation manager for direct access (mutable)
     pub fn get_formation_manager_mut(&mut self) -> &mut FormationManager {
         &mut self.formation_manager
     }
 
-    /// Dissolves a formation, removing all agents from it
     pub fn dissolve_formation(&mut self, formation_id: usize) -> Result<(), CrowdError> {
         self.formation_manager.dissolve_formation(formation_id)
     }
 
-    /// Gets the number of active formations
     pub fn get_formation_count(&self) -> usize {
         self.formation_manager.get_formation_count()
     }
 
     /// Updates formations and applies formation steering
     fn update_formations(&mut self, delta_time: f32) -> Result<(), CrowdError> {
-        // Collect current agent positions
         let mut agent_positions = std::collections::HashMap::new();
         for (idx, agent_opt) in self.agents.iter().enumerate() {
             if let Some(agent) = agent_opt {
@@ -1274,13 +1114,11 @@ impl<'a> Crowd<'a> {
             }
         }
 
-        // Update the formation manager
         self.formation_manager.update(&agent_positions, delta_time);
 
         Ok(())
     }
 
-    /// Updates all agent positions in the proximity grid
     fn update_proximity_grid(&mut self) -> Result<(), CrowdError> {
         for &agent_idx in &self.active_agents {
             if let Some(agent) = &self.agents[agent_idx] {
@@ -1297,17 +1135,14 @@ impl<'a> Crowd<'a> {
         Ok(())
     }
 
-    /// Gets a reference to the proximity grid for inspection
     pub fn get_proximity_grid(&self) -> &ProximityGrid {
         &self.proximity_grid
     }
 
-    /// Gets proximity grid statistics for performance monitoring
     pub fn get_proximity_grid_stats(&self) -> super::proximity_grid::ProximityGridStats {
         self.proximity_grid.get_stats()
     }
 
-    /// Queries for agents near a position using the proximity grid
     pub fn query_nearby_agents(&self, pos: Vec3, radius: f32) -> Vec<usize> {
         self.proximity_grid
             .query_agents(pos, radius)
@@ -1316,13 +1151,11 @@ impl<'a> Crowd<'a> {
             .collect()
     }
 
-    /// Optimizes the proximity grid by removing empty cells
     pub fn optimize_proximity_grid(&mut self) {
         self.proximity_grid.optimize();
     }
 }
 
-/// Calculates the squared distance between two points
 #[allow(dead_code)]
 fn distance_sq(a: &[f32; 3], b: &[f32; 3]) -> f32 {
     let dx = b[0] - a[0];
@@ -1339,7 +1172,6 @@ mod tests {
 
     #[test]
     fn test_create_crowd() {
-        // Create a simple navigation mesh
         let params = {
             let mut p = NavMeshParams::default();
             p.tile_width = 100.0;
@@ -1351,7 +1183,6 @@ mod tests {
 
         let nav_mesh = NavMesh::new(params).unwrap();
 
-        // Create a crowd
         let max_agents = 100;
         let max_agent_radius = 1.0;
 

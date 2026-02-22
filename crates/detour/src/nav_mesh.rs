@@ -212,37 +212,30 @@ impl Poly {
         }
     }
 
-    /// Returns the first link index.
     pub fn first_link(&self) -> Option<usize> {
         self.first_link
     }
 
-    /// Returns the vertex indices array.
     pub fn verts(&self) -> &[u16; MAX_VERTS_PER_POLY] {
         &self.verts
     }
 
-    /// Returns the neighbor references array.
     pub fn neighbors(&self) -> &[u16; MAX_VERTS_PER_POLY] {
         &self.neighbors
     }
 
-    /// Returns the polygon flags.
     pub fn flags(&self) -> PolyFlags {
         self.flags
     }
 
-    /// Returns the number of vertices in this polygon.
     pub fn vert_count(&self) -> u8 {
         self.vert_count
     }
 
-    /// Returns the area ID.
     pub fn area(&self) -> u8 {
         self.area
     }
 
-    /// Returns the polygon type.
     pub fn poly_type(&self) -> PolyType {
         self.poly_type
     }
@@ -255,31 +248,21 @@ impl Poly {
     derive(serde::Serialize, serde::Deserialize)
 )]
 pub struct MeshTile {
-    /// Salt value for the tile
     pub(crate) salt: u32,
-    /// Tile location (x, y, layer)
     pub(crate) header: Option<TileHeader>,
-    /// Polygons in the tile
     pub(crate) polys: Vec<Poly>,
-    /// Vertices in the tile [x,y,z,...]
+    /// Flat array: `[x, y, z, ...]`
     pub(crate) verts: Vec<f32>,
-    /// Links between polygons
     pub(crate) links: Vec<Link>,
-    /// Detailed mesh data
     pub(crate) detail_meshes: Vec<PolyDetail>,
-    /// Detailed mesh vertices [x,y,z,...]
+    /// Flat array: `[x, y, z, ...]`
     pub(crate) detail_verts: Vec<f32>,
-    /// Detailed mesh triangle indices
     pub(crate) detail_tris: Vec<u8>,
-    /// Bounding volume tree root node
     pub(crate) bvh_root: Option<usize>,
-    /// Bounding volume tree nodes
     pub(crate) bvh_nodes: Vec<BVNode>,
-    /// Off-mesh connections
     pub(crate) off_mesh_connections: Vec<OffMeshConnection>,
-    /// Tile flags
     pub(crate) flags: u8,
-    /// Next free tile in the linked list (used for memory management)
+    /// Next free tile in the free-list
     pub(crate) next: Option<usize>,
 }
 
@@ -339,67 +322,54 @@ impl MeshTile {
         }
     }
 
-    /// Returns the salt value for this tile.
     pub fn salt(&self) -> u32 {
         self.salt
     }
 
-    /// Returns the tile header, if present.
     pub fn header(&self) -> Option<&TileHeader> {
         self.header.as_ref()
     }
 
-    /// Returns the polygons in this tile.
     pub fn polys(&self) -> &[Poly] {
         &self.polys
     }
 
-    /// Returns the vertices in this tile as a flat `[x, y, z, ...]` slice.
     pub fn verts(&self) -> &[f32] {
         &self.verts
     }
 
-    /// Returns the links between polygons.
     pub fn links(&self) -> &[Link] {
         &self.links
     }
 
-    /// Returns the detail meshes.
     pub fn detail_meshes(&self) -> &[PolyDetail] {
         &self.detail_meshes
     }
 
-    /// Returns the detail mesh vertices as a flat `[x, y, z, ...]` slice.
     pub fn detail_verts(&self) -> &[f32] {
         &self.detail_verts
     }
 
-    /// Returns the detail mesh triangle indices.
     pub fn detail_tris(&self) -> &[u8] {
         &self.detail_tris
     }
 
-    /// Returns the BVH root node index, if present.
     pub fn bvh_root(&self) -> Option<usize> {
         self.bvh_root
     }
 
-    /// Returns the BVH nodes.
     pub fn bvh_nodes(&self) -> &[BVNode] {
         &self.bvh_nodes
     }
 
-    /// Returns the off-mesh connections.
     pub fn off_mesh_connections(&self) -> &[OffMeshConnection] {
         &self.off_mesh_connections
     }
 
-    /// Returns the tile flags.
     pub fn flags(&self) -> u8 {
         self.flags
     }
 
-    /// Returns the next free tile index in the linked list.
     pub fn next_free(&self) -> Option<usize> {
         self.next
     }
@@ -466,112 +436,90 @@ impl TileHeader {
         }
     }
 
-    /// Returns the tile X position.
     pub fn x(&self) -> i32 {
         self.x
     }
 
-    /// Returns the tile Y position.
     pub fn y(&self) -> i32 {
         self.y
     }
 
-    /// Returns the tile layer index.
     pub fn layer(&self) -> i32 {
         self.layer
     }
 
-    /// Returns the user-defined data.
     pub fn user_id(&self) -> u32 {
         self.user_id
     }
 
-    /// Returns the tile data size.
     pub fn data_size(&self) -> usize {
         self.data_size
     }
 
-    /// Returns the bounding box minimum.
     pub fn bmin(&self) -> [f32; 3] {
         self.bmin
     }
 
-    /// Returns the bounding box maximum.
     pub fn bmax(&self) -> [f32; 3] {
         self.bmax
     }
 
-    /// Returns the number of polygons.
     pub fn poly_count(&self) -> i32 {
         self.poly_count
     }
 
-    /// Returns the number of vertices.
     pub fn vert_count(&self) -> i32 {
         self.vert_count
     }
 
-    /// Returns the maximum number of links.
     pub fn max_links(&self) -> i32 {
         self.max_links
     }
 
-    /// Returns the number of detail meshes.
     pub fn detail_mesh_count(&self) -> i32 {
         self.detail_mesh_count
     }
 
-    /// Returns the number of detail vertices.
     pub fn detail_vert_count(&self) -> i32 {
         self.detail_vert_count
     }
 
-    /// Returns the number of detail triangles.
     pub fn detail_tri_count(&self) -> i32 {
         self.detail_tri_count
     }
 
-    /// Returns the number of BVH nodes.
     pub fn bvh_node_count(&self) -> i32 {
         self.bvh_node_count
     }
 
-    /// Returns the number of off-mesh connections.
     pub fn off_mesh_connection_count(&self) -> i32 {
         self.off_mesh_connection_count
     }
 
-    /// Returns the BVH quantization factor.
     pub fn bv_quant_factor(&self) -> f32 {
         self.bv_quant_factor
     }
 
-    /// Sets the vertex count.
     pub fn set_vert_count(&mut self, count: i32) {
         self.vert_count = count;
     }
 
-    /// Sets the polygon count.
     pub fn set_poly_count(&mut self, count: i32) {
         self.poly_count = count;
     }
 
-    /// Sets the detail mesh count.
     pub fn set_detail_mesh_count(&mut self, count: i32) {
         self.detail_mesh_count = count;
     }
 
-    /// Sets the detail vertex count.
     pub fn set_detail_vert_count(&mut self, count: i32) {
         self.detail_vert_count = count;
     }
 
-    /// Sets the detail triangle count.
     pub fn set_detail_tri_count(&mut self, count: i32) {
         self.detail_tri_count = count;
     }
 
-    /// Sets the tile data size.
     pub fn set_data_size(&mut self, size: usize) {
         self.data_size = size;
     }
@@ -2329,13 +2277,16 @@ impl NavMesh {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// // Query polygons in a specific tile
-    /// let tile_x = 5;
-    /// let tile_y = 3;
+    /// ```no_run
+    /// use detour::{NavMesh, NavMeshParams, QueryFilter};
+    ///
+    /// # fn example(nav_mesh: &NavMesh) -> Result<(), Box<dyn std::error::Error>> {
+    /// let filter = QueryFilter::default();
     /// let bmin = [10.0, 0.0, 10.0];
     /// let bmax = [20.0, 5.0, 20.0];
-    /// let polys = nav_mesh.query_polygons_in_tile(tile_x, tile_y, &bmin, &bmax, &filter)?;
+    /// let polys = nav_mesh.query_polygons_in_tile(5, 3, &bmin, &bmax, &filter)?;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn query_polygons_in_tile(
         &self,

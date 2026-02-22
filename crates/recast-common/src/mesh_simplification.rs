@@ -41,30 +41,20 @@ impl Default for SimplificationConfig {
 /// Result of a mesh simplification operation
 #[derive(Debug)]
 pub struct SimplificationResult {
-    /// The simplified mesh
     pub mesh: TriMesh,
-    /// Statistics about the simplification
     pub stats: SimplificationStats,
 }
 
 /// Statistics from mesh simplification
 #[derive(Debug, Default)]
 pub struct SimplificationStats {
-    /// Original vertex count
     pub original_vertices: usize,
-    /// Original triangle count
     pub original_triangles: usize,
-    /// Final vertex count after simplification
     pub final_vertices: usize,
-    /// Final triangle count after simplification
     pub final_triangles: usize,
-    /// Number of vertices welded (merged)
     pub vertices_welded: usize,
-    /// Number of degenerate triangles removed
     pub degenerate_removed: usize,
-    /// Number of small triangles removed
     pub small_triangles_removed: usize,
-    /// Maximum error introduced by simplification
     pub max_error_introduced: f32,
 }
 
@@ -175,12 +165,10 @@ pub struct MeshSimplifier {
 }
 
 impl MeshSimplifier {
-    /// Creates a new mesh simplifier with the given configuration
     pub fn new(config: SimplificationConfig) -> Self {
         Self { config }
     }
 
-    /// Creates a new mesh simplifier with default configuration
     pub fn with_defaults() -> Self {
         Self::new(SimplificationConfig::default())
     }

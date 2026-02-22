@@ -5,13 +5,11 @@
 
 use glam::Vec3;
 
-/// Calculate twice the signed area of a 2D triangle on the XZ plane.
-///
-/// Returns twice the signed area of the triangle.
-/// The sign indicates the winding order:
-/// - Positive: clockwise (when looking down Y axis)
-/// - Negative: counter-clockwise (when looking down Y axis)
-/// - Zero: degenerate (collinear points)
+/// Returns twice the signed area.
+/// The sign indicates winding order:
+/// - Positive: clockwise (looking down Y axis)
+/// - Negative: counter-clockwise (looking down Y axis)
+/// - Zero: collinear points
 #[inline]
 pub fn tri_area_2d(a: &[f32], b: &[f32], c: &[f32]) -> f32 {
     let abx = b[0] - a[0];
@@ -21,7 +19,7 @@ pub fn tri_area_2d(a: &[f32], b: &[f32], c: &[f32]) -> f32 {
     acx * abz - abx * acz
 }
 
-/// Calculate the signed area of a 2D triangle using Vec3 points (XZ plane).
+/// Vec3 variant of [`tri_area_2d`].
 #[inline]
 pub fn tri_area_2d_vec3(a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
     let abx = b.x - a.x;
@@ -31,38 +29,31 @@ pub fn tri_area_2d_vec3(a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
     acx * abz - abx * acz
 }
 
-/// Check if point c is left of the line from a to b (on XZ plane).
 #[inline]
 pub fn left(a: &[f32], b: &[f32], c: &[f32]) -> bool {
     tri_area_2d(a, b, c) < 0.0
 }
 
-/// Check if point c is left of or on the line from a to b (on XZ plane).
 #[inline]
 pub fn left_on(a: &[f32], b: &[f32], c: &[f32]) -> bool {
     tri_area_2d(a, b, c) <= 0.0
 }
 
-/// Check if point c is right of the line from a to b (on XZ plane).
 #[inline]
 pub fn right(a: &[f32], b: &[f32], c: &[f32]) -> bool {
     tri_area_2d(a, b, c) > 0.0
 }
 
-/// Check if point c is right of or on the line from a to b (on XZ plane).
 #[inline]
 pub fn right_on(a: &[f32], b: &[f32], c: &[f32]) -> bool {
     tri_area_2d(a, b, c) >= 0.0
 }
 
-/// Check if three points are collinear (on XZ plane).
 #[inline]
 pub fn collinear(a: &[f32], b: &[f32], c: &[f32], eps: f32) -> bool {
     tri_area_2d(a, b, c).abs() <= eps
 }
 
-/// Check if point b is between points a and c on a line (on XZ plane).
-///
 /// Assumes the points are collinear.
 #[inline]
 pub fn between(a: &[f32], b: &[f32], c: &[f32]) -> bool {
@@ -73,7 +64,6 @@ pub fn between(a: &[f32], b: &[f32], c: &[f32]) -> bool {
     }
 }
 
-/// Check if two axis-aligned bounding boxes overlap.
 #[inline]
 pub fn overlap_bounds(amin: &[f32; 3], amax: &[f32; 3], bmin: &[f32; 3], bmax: &[f32; 3]) -> bool {
     amin[0] <= bmax[0]
@@ -84,13 +74,11 @@ pub fn overlap_bounds(amin: &[f32; 3], amax: &[f32; 3], bmin: &[f32; 3], bmax: &
         && amax[2] >= bmin[2]
 }
 
-/// Check if two 2D axis-aligned bounding boxes overlap (on XZ plane).
 #[inline]
 pub fn overlap_bounds_2d(amin: &[f32], amax: &[f32], bmin: &[f32], bmax: &[f32]) -> bool {
     amin[0] <= bmax[0] && amax[0] >= bmin[0] && amin[2] <= bmax[2] && amax[2] >= bmin[2]
 }
 
-/// Calculate squared distance between two points on the XZ plane.
 #[inline]
 pub fn dist_sqr_2d(a: &[f32], b: &[f32]) -> f32 {
     let dx = b[0] - a[0];
@@ -98,13 +86,11 @@ pub fn dist_sqr_2d(a: &[f32], b: &[f32]) -> f32 {
     dx * dx + dz * dz
 }
 
-/// Calculate distance between two points on the XZ plane.
 #[inline]
 pub fn dist_2d(a: &[f32], b: &[f32]) -> f32 {
     dist_sqr_2d(a, b).sqrt()
 }
 
-/// Calculate squared distance between two Vec3 points on the XZ plane.
 #[inline]
 pub fn dist_sqr_2d_vec3(a: &Vec3, b: &Vec3) -> f32 {
     let dx = b.x - a.x;
@@ -112,13 +98,11 @@ pub fn dist_sqr_2d_vec3(a: &Vec3, b: &Vec3) -> f32 {
     dx * dx + dz * dz
 }
 
-/// Calculate distance between two Vec3 points on the XZ plane.
 #[inline]
 pub fn dist_2d_vec3(a: &Vec3, b: &Vec3) -> f32 {
     dist_sqr_2d_vec3(a, b).sqrt()
 }
 
-/// Calculate the squared distance from a point to a line segment on the XZ plane.
 pub fn dist_point_segment_sqr_2d(p: &[f32], a: &[f32], b: &[f32]) -> f32 {
     let dx = b[0] - a[0];
     let dz = b[2] - a[2];
@@ -151,13 +135,11 @@ pub fn dist_point_segment_sqr_2d(p: &[f32], a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
-/// Calculate the distance from a point to a line segment on the XZ plane.
 #[inline]
 pub fn dist_point_segment_2d(p: &[f32], a: &[f32], b: &[f32]) -> f32 {
     dist_point_segment_sqr_2d(p, a, b).sqrt()
 }
 
-/// Find the closest point on a line segment to a given point (on XZ plane).
 pub fn closest_point_on_segment_2d(p: &[f32], a: &[f32], b: &[f32]) -> [f32; 3] {
     let dx = b[0] - a[0];
     let dz = b[2] - a[2];
@@ -176,8 +158,6 @@ pub fn closest_point_on_segment_2d(p: &[f32], a: &[f32], b: &[f32]) -> [f32; 3] 
     [a[0] + t * dx, a[1], a[2] + t * dz]
 }
 
-/// Check if two 2D line segments intersect (on XZ plane).
-///
 /// Returns true if the segments intersect, including touching at endpoints.
 pub fn intersect_segments_2d(a1: &[f32], a2: &[f32], b1: &[f32], b2: &[f32]) -> bool {
     let d1 = tri_area_2d(b1, b2, a1);
@@ -206,8 +186,6 @@ pub fn intersect_segments_2d(a1: &[f32], a2: &[f32], b1: &[f32], b2: &[f32]) -> 
     false
 }
 
-/// Check if a point is inside a 2D polygon (on XZ plane).
-///
 /// Uses the winding number algorithm.
 pub fn point_in_polygon_2d(p: &[f32], verts: &[f32], nverts: usize) -> bool {
     let mut winding = 0;
@@ -229,34 +207,20 @@ pub fn point_in_polygon_2d(p: &[f32], verts: &[f32], nverts: usize) -> bool {
     winding != 0
 }
 
-/// 2D perpendicular product (cross product magnitude on XZ plane).
 #[inline]
 pub fn perp_2d(x1: f32, z1: f32, x2: f32, z2: f32) -> f32 {
     x1 * z2 - z1 * x2
 }
 
-/// Calculate the perpendicular distance between two 2D vectors
 pub fn vec_perp_2d(a: &[f32], b: &[f32]) -> f32 {
     perp_2d(a[0], a[2], b[0], b[2])
 }
 
-/// Finds the intersection of a 2D segment with a 2D polygon
+/// Returns `(tmin, tmax, seg_min, seg_max)`:
+/// - `tmin`/`tmax` - normalized distance along segment where it enters/exits polygon
+/// - `seg_min`/`seg_max` - index of polygon edge where segment enters/exits
 ///
-/// # Arguments
-///
-/// * `p0` - Start point of the segment
-/// * `p1` - End point of the segment
-/// * `verts` - Polygon vertices (x,y,z format, but only x,z are used)
-/// * `nverts` - Number of vertices
-///
-/// # Returns
-///
-/// * `Ok((tmin, tmax, seg_min, seg_max))` - Where:
-///   - `tmin` - Normalized distance along segment where it enters polygon
-///   - `tmax` - Normalized distance along segment where it exits polygon
-///   - `seg_min` - Index of polygon edge where segment enters
-///   - `seg_max` - Index of polygon edge where segment exits
-/// * `None` - If no intersection
+/// Returns `None` if no intersection. Only X and Z components of vertices are used.
 pub fn intersect_segment_poly_2d(
     p0: &[f32],
     p1: &[f32],
@@ -321,7 +285,7 @@ pub fn intersect_segment_poly_2d(
     Some((tmin, tmax, seg_min, seg_max))
 }
 
-/// Calculate distance squared from a point to a segment in 2D, returns t parameter
+/// Returns `(distance_squared, t)` where `t` is the parametric position on the segment.
 pub fn dist_point_segment_sqr_2d_with_t(p: &[f32], a: &[f32], b: &[f32]) -> (f32, f32) {
     let dx = b[0] - a[0];
     let dz = b[2] - a[2];
@@ -347,20 +311,10 @@ pub fn dist_point_segment_sqr_2d_with_t(p: &[f32], a: &[f32], b: &[f32]) -> (f32
     (dx2 * dx2 + dz2 * dz2, t)
 }
 
-/// Finds the squared distance from a point to polygon edges
-///
-/// # Arguments
-///
-/// * `pt` - The test point
-/// * `verts` - Polygon vertices (x,y,z format)
-/// * `nverts` - Number of vertices
-///
-/// # Returns
-///
-/// * `(inside, edge_dists, edge_ts)` - Where:
-///   - `inside` - True if the point is inside the polygon
-///   - `edge_dists` - Squared distance to each edge
-///   - `edge_ts` - Parametric position on each edge
+/// Returns `(inside, edge_dists, edge_ts)`:
+/// - `inside` - true if the point is inside the polygon
+/// - `edge_dists` - squared distance to each edge
+/// - `edge_ts` - parametric position on each edge
 pub fn distance_pt_poly_edges_sqr(
     pt: &[f32],
     verts: &[f32],
@@ -393,7 +347,6 @@ pub fn distance_pt_poly_edges_sqr(
     (inside, edge_dists, edge_ts)
 }
 
-/// Calculate the overlap length of two 1D segments.
 #[inline]
 pub fn overlap_segment_1d(amin: f32, amax: f32, bmin: f32, bmax: f32) -> f32 {
     let min = amin.max(bmin);
@@ -401,7 +354,6 @@ pub fn overlap_segment_1d(amin: f32, amax: f32, bmin: f32, bmax: f32) -> f32 {
     (max - min).max(0.0)
 }
 
-/// Project a polygon onto an axis and get min/max values.
 pub fn project_poly_2d(axis: &[f32; 2], verts: &[f32], nverts: usize) -> (f32, f32) {
     let mut min = f32::MAX;
     let mut max = f32::MIN;

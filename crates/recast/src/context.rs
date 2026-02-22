@@ -53,14 +53,11 @@ pub enum TimerCategory {
     Custom(String),
 }
 
-/// Progress information for long-running operations
+/// Progress information for long-running operations.
 #[derive(Debug, Clone)]
 pub struct ProgressInfo {
-    /// Current step number
     pub current: usize,
-    /// Total number of steps
     pub total: usize,
-    /// Description of current operation
     pub description: String,
 }
 

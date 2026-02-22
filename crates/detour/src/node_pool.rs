@@ -37,19 +37,17 @@ pub const DT_MAX_STATES_PER_NODE: usize = 4;
 /// Node in the pathfinding graph
 #[derive(Debug, Clone)]
 pub struct DtNode {
-    /// Position of the node
     pub pos: [f32; 3],
-    /// Cost from previous node to current node
+    /// Cost from previous node to this node.
     pub cost: f32,
-    /// Total cost up to the node
+    /// Accumulated cost from start.
     pub total: f32,
-    /// Index to parent node
+    /// Parent node index.
     pub pidx: NodeIndex,
-    /// Extra state information (0-3)
+    /// Extra state information (0-3).
     pub state: u8,
-    /// Node flags
     pub flags: NodeFlags,
-    /// Polygon ref the node corresponds to
+    /// Polygon ref this node corresponds to.
     pub id: PolyRef,
 }
 
@@ -70,17 +68,13 @@ impl DtNode {
 
 /// Node pool for efficient node management during pathfinding
 pub struct DtNodePool {
-    /// Node storage
     nodes: Vec<DtNode>,
-    /// First node index for each hash bucket
+    /// First node index per hash bucket.
     first: Vec<NodeIndex>,
-    /// Next node index in hash chain
+    /// Next node index in hash chain.
     next: Vec<NodeIndex>,
-    /// Maximum number of nodes
     max_nodes: usize,
-    /// Hash table size
     hash_size: usize,
-    /// Current node count
     node_count: usize,
 }
 
@@ -111,7 +105,6 @@ impl DtNodePool {
 
     /// Gets or allocates a node for the given polygon ref and state
     pub fn get_node(&mut self, id: PolyRef, state: u8) -> Option<&mut DtNode> {
-        // First check if node exists
         let hash = Self::hash_ref(id) & (self.hash_size - 1);
         let mut idx = self.first[hash];
         let mut found_idx = None;
@@ -129,12 +122,10 @@ impl DtNodePool {
             }
         }
 
-        // If found, return it
         if let Some(idx) = found_idx {
             return Some(&mut self.nodes[idx]);
         }
 
-        // Allocate new node
         if self.node_count >= self.max_nodes {
             return None;
         }
@@ -142,7 +133,6 @@ impl DtNodePool {
         let idx = self.node_count;
         self.node_count += 1;
 
-        // Init node
         let node = &mut self.nodes[idx];
         node.pidx = DT_NULL_IDX;
         node.cost = 0.0;
@@ -151,7 +141,6 @@ impl DtNodePool {
         node.state = state;
         node.flags = NodeFlags(0);
 
-        // Add to hash table
         let hash = Self::hash_ref(id) & (self.hash_size - 1);
         self.next[idx] = self.first[hash];
         self.first[hash] = idx as NodeIndex;
@@ -223,7 +212,7 @@ impl DtNodePool {
         result
     }
 
-    /// Gets the index of a node by scanning for pointer equality
+    /// Scans for pointer equality to find the node's index.
     pub fn get_node_idx(&self, node: &DtNode) -> NodeIndex {
         match self.nodes.iter().position(|n| std::ptr::eq(n, node)) {
             Some(offset) => (offset + 1) as NodeIndex,
@@ -231,7 +220,6 @@ impl DtNodePool {
         }
     }
 
-    /// Gets a node at the given index
     pub fn get_node_at_idx(&self, idx: NodeIndex) -> Option<&DtNode> {
         if idx == 0 {
             return None;
@@ -245,7 +233,6 @@ impl DtNodePool {
         }
     }
 
-    /// Gets a mutable node at the given index
     pub fn get_node_at_idx_mut(&mut self, idx: NodeIndex) -> Option<&mut DtNode> {
         if idx == 0 {
             return None;
@@ -259,7 +246,6 @@ impl DtNodePool {
         }
     }
 
-    /// Gets memory used by the pool
     pub fn get_mem_used(&self) -> usize {
         std::mem::size_of::<Self>()
             + std::mem::size_of::<DtNode>() * self.max_nodes
@@ -267,22 +253,18 @@ impl DtNodePool {
             + std::mem::size_of::<NodeIndex>() * self.hash_size
     }
 
-    /// Gets the maximum number of nodes
     pub fn get_max_nodes(&self) -> usize {
         self.max_nodes
     }
 
-    /// Gets the hash size
     pub fn get_hash_size(&self) -> usize {
         self.hash_size
     }
 
-    /// Gets the current node count
     pub fn get_node_count(&self) -> usize {
         self.node_count
     }
 
-    /// Hashes a polygon ref
     fn hash_ref(id: PolyRef) -> usize {
         let a = id.id() as usize;
         a ^ (a >> 16)
@@ -309,17 +291,15 @@ impl DtNodeQueue {
         }
     }
 
-    /// Clears the queue
     pub fn clear(&mut self) {
         self.heap.clear();
     }
 
-    /// Gets the top node index (minimum cost), or `None` if empty
+    /// Returns the minimum-cost node index, or `None` if empty.
     pub fn top(&self) -> Option<usize> {
         self.heap.first().copied()
     }
 
-    /// Pops the top node index (minimum cost)
     pub fn pop(&mut self, pool: &DtNodePool) -> Option<usize> {
         if self.heap.is_empty() {
             return None;
@@ -337,7 +317,6 @@ impl DtNodeQueue {
         Some(result)
     }
 
-    /// Pushes a node index onto the queue
     pub fn push(&mut self, node_idx: usize, pool: &DtNodePool) {
         if self.heap.len() >= self.capacity {
             return;
@@ -348,24 +327,21 @@ impl DtNodeQueue {
         self.bubble_up(pos, pool);
     }
 
-    /// Re-sorts a node after its cost has changed
+    /// Re-sorts a node after its cost has changed.
     pub fn modify(&mut self, node_idx: usize, pool: &DtNodePool) {
         if let Some(pos) = self.heap.iter().position(|&idx| idx == node_idx) {
             self.bubble_up(pos, pool);
         }
     }
 
-    /// Checks if the queue is empty
     pub fn empty(&self) -> bool {
         self.heap.is_empty()
     }
 
-    /// Gets memory used by the queue
     pub fn get_mem_used(&self) -> usize {
         std::mem::size_of::<Self>() + std::mem::size_of::<usize>() * (self.capacity + 1)
     }
 
-    /// Gets the capacity
     pub fn get_capacity(&self) -> usize {
         self.capacity
     }
@@ -428,23 +404,19 @@ mod tests {
     fn test_node_pool() {
         let mut pool = DtNodePool::new(16, 8);
 
-        // Test allocation
         let poly1 = PolyRef::new(1);
         let node1 = pool.get_node(poly1, 0).unwrap();
         assert_eq!(node1.id, poly1);
         assert_eq!(node1.state, 0);
 
-        // Test finding
         let found = pool.find_node(poly1, 0);
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, poly1);
 
-        // Test multiple states
         let node2 = pool.get_node(poly1, 1).unwrap();
         assert_eq!(node2.id, poly1);
         assert_eq!(node2.state, 1);
 
-        // Test find_nodes
         let nodes = pool.find_nodes(poly1, 10);
         assert_eq!(nodes.len(), 2);
     }
@@ -454,7 +426,6 @@ mod tests {
         let mut pool = DtNodePool::new(16, 8);
         let mut queue = DtNodeQueue::new(16);
 
-        // Create some nodes
         let poly1 = PolyRef::new(1);
         let poly2 = PolyRef::new(2);
         let poly3 = PolyRef::new(3);
@@ -480,7 +451,6 @@ mod tests {
         }
         queue.push(2, &pool);
 
-        // Pop in order of total cost
         let idx1 = queue.pop(&pool).unwrap();
         assert_eq!(pool.nodes[idx1].id, poly2); // lowest cost
 

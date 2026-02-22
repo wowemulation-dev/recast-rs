@@ -67,7 +67,6 @@ impl RaycastHit {
         }
     }
 
-    /// Checks if this represents a wall hit
     pub fn hit_wall(&self) -> bool {
         self.t < f32::MAX
     }
@@ -84,7 +83,6 @@ impl RaycastHit {
         self
     }
 
-    /// Gets the path count
     pub fn path_count(&self) -> usize {
         self.path.as_ref().map(|p| p.len()).unwrap_or(0)
     }
