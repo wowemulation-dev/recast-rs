@@ -14,11 +14,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added performance profiling documentation in `docs/src/development/profiling.md`
 - Added cargo aliases for nextest testing and flamegraph generation
 - Added pipeline accuracy comparison to README with Mermaid diagram and test mesh tables
+- Added mdbook documentation site with development guides
+- Added integration tests with C++ cross-validation reference data for nav_test, dungeon,
+  and bridge meshes
+- Added staged pipeline tests for intermediate verification of heightfield, compact
+  heightfield, contours, and polymesh stages
+- Added examples crate with 5 examples: basic_navmesh, pathfinding, crowd_simulation,
+  tilecache_obstacles, serialization
 
 #### recast-common
 
 - Added `std` feature flag (enabled by default) to gate file I/O operations
 - Added `TriMesh::from_obj_str()` for parsing OBJ content from strings (WASM-compatible)
+
+#### recast
+
+- Added navmesh generation benchmarks
+- Added fluent `with_*` builder methods to `RecastConfig`
+
+#### detour
+
+- Added pathfinding and spatial query benchmarks
+
+#### detour-crowd
+
+- Added crowd simulation benchmarks
+
+#### recast-cli
+
+- Added `--timings` flag to display build timing information
+- Added `bench` subcommand for performance measurement
 
 ### Fixed
 
@@ -74,10 +99,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed stale `spans[i].area` in distance field, monotone, and layer region builders:
   same pattern as Bug #29 in `build_distance_field`, `build_regions_monotone`,
   `build_layer_regions`, `paint_rect_region` (Bug #33)
+- Replaced `unwrap()`/`expect()` with safe alternatives in contour and polymesh modules
 
 #### detour
 
 - Fixed missing Recast-to-Detour direction remapping in `build_tile_data` (Bug #18)
+- Removed all unsafe code from `node_pool`, `nav_mesh`, and `dynamic_tile`
+- Fixed `build_from_recast`: used allocated tile salt for polygon link references
+- Replaced `unwrap()`/`expect()` with `Result` propagation in library code
 
 ### Changed
 
@@ -88,7 +117,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code fence languages
 - Added `.markdownlint-cli2.jsonc` config and `.markdownlintignore`
 - Renamed `mise.toml` to `.mise.toml` (dotfile convention)
-- Upgraded `glam` from 0.29 to 0.31
+- Upgraded `glam` from 0.29 to 0.30
 - Upgraded `bitflags` from 2.9 to 2.10
 - Upgraded `ordered-float` from 5.0 to 5.1
 - Upgraded `tokio` from 1.45 to 1.49
@@ -112,20 +141,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RecastContext` timing now works on both native and WASM targets
 - Renamed direction helpers: `get_dir_offset_y` to `get_dir_offset_z`, cardinal
   names to axis labels
+- Made `Heightfield` and `CompactHeightfield` fields private, added accessors
+- Made `PolyMesh` and `PolyMeshDetail` fields private, added accessors
+- Replaced `HashMap`+`Rc`/`RefCell` heightfield storage with flat `Vec` arena
+- Replaced `Vec` cloning with buffer swaps in `rasterize_tri`
+- Replaced linked-list span connections with O(1) `con[4]` array
 
 #### detour
 
+- Migrated `NavMeshQuery` public methods from `[f32; 3]` arrays to `Vec3` parameters
+  and returns
+- Converted C-style output parameters to return values
+- Made `MeshTile`, `TileHeader`, `Link`, `Poly` fields private, added accessors
+- Added `#[non_exhaustive]` to 11 config structs, added `Default` impls
 - Verified WASM compatibility (file I/O already feature-gated behind `serialization`)
 - Added to CI WASM compilation checks
 
 #### detour-crowd
 
 - Migrated 30 public methods from `[f32; 3]` arrays to `Vec3` parameters and returns
+- Made `DtObstacleCircle`, `RVOAgent`, `FormationAgent` fields private
 - Verified WASM compatibility (no WASM-incompatible dependencies)
 - Added to CI WASM compilation checks
 
 #### detour-tilecache
 
+- Made `TileCacheLayerHeader` fields private, added accessors
 - Replaced `lz4` crate with `lz4_flex` (pure Rust, no C dependencies)
 - File I/O functions already feature-gated behind `serialization`
 - In-memory serialization methods work on WASM
@@ -143,10 +184,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed unused `rayon` dependency and `parallel` feature from recast crate
 - Removed unused `bytemuck` dependency from recast-common and recast crates
-- Removed unused `criterion` workspace dependency (no benchmarks exist)
+- Removed unused `criterion` workspace dependency (replaced by per-crate benchmarks)
 - Removed unused `anyhow` dependency from recast-common crate
 - Removed unused `Zlib` license allowance from `deny.toml`
 - Removed catch-all `Error` enum from recast-common (replaced by per-crate types)
+- Removed 14 unused C-style vector functions from `detour_common`
 
 ## [0.1.0] - 2026-01-19
 
