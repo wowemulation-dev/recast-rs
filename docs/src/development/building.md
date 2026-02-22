@@ -57,8 +57,8 @@ CI runs these additional checks:
 | Documentation | `cargo doc --workspace --no-deps` |
 | Coverage | `cargo llvm-cov --workspace --lcov` |
 
-CI sets `RUSTFLAGS="-D warnings"` to treat warnings as errors. This is
-commented out in `.cargo/config.toml` for local development flexibility.
+CI sets `RUSTFLAGS="-D warnings"` to treat warnings as errors. The same
+flag is enabled in `.cargo/config.toml` for local development.
 
 ## Cross-Platform Builds
 

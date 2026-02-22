@@ -17,8 +17,7 @@ recast-rs/
 └── .cargo/config.toml      # Aliases, build settings
 ```
 
-All tests are inline `#[cfg(test)]` modules within crate source files. There
-are no top-level `examples/`, `benches/`, or `tests/` directories.
+Unit tests are inline `#[cfg(test)]` modules. Integration tests in `crates/recast/tests/` and `crates/detour/tests/`. Examples in `examples/`. Benchmarks in per-crate `benches/` directories.
 
 ## C++ Module Mapping
 

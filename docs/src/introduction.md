@@ -26,15 +26,12 @@ is not present in the original.
 
 ## Workspace Crates
 
-| Crate | Description | WASM |
-|-------|-------------|------|
-| `recast-common` | Shared utilities, math, error types | Yes |
-| `recast` | Navigation mesh generation | Yes |
-| `detour` | Pathfinding and navigation queries | Yes |
-| `detour-crowd` | Multi-agent crowd simulation | Yes |
-| `detour-tilecache` | Dynamic obstacle management | Yes |
-| `detour-dynamic` | Dynamic navmesh support | Yes |
-| `recast-cli` | Command-line tool | No |
+See the [Architecture Overview](architecture/overview.md) for the workspace layout and
+[Crate Dependencies](architecture/crate-dependencies.md) for the dependency graph.
+
+The workspace contains 7 crates: `recast-common`, `recast`, `detour`, `detour-crowd`,
+`detour-tilecache`, `detour-dynamic`, and `recast-cli`. All library crates compile to
+WASM (see [WebAssembly](guides/wasm.md)).
 
 ## License
 

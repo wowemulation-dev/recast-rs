@@ -112,15 +112,6 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 | `detour-dynamic` | Dynamic navmesh support | Yes |
 | `recast-cli` | Command-line tool | No |
 
-### Crate Dependencies
-
-- **recast-common**: Base crate with no workspace dependencies
-- **recast**: Depends on `recast-common`
-- **detour**: Depends on `recast-common` and `recast`
-- **detour-crowd**: Depends on `recast-common` and `detour`
-- **detour-tilecache**: Depends on `recast-common`, `recast`, and `detour`
-- **detour-dynamic**: Depends on `recast-common`, `recast`, `detour`, and `detour-tilecache`
-
 ## Features
 
 ### Recast - Navigation Mesh Generation
@@ -189,86 +180,19 @@ let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 ## Building
 
 ```bash
-# Build all crates
-cargo build --workspace
-
-# Run tests
-cargo test --workspace
-
-# Run benchmarks
-cargo bench
-
-# Build with optimizations
-cargo build --release
+cargo build --workspace           # Debug build
+cargo build --release             # Release build
+cargo test --workspace            # Run tests
+cargo fmt --all && cargo clippy   # Format and lint
 ```
 
-### Performance Profiling
-
-```bash
-# Generate flamegraph for a binary
-cargo flamegraph --bin recast-cli -- build mesh.obj output.bin
-
-# Generate flamegraph for tests
-cargo flamegraph-test --test integration_test
-
-# Generate flamegraph for benchmarks
-cargo flamegraph-bench --bench pathfinding
-```
-
-### Nextest Testing
-
-```bash
-# Run tests with nextest (faster parallel execution)
-cargo nextest-all
-
-# Run tests in release mode (faster test execution)
-cargo nextest-release
-
-# Run library tests only
-cargo nextest-lib
-
-# Run tests with custom profile
-cargo nextest run --profile local --workspace
-```
-
-### Feature Flags
-
-- `serialization` - Save/load navigation meshes
-- `tokio` - Tokio runtime integration for `detour-dynamic` (not WASM-compatible)
+See [Building](docs/src/development/building.md) for cargo aliases, nextest, flamegraphs, and cross-platform targets.
 
 ### Platform Support
 
-- Linux (x86_64, musl)
-- macOS (x86_64, aarch64)
-- Windows (x86_64)
-- WebAssembly (wasm32-unknown-unknown)
+Linux (x86_64, aarch64), macOS (x86_64, aarch64), Windows (x86_64), WebAssembly.
 
-## WebAssembly Support
-
-All library crates support WebAssembly (`wasm32-unknown-unknown`). Build for WASM with:
-
-```bash
-cargo build --target wasm32-unknown-unknown -p recast -p detour
-```
-
-### WASM-Compatible Features
-
-| Feature | Native | WASM | Notes |
-|---------|--------|------|-------|
-| Mesh generation | Yes | Yes | Full support |
-| Pathfinding | Yes | Yes | Full support |
-| Crowd simulation | Yes | Yes | Full support |
-| Dynamic obstacles | Yes | Yes | Full support |
-| Async operations | Yes | Yes | Runtime-agnostic via `async-lock` |
-| File I/O | Yes | No | Use `std` feature to disable |
-| Serialization | Yes | Yes | In-memory only on WASM |
-
-### WASM Usage Notes
-
-- **recast-common**: Disable file I/O with `default-features = false`
-- **detour**: Serialization works with in-memory buffers
-- **detour-tilecache**: Uses pure Rust LZ4 (`lz4_flex`)
-- **detour-dynamic**: Async via `async-lock` and `futures-lite` (no tokio required)
+All library crates compile to `wasm32-unknown-unknown`. See the [WebAssembly guide](docs/src/guides/wasm.md) for feature compatibility and crate-specific notes.
 
 ## Acknowledgments
 
