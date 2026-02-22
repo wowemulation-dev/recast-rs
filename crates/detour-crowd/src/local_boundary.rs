@@ -64,7 +64,6 @@ impl DtLocalBoundary {
         self.n_segs = 0;
         self.n_polys = 0;
 
-        // First, find all nearby polygons
         let half_extents = [
             collision_query_range,
             collision_query_range,
@@ -77,18 +76,15 @@ impl DtLocalBoundary {
             MAX_LOCAL_POLYS,
         )?;
 
-        // Store the polygons for validation
         self.n_polys = nearby_polys.len().min(MAX_LOCAL_POLYS);
         for (i, &poly) in nearby_polys.iter().take(self.n_polys).enumerate() {
             self.polys[i] = poly;
         }
 
-        // Extract boundary segments from nearby polygons
         let nav_mesh = navquery.nav_mesh();
         for &poly_ref in &nearby_polys {
             let (tile, poly) = nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
 
-            // Get polygon vertices
             let mut verts = Vec::new();
             for &v_idx in &poly.verts()[..poly.vert_count() as usize] {
                 let vertex_idx = v_idx as usize;
@@ -101,15 +97,12 @@ impl DtLocalBoundary {
                 }
             }
 
-            // Process each edge
             for i in 0..verts.len() {
                 let j = (i + 1) % verts.len();
                 let va = verts[i];
                 let vb = verts[j];
 
-                // Check if this edge is a boundary (not shared with another polygon)
                 if self.is_boundary_edge(tile, poly, i, &nearby_polys, navquery)? {
-                    // Calculate distance from center to segment
                     let dist = self.distance_point_to_segment_2d(pos, &va, &vb);
 
                     if dist < collision_query_range {
@@ -131,14 +124,12 @@ impl DtLocalBoundary {
             return Ok(false);
         }
 
-        // Check if all stored polygons are still valid
         for i in 0..self.n_polys {
             let poly_ref = self.polys[i];
             if !poly_ref.is_valid() {
                 return Ok(false);
             }
 
-            // Check if polygon still passes the filter
             let nav_mesh = navquery.nav_mesh();
             if let Ok((tile, poly)) = nav_mesh.get_tile_and_poly_by_ref(poly_ref) {
                 if !filter.pass_filter(poly_ref, tile, poly) {
@@ -169,10 +160,9 @@ impl DtLocalBoundary {
     }
 
     fn add_segment(&mut self, dist: f32, s: &[f32; 6]) {
-        // Insert segment in sorted order (closest first)
         let mut insert_idx = self.n_segs;
 
-        // Find insertion point
+        // Sorted insertion: closest segments first
         for i in 0..self.n_segs {
             if dist < self.segs[i].d {
                 insert_idx = i;
@@ -180,9 +170,7 @@ impl DtLocalBoundary {
             }
         }
 
-        // Shift segments if needed
         if insert_idx < MAX_LOCAL_SEGS {
-            // Shift existing segments
             let shift_count = (self.n_segs - insert_idx).min(MAX_LOCAL_SEGS - insert_idx - 1);
             for i in (insert_idx..insert_idx + shift_count).rev() {
                 if i + 1 < MAX_LOCAL_SEGS {
@@ -190,10 +178,7 @@ impl DtLocalBoundary {
                 }
             }
 
-            // Insert new segment
             self.segs[insert_idx] = Segment { s: *s, d: dist };
-
-            // Update count
             self.n_segs = (self.n_segs + 1).min(MAX_LOCAL_SEGS);
         }
     }
@@ -206,36 +191,26 @@ impl DtLocalBoundary {
         _nearby_polys: &[PolyRef],
         _navquery: &NavMeshQuery,
     ) -> Result<bool, CrowdError> {
-        // Get the neighbor link for this edge
         if edge_idx >= poly.vert_count() as usize {
             return Ok(true); // Invalid edge index, treat as boundary
         }
 
-        // Check if this edge has a neighbor polygon
-        // In the navigation mesh, edges store neighbor information
         let neighbor = poly.neighbors()[edge_idx];
 
-        // If neighbor is 0 (MESH_NULL_IDX), this is a boundary edge
         if neighbor == 0 || neighbor == 0xFFFF {
             return Ok(true);
         }
 
-        // If the edge has a link to another polygon, check if it's internal or external
-        // Internal links (within the same tile) have the high bit clear
-        // External links (to other tiles) have the high bit set
+        // High bit set = external link (to other tiles), treat as boundary for local queries
         if (neighbor & 0x8000) != 0 {
-            // External link - need to check if the linked tile/polygon exists
-            // For now, we'll consider external links as boundaries for local boundary purposes
             return Ok(true);
         }
 
-        // Internal link - check if the linked polygon is valid
         let linked_poly_idx = (neighbor & 0x7FFF) as usize;
         if linked_poly_idx >= tile.polys().len() {
             return Ok(true); // Invalid link, treat as boundary
         }
 
-        // The edge connects to another polygon, so it's not a boundary
         Ok(false)
     }
 

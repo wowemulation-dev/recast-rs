@@ -107,7 +107,6 @@ impl DynamicTile {
         voxel_tile: VoxelTile,
         config: DynamicNavMeshConfig,
     ) -> Result<Self, DynamicError> {
-        // Reconstruct the heightfield from voxel span data
         let heightfield = Self::reconstruct_heightfield(&voxel_tile)?;
 
         let bounds_min = Vec3::new(
@@ -139,7 +138,6 @@ impl DynamicTile {
             version: 0,
         };
 
-        // Create initial checkpoint from voxel data
         if config.enable_checkpoints {
             tile.create_checkpoint()?;
         }
@@ -219,7 +217,6 @@ impl DynamicTile {
                     });
                 }
 
-                // Process all spans for this cell
                 for _ in 0..span_count {
                     let smin =
                         i32::from_le_bytes(span_data[position..position + 4].try_into().unwrap());
@@ -289,7 +286,6 @@ impl DynamicTile {
     ) -> Result<(), DynamicError> {
         let (collider_min, collider_max) = collider.bounds();
 
-        // Only add if the collider overlaps with this tile
         if self.overlaps_bounds(&collider_min, &collider_max) {
             self.active_colliders.insert(id, collider);
             self.mark_dirty();
@@ -434,35 +430,21 @@ impl DynamicTile {
     pub fn build(&mut self) -> Result<bool, DynamicError> {
         self.mark_building();
 
-        // Step 1: Initialize heightfield if needed
         if self.heightfield.is_none() {
             self.initialize_heightfield()?;
         }
 
-        // Step 2: Rasterize all colliders into heightfield
         self.rasterize_colliders()?;
-
-        // Step 3: Apply filters to heightfield
         self.apply_heightfield_filters()?;
-
-        // Step 4: Build compact heightfield
         self.build_compact_heightfield()?;
-
-        // Step 5: Build regions
         self.build_regions()?;
-
-        // Step 6: Build contours
         self.build_contours()?;
-
-        // Step 7: Build polygon mesh
         self.build_poly_mesh()?;
 
-        // Step 8: Build detail mesh (if enabled)
         if self.config.build_detail_mesh {
             self.build_detail_mesh()?;
         }
 
-        // Step 9: Create checkpoint if enabled
         if self.config.enable_checkpoints {
             self.create_checkpoint()?;
         }
@@ -476,7 +458,6 @@ impl DynamicTile {
     fn initialize_heightfield(&mut self) -> Result<(), DynamicError> {
         use recast::Heightfield;
 
-        // Calculate heightfield dimensions based on tile bounds and cell size
         let width = ((self.bounds_max.x - self.bounds_min.x) / self.config.cell_size).ceil() as i32;
         let height =
             ((self.bounds_max.z - self.bounds_min.z) / self.config.cell_size).ceil() as i32;
@@ -497,7 +478,6 @@ impl DynamicTile {
     /// Apply standard heightfield filters
     fn apply_heightfield_filters(&mut self) -> Result<(), DynamicError> {
         if let Some(ref mut heightfield) = self.heightfield {
-            // Convert heights to span units (divide by cell_height)
             let walkable_height_spans =
                 (self.config.walkable_height / self.config.cell_height) as i16;
             let walkable_climb_spans =
@@ -664,7 +644,6 @@ impl DynamicTile {
         &self,
         nav_mesh_params: &detour::NavMeshParams,
     ) -> Result<Option<Vec<u8>>, DynamicError> {
-        // If we don't have a poly mesh, we can't create nav mesh data
         let poly_mesh = match &self.poly_mesh {
             Some(pm) => pm,
             None => return Ok(None),
@@ -673,24 +652,18 @@ impl DynamicTile {
         // Create NavMeshCreateParams following  pattern
         use detour::{NavMeshBuilder, NavMeshCreateParams, PolyFlags};
 
-        // Convert polygon data
         let poly_count = poly_mesh.polys().len() / poly_mesh.max_verts_per_poly();
 
-        // Polys are already u16 in PolyMesh
         let polys = poly_mesh.polys().to_vec();
-
-        // Create polygon flags - all walkable by default
         let poly_flags = vec![PolyFlags::WALK; poly_count];
 
-        // Use areas from poly mesh or default to walkable
         let poly_areas = if !poly_mesh.areas().is_empty() {
             poly_mesh.areas().to_vec()
         } else {
             vec![1u8; poly_count]
         };
 
-        // Convert vertices from u16 to f32 (they're stored as quantized values)
-        // We need to convert them back to world coordinates
+        // Convert quantized u16 vertices back to world coordinates
         let mut verts = Vec::new();
         for i in 0..(poly_mesh.verts().len() / 3) {
             let x = poly_mesh.verts()[i * 3] as f32 * self.config.cell_size + self.bounds_min.x;
@@ -702,11 +675,8 @@ impl DynamicTile {
             verts.push(z);
         }
 
-        // Convert detail mesh data if available
         let (detail_meshes, detail_verts, detail_tris, detail_vert_count, detail_tri_count) =
             if let Some(ref dm) = self.detail_mesh {
-                // Build detail_meshes array for each polygon
-                // This encodes the start and count of triangles for each polygon
                 let mut detail_meshes = Vec::new();
                 for i in 0..dm.poly_count() {
                     let base_idx = dm.poly_start()[i] as u32;
@@ -717,7 +687,6 @@ impl DynamicTile {
                     detail_meshes.push(0); // Vertex count (not used)
                 }
 
-                // Convert triangles from u32 to u8
                 let detail_tris: Vec<u8> = dm.triangles().iter().map(|&v| v as u8).collect();
 
                 (
@@ -731,7 +700,6 @@ impl DynamicTile {
                 (Vec::new(), Vec::new(), Vec::new(), 0, 0)
             };
 
-        // Convert bounds to arrays
         let bmin = [self.bounds_min.x, self.bounds_min.y, self.bounds_min.z];
         let bmax = [self.bounds_max.x, self.bounds_max.y, self.bounds_max.z];
 
@@ -760,7 +728,6 @@ impl DynamicTile {
             cp
         };
 
-        // Build the mesh data
         let mesh_data = NavMeshBuilder::create_nav_mesh_data(&params)?;
         Ok(Some(mesh_data))
     }
@@ -772,9 +739,6 @@ impl DynamicTile {
         nav_mesh_params: &detour::NavMeshParams,
     ) -> Result<(), DynamicError> {
         if let Some(mesh_data) = self.create_nav_mesh_data(nav_mesh_params)? {
-            // Add tile to navigation mesh
-            // The tile reference will be stored internally by the NavMesh
-            // Third parameter is the previous tile reference (None for new tiles)
             nav_mesh.add_tile(&mesh_data, 0, None)?;
         }
         Ok(())
@@ -784,7 +748,6 @@ impl DynamicTile {
     pub fn memory_usage(&self) -> usize {
         let mut size = std::mem::size_of::<Self>();
 
-        // Add size of collections
         size += self.active_colliders.len()
             * (std::mem::size_of::<u64>() + std::mem::size_of::<Arc<dyn Collider>>());
         size += self
@@ -941,13 +904,11 @@ impl DynamicTileManager {
             .next_collider_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-        // Add to global registry
         {
             let mut colliders = self.colliders.write().await;
             colliders.insert(id, collider.clone());
         }
 
-        // Add to affected tiles
         let (collider_min, collider_max) = collider.bounds();
         let tiles = self.tiles.read().await;
 
@@ -963,14 +924,12 @@ impl DynamicTileManager {
 
     /// Remove a collider by ID
     pub async fn remove_collider(&self, id: u64) -> Result<bool, DynamicError> {
-        // Remove from global registry
         let removed = {
             let mut colliders = self.colliders.write().await;
             colliders.remove(&id).is_some()
         };
 
         if removed {
-            // Remove from all tiles
             let tiles = self.tiles.read().await;
             for tile_arc in tiles.values() {
                 let mut tile = tile_arc.write().await;

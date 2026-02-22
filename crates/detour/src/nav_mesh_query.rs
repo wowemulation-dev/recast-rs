@@ -177,7 +177,6 @@ impl Default for SlicedPathfindingState {
 impl<'a> NavMeshQuery<'a> {
     /// Creates a new navigation mesh query
     pub fn new(nav_mesh: &'a NavMesh) -> Self {
-        // Initialize the node pool
         let mut node_pool = Vec::with_capacity(DT_MAX_NODES);
         for i in 0..DT_MAX_NODES {
             node_pool.push(Node::new(PolyRef::new(0), i));
@@ -193,17 +192,14 @@ impl<'a> NavMeshQuery<'a> {
         }
     }
 
-    /// Sets the query extent
     pub fn set_query_extent(&mut self, extent: Vec3) {
         self.query_extent = extent.to_array();
     }
 
-    /// Gets the query extent
     pub fn get_query_extent(&self) -> Vec3 {
         Vec3::from(self.query_extent)
     }
 
-    /// Sets the random seed for random point generation
     pub fn set_random_seed(&mut self, seed: u32) {
         self.random_seed = seed;
     }
@@ -255,7 +251,6 @@ impl<'a> NavMeshQuery<'a> {
         let mut nearest_point = [0.0; 3];
         let mut nearest_distance_sqr = f32::MAX;
 
-        // Find the closest polygon
         for poly_ref in polys {
             let (closest_pt, is_over_poly) =
                 self.closest_point_on_poly(poly_ref, Vec3::from(center))?;
@@ -342,7 +337,6 @@ impl<'a> NavMeshQuery<'a> {
         let mut nearest_distance_sqr = f32::MAX;
         let mut nearest_is_over_poly = false;
 
-        // Find the closest polygon
         for poly_ref in polys {
             let (closest_pt, is_over_poly) =
                 self.closest_point_on_poly(poly_ref, Vec3::from(center))?;
@@ -399,7 +393,6 @@ impl<'a> NavMeshQuery<'a> {
     ) -> Result<Vec<PolyRef>, DetourError> {
         let start_pos = start_pos.to_array();
         let end_pos = end_pos.to_array();
-        // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || !self.nav_mesh.is_valid_poly_ref(end_ref)
         {
             return Err(DetourError::InvalidParam);
@@ -410,7 +403,6 @@ impl<'a> NavMeshQuery<'a> {
             return Ok(vec![start_ref]);
         }
 
-        // Reset the node pool and open list
         for node in &mut self.node_pool {
             node.parent = None;
             node.state = NodeState::New;
@@ -421,7 +413,6 @@ impl<'a> NavMeshQuery<'a> {
         }
         self.open_list.clear();
 
-        // Get the start and end nodes
         let start_node_idx = 0;
         let start_h = self.heuristic(&start_pos, &end_pos);
         {
@@ -841,7 +832,6 @@ impl<'a> NavMeshQuery<'a> {
         (dx * dx + dy * dy + dz * dz).sqrt() * H_SCALE
     }
 
-    /// Gets the cost of moving from one polygon to another
     fn get_edge_cost(
         &self,
         from_ref: PolyRef,
@@ -933,7 +923,6 @@ impl<'a> NavMeshQuery<'a> {
         Ok(include && !exclude)
     }
 
-    /// Gets the center of a polygon
     pub fn get_poly_center(&self, poly_ref: PolyRef) -> Result<Vec3, DetourError> {
         // Get the tile and poly
         let (tile, poly) = self.nav_mesh.get_tile_and_poly_by_ref(poly_ref)?;
@@ -1068,7 +1057,6 @@ impl<'a> NavMeshQuery<'a> {
         Ok((closest_arr, is_over_connection))
     }
 
-    /// Gets the off-mesh connection end position for a given start position
     pub fn get_off_mesh_connection_endpoint(
         &self,
         connection_ref: PolyRef,
@@ -1242,7 +1230,6 @@ impl<'a> NavMeshQuery<'a> {
 
         let start_pos = start_pos.to_array();
         let end_pos = end_pos.to_array();
-        // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
@@ -1262,7 +1249,6 @@ impl<'a> NavMeshQuery<'a> {
         // Use VecDeque for efficient O(1) front removal in BFS
         let mut stack = VecDeque::new();
 
-        // Initialize start node
         let start_node = SurfaceNode {
             poly_ref: start_ref,
             parent_idx: None,
@@ -1423,7 +1409,6 @@ impl<'a> NavMeshQuery<'a> {
     ) -> Result<(PolyRef, Vec3, f32), DetourError> {
         let start_pos = start_pos.to_array();
         let dir = dir.to_array();
-        // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
@@ -1722,7 +1707,6 @@ impl<'a> NavMeshQuery<'a> {
     ) -> Result<RaycastResult, DetourError> {
         let start_pos = start_pos.to_array();
         let end_pos = end_pos.to_array();
-        // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
@@ -1735,7 +1719,6 @@ impl<'a> NavMeshQuery<'a> {
         ];
         let max_dist = (dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]).sqrt();
 
-        // Initialize result
         let mut hit = RaycastHit::no_hit();
         let mut visited_path = Vec::new();
         let mut path_cost = 0.0;
@@ -1895,7 +1878,6 @@ impl<'a> NavMeshQuery<'a> {
         end_ref: PolyRef,
         max_path: usize,
     ) -> Result<Vec<PolyRef>, DetourError> {
-        // Validate input
         if !self.nav_mesh.is_valid_poly_ref(end_ref) {
             return Err(DetourError::InvalidParam);
         }
@@ -2246,12 +2228,10 @@ impl<'a> NavMeshQuery<'a> {
         filter: &QueryFilter,
     ) -> Result<Vec<PolyRef>, DetourError> {
         let center_pos = center_pos.to_array();
-        // Validate input
         if !self.nav_mesh.is_valid_poly_ref(center_ref) {
             return Err(DetourError::InvalidParam);
         }
 
-        // Initialize search data structures
         let mut node_pool = std::collections::HashMap::new();
         let mut open_list = BinaryHeap::new();
         let mut result_polys = Vec::new();
@@ -2528,7 +2508,6 @@ impl<'a> NavMeshQuery<'a> {
         filter: &QueryFilter,
     ) -> Result<(f32, Vec3, Vec3), DetourError> {
         let center_pos = center_pos.to_array();
-        // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
@@ -2978,7 +2957,6 @@ impl<'a> NavMeshQuery<'a> {
         max_result: usize,
     ) -> Result<(Vec<PolyRef>, Vec<PolyRef>), DetourError> {
         let center_pos = center_pos.to_array();
-        // Validate input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || radius < 0.0 || max_result == 0 {
             return Err(DetourError::InvalidParam);
         }
@@ -3239,7 +3217,6 @@ impl<'a> NavMeshQuery<'a> {
     ) -> Result<(), DetourError> {
         let start_pos = start_pos.to_array();
         let end_pos = end_pos.to_array();
-        // Validate the input
         if !self.nav_mesh.is_valid_poly_ref(start_ref) || !self.nav_mesh.is_valid_poly_ref(end_ref)
         {
             return Err(DetourError::InvalidParam);
@@ -3267,7 +3244,6 @@ impl<'a> NavMeshQuery<'a> {
             return Ok(());
         }
 
-        // Reset the node pool and open list for A* search
         for node in &mut self.node_pool {
             node.parent = None;
             node.state = NodeState::New;
@@ -3278,7 +3254,6 @@ impl<'a> NavMeshQuery<'a> {
         }
         self.open_list.clear();
 
-        // Initialize start node
         let start_h = self.heuristic(&start_pos, &end_pos);
         let start_node = &mut self.node_pool[0];
         start_node.poly = start_ref;
@@ -4223,8 +4198,9 @@ impl<'a> NavMeshQuery<'a> {
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// use detour::{PolyQuery, NavMesh, PolyRef, MeshTile, Poly};
+    /// ```no_run
+    /// use detour::{PolyQuery, NavMesh, NavMeshQuery, PolyRef, MeshTile, Poly, QueryFilter};
+    /// use glam::Vec3;
     ///
     /// struct MyCustomQuery {
     ///     count: usize,
@@ -4236,9 +4212,18 @@ impl<'a> NavMeshQuery<'a> {
     ///     }
     /// }
     ///
+    /// # fn example(query: &NavMeshQuery) -> Result<(), Box<dyn std::error::Error>> {
+    /// let filter = QueryFilter::default();
     /// let mut custom_query = MyCustomQuery { count: 0 };
-    /// query.query_polygons_custom(&center, &extents, &filter, &mut custom_query)?;
+    /// query.query_polygons_custom(
+    ///     Vec3::new(0.0, 0.0, 0.0),
+    ///     Vec3::new(10.0, 10.0, 10.0),
+    ///     &filter,
+    ///     &mut custom_query,
+    /// )?;
     /// println!("Found {} polygons", custom_query.count);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn query_polygons_custom<Q: super::poly_query::PolyQuery>(
         &self,

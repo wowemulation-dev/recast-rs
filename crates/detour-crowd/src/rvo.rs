@@ -178,22 +178,18 @@ impl RVOSimulator {
 
     /// Performs one simulation step
     pub fn step(&mut self, dt: f32) -> Result<(), CrowdError> {
-        // Clear ORCA lines for all agents
         for agent in &mut self.agents {
             agent.orca_lines.clear();
         }
 
-        // Compute ORCA lines for each agent
         for i in 0..self.agents.len() {
             self.compute_orca_lines(i)?;
         }
 
-        // Solve linear programs to find new velocities
         for i in 0..self.agents.len() {
             self.solve_linear_program(i);
         }
 
-        // Update agent positions
         for agent in &mut self.agents {
             agent.update(dt);
         }
@@ -211,7 +207,6 @@ impl RVOSimulator {
         let max_neighbors = agent.config.max_neighbors;
         let neighbor_dist = agent.config.neighbor_dist;
 
-        // Find neighboring agents
         let mut neighbors = Vec::new();
         for (i, other) in self.agents.iter().enumerate() {
             if i == agent_idx {
@@ -224,11 +219,9 @@ impl RVOSimulator {
             }
         }
 
-        // Sort neighbors by distance and limit to max_neighbors
         neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         neighbors.truncate(max_neighbors);
 
-        // Compute ORCA lines for each neighbor
         let mut orca_lines = Vec::new();
 
         for (neighbor_idx, _) in neighbors {
@@ -255,7 +248,6 @@ impl RVOSimulator {
                     relative_vel[1] - relative_pos[1] / time_horizon,
                 ];
 
-                // Vector from cutoff center to relative velocity
                 let w_length_sq = dot(&w, &w);
                 let dot_product1 = dot(&w, &relative_pos);
 
@@ -301,7 +293,6 @@ impl RVOSimulator {
                 // Collision. Project on cutoff circle of time timeStep
                 let inv_time_step = 1.0 / time_horizon;
 
-                // Vector from cutoff center to relative velocity
                 let w = [
                     relative_vel[0] - relative_pos[0] * inv_time_step,
                     relative_vel[1] - relative_pos[1] * inv_time_step,
@@ -321,7 +312,6 @@ impl RVOSimulator {
             orca_lines.push(line);
         }
 
-        // Update the agent's ORCA lines
         self.agents[agent_idx].orca_lines = orca_lines;
 
         Ok(())
@@ -336,7 +326,6 @@ impl RVOSimulator {
 
         let mut optimal_velocity = pref_vel;
 
-        // Clamp preferred velocity to max speed
         let pref_speed_sq = dot(&pref_vel, &pref_vel);
         if pref_speed_sq > max_speed * max_speed {
             let pref_speed = pref_speed_sq.sqrt();
@@ -346,7 +335,6 @@ impl RVOSimulator {
             ];
         }
 
-        // Check if optimal velocity satisfies all ORCA constraints
         for line in &orca_lines {
             if determinant(
                 &line.direction,
@@ -356,7 +344,6 @@ impl RVOSimulator {
                 ],
             ) > 0.0
             {
-                // Velocity is on the wrong side of the line, project onto line
                 let dot_product =
                     dot(&optimal_velocity, &line.direction) - dot(&line.point, &line.direction);
                 optimal_velocity = [
@@ -366,7 +353,6 @@ impl RVOSimulator {
             }
         }
 
-        // Ensure velocity is within speed limit
         let speed_sq = dot(&optimal_velocity, &optimal_velocity);
         if speed_sq > max_speed * max_speed {
             let speed = speed_sq.sqrt();
@@ -397,7 +383,6 @@ impl RVOSimulator {
 
         self.agents.remove(agent_id);
 
-        // Update agent IDs to maintain consistency
         for (i, agent) in self.agents.iter_mut().enumerate() {
             agent.id = i;
         }
@@ -503,25 +488,21 @@ mod tests {
         let agent1 = sim.add_agent([0.0, 0.0]);
         let agent2 = sim.add_agent([2.0, 0.0]);
 
-        // Set agents moving towards each other
         sim.set_agent_pref_velocity(agent1, [1.0, 0.0]).unwrap();
         sim.set_agent_pref_velocity(agent2, [-1.0, 0.0]).unwrap();
 
-        // Run one simulation step
         sim.step(0.1).unwrap();
 
-        // Agents should avoid collision
         let agent1_pos = sim.get_agent(agent1).unwrap().position;
         let agent2_pos = sim.get_agent(agent2).unwrap().position;
 
-        // They should have moved but not collided
         assert!(agent1_pos[0] > 0.0);
         assert!(agent2_pos[0] < 2.0);
 
         let distance = ((agent2_pos[0] - agent1_pos[0]).powi(2)
             + (agent2_pos[1] - agent1_pos[1]).powi(2))
         .sqrt();
-        assert!(distance > 1.0); // Should maintain safe distance
+        assert!(distance > 1.0);
     }
 
     #[test]
@@ -535,7 +516,6 @@ mod tests {
         sim.remove_agent(agent1).unwrap();
         assert_eq!(sim.get_num_agents(), 1);
 
-        // Remaining agent should have ID 0
         let remaining_agent = sim.get_agent(0).unwrap();
         assert_eq!(remaining_agent.position, [1.0, 0.0]);
     }

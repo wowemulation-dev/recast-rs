@@ -189,7 +189,6 @@ pub struct Obstacle {
 impl TileCache {
     /// Creates a new tile cache
     pub fn new(params: TileCacheParams) -> Result<Self, TileCacheError> {
-        // Validate parameters
         if params.origin[0].is_infinite()
             || params.origin[0].is_nan()
             || params.origin[1].is_infinite()
@@ -210,23 +209,19 @@ impl TileCache {
 
         let max_tiles = params.width * params.height * MAX_LAYERS as i32;
 
-        // Allocate tiles
         let mut tiles = Vec::with_capacity(max_tiles as usize);
         for _i in 0..max_tiles as usize {
             tiles.push(None);
         }
 
-        // Allocate obstacles
         let mut obstacles = Vec::with_capacity(params.max_obstacles as usize);
         for _i in 0..params.max_obstacles as usize {
             obstacles.push(None);
         }
 
-        // Set up free lists
         let next_free = Some(0);
         let next_free_obstacle = Some(0);
 
-        // Initialize tile free list
         for (i, tile) in tiles.iter_mut().enumerate().take(max_tiles as usize) {
             *tile = Some(TileCacheEntry {
                 header: TileHeader::new(0, 0, 0),
@@ -240,7 +235,6 @@ impl TileCache {
             });
         }
 
-        // Initialize obstacle free list
         for (i, obstacle) in obstacles
             .iter_mut()
             .enumerate()
@@ -281,7 +275,6 @@ impl TileCache {
 
     /// Initializes the tile cache with data
     pub fn init(&mut self) -> Result<(), TileCacheError> {
-        // Calculate tile grid size
         self.tile_width = self.params.cs * self.params.width as f32;
         self.tile_height = self.params.cs * self.params.height as f32;
 
@@ -293,7 +286,6 @@ impl TileCache {
         &mut self,
         builder_config: TileCacheBuilderConfig,
     ) -> Result<(), TileCacheError> {
-        // Create the integration with the provided configuration
         let integration = TileCacheNavMeshIntegration::new(builder_config);
         self.nav_mesh_integration = Some(integration);
 
@@ -307,16 +299,12 @@ impl TileCache {
         flags: u8,
         result: &mut PolyRef,
     ) -> Result<(), TileCacheError> {
-        // Compress the tile data if it's not already compressed
         let compressed_data = if (flags & 0x01) != 0 {
-            // Data is already compressed
             data.to_vec()
         } else {
-            // Compress the data
             self.compress_tile(data)?
         };
 
-        // Allocate a tile from the free list
         let free_idx = self
             .next_free
             .ok_or(TileCacheError::OutOfMemory { resource: "tiles" })?;
@@ -325,32 +313,24 @@ impl TileCache {
             .ok_or(TileCacheError::InvalidParam)?;
         self.next_free = tile_entry.next;
 
-        // Parse the tile header from compressed data
         let header = self.parse_tile_header(&compressed_data)?;
         let header_key = (header.x(), header.y(), header.layer());
 
-        // Check if a tile already exists at this location
         if self.pos_lookup.contains_key(&header_key) {
-            // Return the tile to the free list
             tile_entry.next = self.next_free;
             self.next_free = Some(free_idx);
             self.tiles[free_idx] = Some(tile_entry);
             return Err(TileCacheError::InvalidParam);
         }
 
-        // Store the compressed data
         let data_idx = self.compressed_tiles.len();
         self.compressed_tiles.push(compressed_data);
         tile_entry.data = data_idx;
         tile_entry.header = header;
 
-        // Add to lookup
         self.pos_lookup.insert(header_key, free_idx);
-
-        // Store the tile
         self.tiles[free_idx] = Some(tile_entry);
 
-        // Return the tile reference using salt for uniqueness
         *result = PolyRef::new((self.salt << 16) | (free_idx as u32));
         self.salt += 1;
 
@@ -359,31 +339,26 @@ impl TileCache {
 
     /// Removes a tile from the cache
     pub fn remove_tile(&mut self, ref_val: PolyRef) -> Result<(), TileCacheError> {
-        // Decode the tile index from the reference
         let tile_idx = (ref_val.id() & 0xFFFF) as usize;
 
         if tile_idx >= self.tiles.len() {
             return Err(TileCacheError::InvalidParam);
         }
 
-        // Remove the tile
         let mut tile_entry = self.tiles[tile_idx]
             .take()
             .ok_or(TileCacheError::InvalidParam)?;
 
-        // Remove from lookup
         self.pos_lookup.remove(&(
             tile_entry.header.x(),
             tile_entry.header.y(),
             tile_entry.header.layer(),
         ));
 
-        // Reset the tile entry and add it to the free list
         tile_entry.obstacles.clear();
         tile_entry.next = self.next_free;
         self.next_free = Some(tile_idx);
 
-        // Store the reset tile entry
         self.tiles[tile_idx] = Some(tile_entry);
 
         Ok(())
@@ -396,7 +371,6 @@ impl TileCache {
         radius: f32,
         height: f32,
     ) -> Result<u32, TileCacheError> {
-        // Allocate an obstacle from the free list
         let free_idx = self.next_free_obstacle.ok_or(TileCacheError::OutOfMemory {
             resource: "obstacles",
         })?;
@@ -405,7 +379,6 @@ impl TileCache {
             .ok_or(TileCacheError::InvalidParam)?;
         self.next_free_obstacle = obstacle.next;
 
-        // Set obstacle properties
         obstacle.data = ObstacleData::Cylinder {
             pos,
             radius,
@@ -416,17 +389,13 @@ impl TileCache {
         obstacle.touched.clear();
         obstacle.pending.clear();
 
-        // Find tiles affected by this obstacle
         let affected_tiles = self.find_tiles_affected_by_obstacle(pos, radius)?;
         for &tile_idx in &affected_tiles {
             obstacle.touched.push(tile_idx as u32);
             obstacle.pending.push(tile_idx as u32);
         }
 
-        // Get salt for reference before storing
         let salt = obstacle.salt;
-
-        // Store the obstacle
         self.obstacles[free_idx] = Some(obstacle);
 
         Ok(self.encode_obstacle_ref(salt, free_idx))
@@ -438,7 +407,6 @@ impl TileCache {
         bmin: [f32; 3],
         bmax: [f32; 3],
     ) -> Result<u32, TileCacheError> {
-        // Allocate an obstacle from the free list
         let free_idx = self.next_free_obstacle.ok_or(TileCacheError::OutOfMemory {
             resource: "obstacles",
         })?;
@@ -447,15 +415,12 @@ impl TileCache {
             .ok_or(TileCacheError::InvalidParam)?;
         self.next_free_obstacle = obstacle.next;
 
-        // Set obstacle properties
         obstacle.data = ObstacleData::Box { bmin, bmax };
         obstacle.state = ObstacleState::Processing;
         obstacle.salt += 1;
         obstacle.touched.clear();
         obstacle.pending.clear();
 
-        // Find tiles affected by this obstacle
-        // For a box, we use the center and maximum extent
         let center = [
             (bmin[0] + bmax[0]) * 0.5,
             (bmin[1] + bmax[1]) * 0.5,
@@ -469,10 +434,7 @@ impl TileCache {
             obstacle.pending.push(tile_idx as u32);
         }
 
-        // Get salt for reference before storing
         let salt = obstacle.salt;
-
-        // Store the obstacle
         self.obstacles[free_idx] = Some(obstacle);
 
         Ok(self.encode_obstacle_ref(salt, free_idx))
@@ -485,7 +447,6 @@ impl TileCache {
         half_extents: [f32; 3],
         y_radians: f32,
     ) -> Result<u32, TileCacheError> {
-        // Allocate an obstacle from the free list
         let free_idx = self.next_free_obstacle.ok_or(TileCacheError::OutOfMemory {
             resource: "obstacles",
         })?;
@@ -494,13 +455,11 @@ impl TileCache {
             .ok_or(TileCacheError::InvalidParam)?;
         self.next_free_obstacle = obstacle.next;
 
-        // Calculate rotation auxiliary values
         let angle = y_radians;
         let cos_half = (angle * 0.5).cos();
         let sin_half = (angle * 0.5).sin();
         let rot_aux = [cos_half * -sin_half, cos_half * cos_half - 0.5];
 
-        // Set obstacle properties
         obstacle.data = ObstacleData::OrientedBox {
             center,
             half_extents,
@@ -511,8 +470,7 @@ impl TileCache {
         obstacle.touched.clear();
         obstacle.pending.clear();
 
-        // Find tiles affected by this obstacle
-        // For an oriented box, we use a conservative bounding radius
+        // Conservative bounding radius for oriented box
         let radius = (half_extents[0].powi(2) + half_extents[2].powi(2)).sqrt();
 
         let affected_tiles = self.find_tiles_affected_by_obstacle(center, radius)?;
@@ -521,10 +479,7 @@ impl TileCache {
             obstacle.pending.push(tile_idx as u32);
         }
 
-        // Get salt for reference before storing
         let salt = obstacle.salt;
-
-        // Store the obstacle
         self.obstacles[free_idx] = Some(obstacle);
 
         Ok(self.encode_obstacle_ref(salt, free_idx))
@@ -539,7 +494,6 @@ impl TileCache {
             return Err(TileCacheError::InvalidParam);
         }
 
-        // Verify the obstacle exists and salt matches
         let stored_salt = self.obstacles[obstacle_idx]
             .as_ref()
             .ok_or(TileCacheError::ObstacleNotFound)?
@@ -548,18 +502,14 @@ impl TileCache {
             return Err(TileCacheError::InvalidParam);
         }
 
-        // Remove the obstacle
         let mut obstacle = self.obstacles[obstacle_idx]
             .take()
             .ok_or(TileCacheError::ObstacleNotFound)?;
 
-        // Mark for removal
         obstacle.state = ObstacleState::Removing;
-
-        // Mark tiles for update
         obstacle.pending = obstacle.touched.clone();
 
-        // Store the obstacle back (will be cleaned up during update)
+        // Will be cleaned up during update
         self.obstacles[obstacle_idx] = Some(obstacle);
 
         Ok(())
@@ -572,17 +522,14 @@ impl TileCache {
 
     /// Updates the tile cache and returns whether it's up to date
     pub fn update_with_status(&mut self, _dt: f32) -> Result<bool, TileCacheError> {
-        // Find all tiles that need updating due to pending obstacles
         let mut tiles_to_update = HashSet::new();
         let mut has_pending_work = false;
 
-        // Process obstacles
         for obstacle_idx in 0..self.obstacles.len() {
             if let Some(obstacle) = &mut self.obstacles[obstacle_idx] {
                 match obstacle.state {
                     ObstacleState::Processing => {
                         has_pending_work = true;
-                        // Mark all pending tiles as needing update
                         for &tile_idx in &obstacle.pending {
                             tiles_to_update.insert(tile_idx as usize);
                         }
@@ -591,11 +538,9 @@ impl TileCache {
                     }
                     ObstacleState::Removing => {
                         has_pending_work = true;
-                        // Mark all touched tiles as needing update
                         for &tile_idx in &obstacle.pending {
                             tiles_to_update.insert(tile_idx as usize);
                         }
-                        // Clear the obstacle data but keep it in the free list
                         obstacle.state = ObstacleState::Empty;
                         obstacle.touched.clear();
                         obstacle.pending.clear();
@@ -605,7 +550,6 @@ impl TileCache {
             }
         }
 
-        // Clean up removed obstacles - return empty obstacles to the free list
         for obstacle_idx in 0..self.obstacles.len() {
             let is_empty = self.obstacles[obstacle_idx]
                 .as_ref()
@@ -619,12 +563,10 @@ impl TileCache {
             }
         }
 
-        // Update each affected tile
         for tile_idx in tiles_to_update {
             self.rebuild_tile(tile_idx)?;
         }
 
-        // Return true if there's no more pending work
         Ok(!has_pending_work)
     }
 
@@ -634,17 +576,14 @@ impl TileCache {
         _dt: f32,
         nav_mesh: &mut NavMesh,
     ) -> Result<bool, TileCacheError> {
-        // Find all tiles that need updating due to pending obstacles
         let mut tiles_to_update = HashSet::new();
         let mut has_pending_work = false;
 
-        // Process obstacles
         for obstacle_idx in 0..self.obstacles.len() {
             if let Some(obstacle) = &mut self.obstacles[obstacle_idx] {
                 match obstacle.state {
                     ObstacleState::Processing => {
                         has_pending_work = true;
-                        // Mark all pending tiles as needing update
                         for &tile_idx in &obstacle.pending {
                             tiles_to_update.insert(tile_idx as usize);
                         }
@@ -653,11 +592,9 @@ impl TileCache {
                     }
                     ObstacleState::Removing => {
                         has_pending_work = true;
-                        // Mark all touched tiles as needing update
                         for &tile_idx in &obstacle.pending {
                             tiles_to_update.insert(tile_idx as usize);
                         }
-                        // Clear the obstacle data but keep it in the free list
                         obstacle.state = ObstacleState::Empty;
                         obstacle.touched.clear();
                         obstacle.pending.clear();
@@ -667,7 +604,6 @@ impl TileCache {
             }
         }
 
-        // Clean up removed obstacles - return empty obstacles to the free list
         for obstacle_idx in 0..self.obstacles.len() {
             let is_empty = self.obstacles[obstacle_idx]
                 .as_ref()
@@ -681,17 +617,13 @@ impl TileCache {
             }
         }
 
-        // Build nav mesh tiles for each affected tile
         for tile_idx in tiles_to_update {
             if let Some(Some(_tile_entry)) = self.tiles.get(tile_idx) {
-                // Get tile reference
                 let tile_ref = PolyRef::new((self.salt << 16) | (tile_idx as u32));
-                // Build nav mesh tile
                 self.build_nav_mesh_tile(tile_ref, nav_mesh)?;
             }
         }
 
-        // Return true if there's no more pending work
         Ok(!has_pending_work)
     }
 
@@ -717,17 +649,14 @@ impl TileCache {
         tile_ref: PolyRef,
         nav_mesh: &mut NavMesh,
     ) -> Result<(), TileCacheError> {
-        // Check if we have an integration set up
         let integration = self
             .nav_mesh_integration
             .as_ref()
             .ok_or(TileCacheError::InvalidParam)?;
 
-        // Decode tile reference
         let tile_idx = (tile_ref.id() & 0xFFFF) as usize;
         let _salt = tile_ref.id() >> 16;
 
-        // Validate tile
         if tile_idx >= self.tiles.len() {
             return Err(TileCacheError::InvalidParam);
         }
@@ -735,23 +664,19 @@ impl TileCache {
         // Check salt matches (but for now we'll skip this check as our salt handling is different)
         // In the C++ version, each tile has its own salt
 
-        // Get the tile
         let tile_entry = match &self.tiles[tile_idx] {
             Some(entry) => entry,
             None => return Err(TileCacheError::InvalidParam),
         };
 
-        // Get compressed data
         let compressed_data = match self.compressed_tiles.get(tile_entry.data) {
             Some(data) => data,
             None => return Err(TileCacheError::InvalidParam),
         };
 
-        // Decompress tile data
         let decompressed_data = self.decompress_tile(compressed_data, None)?;
         let tile_layer = TileCacheLayer::from_bytes(&decompressed_data)?;
 
-        // Use the integration to build the nav mesh tile
         integration.build_nav_mesh_tile_from_layer(self, nav_mesh, &tile_layer, tile_idx)?;
 
         Ok(())
@@ -760,7 +685,6 @@ impl TileCache {
     /// Finds the tile index for the given coordinates
     #[allow(dead_code)]
     fn find_tile_index(&self, x: i32, y: i32, layer: i32) -> Option<usize> {
-        // Look up the tile index in our position lookup
         self.pos_lookup.get(&(x, y, layer)).copied()
     }
 
@@ -778,13 +702,11 @@ impl TileCache {
             return Err(TileCacheError::InvalidParam);
         }
 
-        // Check if we have an integration set up
         let integration = self
             .nav_mesh_integration
             .as_ref()
             .ok_or(TileCacheError::InvalidParam)?;
 
-        // Use the integration to rebuild the tile
         integration.rebuild_tile_in_nav_mesh(self, nav_mesh, tile_idx)
     }
 
@@ -798,13 +720,11 @@ impl TileCache {
             return Err(TileCacheError::InvalidParam);
         }
 
-        // Get the tile entry
         let tile_entry = match &self.tiles[tile_idx] {
             Some(entry) => entry,
             None => return Err(TileCacheError::InvalidParam),
         };
 
-        // Get the compressed tile data
         let compressed_data = &self.compressed_tiles[tile_entry.data];
 
         // For this implementation, we'll just mark that the tile has been processed
@@ -853,7 +773,6 @@ impl TileCache {
 
     /// Gets the number of obstacles
     pub fn get_obstacle_count(&self) -> usize {
-        // Count obstacles that are not empty
         self.obstacles
             .iter()
             .filter_map(|obs| obs.as_ref())
@@ -886,7 +805,6 @@ impl TileCache {
 
     /// Compresses tile data using LZ4
     pub fn compress_tile(&self, data: &[u8]) -> Result<Vec<u8>, TileCacheError> {
-        // Compress the data using LZ4 with prepended size for decompression
         Ok(lz4_flex::compress_prepend_size(data))
     }
 
@@ -896,12 +814,10 @@ impl TileCache {
         compressed_data: &[u8],
         _uncompressed_size: Option<usize>,
     ) -> Result<Vec<u8>, TileCacheError> {
-        // Handle empty data
         if compressed_data.is_empty() {
             return Ok(Vec::new());
         }
 
-        // Decompress the data using LZ4 (size is prepended)
         match lz4_flex::decompress_size_prepended(compressed_data) {
             Ok(decompressed) => Ok(decompressed),
             Err(e) => {
@@ -913,13 +829,9 @@ impl TileCache {
 
     /// Parses a tile header from compressed tile data
     fn parse_tile_header(&self, compressed_data: &[u8]) -> Result<TileHeader, TileCacheError> {
-        // Decompress the tile data to read the header
         let decompressed = self.decompress_tile(compressed_data, None)?;
-
-        // Parse as TileCacheLayer
         let tile_layer = TileCacheLayer::from_bytes(&decompressed)?;
 
-        // Convert TileCacheLayerHeader to TileHeader
         let mut header = TileHeader::new(
             tile_layer.header.tx,
             tile_layer.header.ty,
@@ -938,13 +850,11 @@ impl TileCache {
     ) -> Result<Vec<usize>, TileCacheError> {
         let mut affected_tiles = Vec::new();
 
-        // Calculate tile coordinates for the obstacle's bounding box
         let min_x = ((pos[0] - radius - self.params.origin[0]) / self.tile_width).floor() as i32;
         let max_x = ((pos[0] + radius - self.params.origin[0]) / self.tile_width).floor() as i32;
         let min_z = ((pos[2] - radius - self.params.origin[2]) / self.tile_height).floor() as i32;
         let max_z = ((pos[2] + radius - self.params.origin[2]) / self.tile_height).floor() as i32;
 
-        // Check all tiles in the bounding box
         for z in min_z..=max_z {
             for x in min_x..=max_x {
                 for layer in 0..MAX_LAYERS as i32 {
@@ -1023,24 +933,20 @@ impl TileCache {
                         break;
                     }
 
-                    // Get tile by reference and check bounds
                     let tile_idx = (tile_ref.id() & 0xFFFF) as usize;
                     let salt = tile_ref.id() >> 16;
 
                     if let Some(Some(_tile)) = self.tiles.get(tile_idx) {
-                        // Verify salt matches
                         if salt != self.salt {
                             continue;
                         }
 
-                        // Get compressed data and decompress header
                         if let Some(compressed_data) = self.get_tile_compressed_data(tile_idx) {
                             let decompressed = self.decompress_tile(compressed_data, None)?;
                             if let Ok(tile_layer) = TileCacheLayer::from_bytes(&decompressed) {
                                 let (tbmin, tbmax) =
                                     self.calc_tight_tile_bounds(&tile_layer.header);
 
-                                // Check overlap
                                 if Self::overlap_bounds(bmin, bmax, &tbmin, &tbmax) {
                                     results.push(tile_ref);
                                 }
@@ -1058,11 +964,9 @@ impl TileCache {
     pub fn get_tiles_at(&self, tx: i32, ty: i32) -> Result<Vec<PolyRef>, TileCacheError> {
         let mut tiles = Vec::new();
 
-        // Search through all tiles at this position
         for layer in 0..MAX_LAYERS as i32 {
             if let Some(&tile_idx) = self.pos_lookup.get(&(tx, ty, layer)) {
                 if let Some(Some(_tile)) = self.tiles.get(tile_idx) {
-                    // Create tile reference with salt
                     let tile_ref = PolyRef::new((self.salt << 16) | (tile_idx as u32));
                     tiles.push(tile_ref);
                 }

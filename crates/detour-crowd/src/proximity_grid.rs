@@ -136,34 +136,26 @@ impl ProximityGrid {
 
     /// Adds or updates an agent in the grid
     pub fn update_agent(&mut self, agent: GridAgent) -> bool {
-        // Remove agent from old position if it exists
         if let Some(old_coord) = self.agent_positions.get(&agent.id) {
             if let Some(cell) = self.cells.get_mut(old_coord) {
                 cell.remove_agent(agent.id);
-                // Remove empty cells to save memory
                 if cell.is_empty() {
                     self.cells.remove(old_coord);
                 }
             }
         } else {
-            // New agent
             self.agent_count += 1;
         }
 
-        // Calculate new grid position
         let new_coord = GridCoord::from_world_pos(agent.pos, self.cell_size);
 
-        // Add agent to new position
         let cell = self.cells.entry(new_coord).or_insert_with(GridCell::new);
         if !cell.add_agent(agent) {
-            // Cell is full, agent couldn't be added
             return false;
         }
 
-        // Update agent position cache
         self.agent_positions.insert(agent.id, new_coord);
 
-        // Update grid bounds
         if self.agent_count == 1 {
             self.min_coord = new_coord;
             self.max_coord = new_coord;
@@ -182,7 +174,6 @@ impl ProximityGrid {
         if let Some(coord) = self.agent_positions.remove(&agent_id) {
             if let Some(cell) = self.cells.get_mut(&coord) {
                 let removed = cell.remove_agent(agent_id);
-                // Remove empty cells to save memory
                 if cell.is_empty() {
                     self.cells.remove(&coord);
                 }
@@ -204,17 +195,14 @@ impl ProximityGrid {
         let mut result = Vec::new();
         let center_coord = GridCoord::from_world_pos(pos, self.cell_size);
 
-        // Calculate how many cells we need to check based on radius
         let cell_radius = ((radius / self.cell_size).ceil() as i32).max(1);
 
-        // Check all cells within the radius
         for dx in -cell_radius..=cell_radius {
             for dz in -cell_radius..=cell_radius {
                 let coord = GridCoord::new(center_coord.x + dx, center_coord.z + dz);
 
                 if let Some(cell) = self.cells.get(&coord) {
                     for &agent in cell.get_agents() {
-                        // Calculate actual distance to filter agents
                         let dist_sqr = distance_squared_2d(pos, agent.pos);
                         let combined_radius = radius + agent.radius;
 
@@ -315,10 +303,8 @@ impl ProximityGrid {
 
     /// Optimizes the grid by removing empty cells and compacting data
     pub fn optimize(&mut self) {
-        // Remove empty cells
         self.cells.retain(|_, cell| !cell.is_empty());
 
-        // Rebuild bounds
         if self.agent_count == 0 {
             self.min_coord = GridCoord::new(0, 0);
             self.max_coord = GridCoord::new(0, 0);
@@ -398,7 +384,6 @@ mod tests {
     fn test_proximity_grid_basic() {
         let mut grid = ProximityGrid::new(2.0);
 
-        // Add some agents
         let agent1 = GridAgent {
             id: 1,
             pos: [1.0, 0.0, 1.0],
@@ -421,13 +406,11 @@ mod tests {
 
         assert_eq!(grid.get_agent_count(), 3);
 
-        // Query near agent1
         let nearby = grid.query_agents(Vec3::from([1.0, 0.0, 1.0]), 3.0);
-        assert_eq!(nearby.len(), 2); // Should find agent1 and agent2
+        assert_eq!(nearby.len(), 2);
 
-        // Query near agent3
         let nearby = grid.query_agents(Vec3::from([10.0, 0.0, 10.0]), 3.0);
-        assert_eq!(nearby.len(), 1); // Should only find agent3
+        assert_eq!(nearby.len(), 1);
     }
 
     #[test]
@@ -449,11 +432,9 @@ mod tests {
         grid.update_agent(agent2);
         assert_eq!(grid.get_agent_count(), 2);
 
-        // Remove agent1
         assert!(grid.remove_agent(1));
         assert_eq!(grid.get_agent_count(), 1);
 
-        // Try to remove agent1 again
         assert!(!grid.remove_agent(1));
         assert_eq!(grid.get_agent_count(), 1);
     }
@@ -471,29 +452,25 @@ mod tests {
         grid.update_agent(agent1);
         assert_eq!(grid.get_agent_count(), 1);
 
-        // Update agent position
         let agent1_moved = GridAgent {
             id: 1,
             pos: [5.0, 0.0, 5.0],
             radius: 0.5,
         };
         grid.update_agent(agent1_moved);
-        assert_eq!(grid.get_agent_count(), 1); // Still only one agent
+        assert_eq!(grid.get_agent_count(), 1);
 
-        // Query at old position
         let nearby = grid.query_agents(Vec3::from([1.0, 0.0, 1.0]), 1.0);
-        assert_eq!(nearby.len(), 0); // Should not find the agent
+        assert_eq!(nearby.len(), 0);
 
-        // Query at new position
         let nearby = grid.query_agents(Vec3::from([5.0, 0.0, 5.0]), 1.0);
-        assert_eq!(nearby.len(), 1); // Should find the agent
+        assert_eq!(nearby.len(), 1);
     }
 
     #[test]
     fn test_grid_stats() {
         let mut grid = ProximityGrid::new(2.0);
 
-        // Add agents in same cell
         for i in 0..3 {
             let agent = GridAgent {
                 id: i,
@@ -514,7 +491,6 @@ mod tests {
     fn test_query_neighbors() {
         let mut grid = ProximityGrid::new(2.0);
 
-        // Add agents in different cells
         let positions = [
             [1.0, 0.0, 1.0],   // Cell (0, 0)
             [3.0, 0.0, 1.0],   // Cell (1, 0)
@@ -532,17 +508,15 @@ mod tests {
             grid.update_agent(agent);
         }
 
-        // Query neighbors of position in cell (0, 0)
         let neighbors = grid.query_neighbors(Vec3::from([1.0, 0.0, 1.0]));
-        assert!(neighbors.len() >= 4); // Should find the 4 nearby agents
-        assert!(neighbors.len() <= 4); // Should not find the far agent
+        assert!(neighbors.len() >= 4);
+        assert!(neighbors.len() <= 4);
     }
 
     #[test]
     fn test_grid_optimization() {
         let mut grid = ProximityGrid::new(2.0);
 
-        // Add and remove agents to create empty cells
         for i in 0..5 {
             let agent = GridAgent {
                 id: i,
@@ -552,7 +526,6 @@ mod tests {
             grid.update_agent(agent);
         }
 
-        // Remove some agents
         grid.remove_agent(1);
         grid.remove_agent(3);
 

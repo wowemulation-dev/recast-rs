@@ -35,7 +35,6 @@ impl DynamicTileCheckpoint {
             source.ch(),
         );
 
-        // Clone all spans column by column
         for z in 0..source.height() {
             for x in 0..source.width() {
                 let mut si = source.column_first_span(x, z);
@@ -62,14 +61,10 @@ impl DynamicTileCheckpoint {
     pub fn memory_usage(&self) -> usize {
         let mut size = std::mem::size_of::<Self>();
 
-        // Add heightfield memory
         size += std::mem::size_of::<Heightfield>();
-
-        // Estimate span memory
         size += self.heightfield.columns().len() * std::mem::size_of::<u32>();
         size += self.heightfield.spans_arena().len() * std::mem::size_of::<recast::SpanEntry>();
 
-        // Add collider set memory
         size += self.colliders.len() * std::mem::size_of::<u64>();
 
         size
@@ -98,10 +93,8 @@ impl CheckpointManager {
     pub fn create_checkpoint(&mut self, heightfield: &Heightfield, colliders: HashSet<u64>) {
         let checkpoint = DynamicTileCheckpoint::new(heightfield, colliders);
 
-        // Add to front (newest first)
         self.checkpoints.insert(0, checkpoint);
 
-        // Remove oldest checkpoints if we exceed the limit
         if self.checkpoints.len() > self.max_checkpoints {
             self.checkpoints.truncate(self.max_checkpoints);
         }

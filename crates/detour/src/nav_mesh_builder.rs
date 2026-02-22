@@ -40,13 +40,8 @@ impl NavMeshBuilder {
     /// Requires the `serialization` feature.
     #[cfg(feature = "serialization")]
     pub fn create_nav_mesh_data(params: &NavMeshCreateParams) -> Result<Vec<u8>, DetourError> {
-        // Validate input parameters
         Self::validate_params(params)?;
-
-        // Create tile data structure
         let tile = Self::build_tile(params)?;
-
-        // Serialize the tile to binary format
         super::binary_format::save_tile_to_binary(&tile)
     }
 
@@ -54,7 +49,6 @@ impl NavMeshBuilder {
     pub fn build_tile(params: &NavMeshCreateParams) -> Result<MeshTile, DetourError> {
         let mut tile = MeshTile::new();
 
-        // Set up tile header
         tile.header = Some(TileHeader {
             x: 0, // Will be set when adding to NavMesh
             y: 0,
@@ -74,30 +68,20 @@ impl NavMeshBuilder {
             bv_quant_factor: 0.0,
         });
 
-        // Copy vertices
         tile.verts = params.verts.clone();
-
-        // Build polygons
         tile.polys = Self::build_polygons(params)?;
-
-        // Copy detail meshes
         tile.detail_meshes = Self::build_detail_meshes(params)?;
-
-        // Copy detail vertices and triangles
         tile.detail_verts = params.detail_verts.clone();
         tile.detail_tris = params.detail_tris.clone();
 
-        // Build off-mesh connections
         if params.off_mesh_con_count > 0 {
             tile.off_mesh_connections = Self::build_off_mesh_connections(params)?;
         }
 
-        // Build BVH tree if requested
         if params.build_bv_tree {
             Self::build_bvh_for_tile(&mut tile)?;
         }
 
-        // Build internal polygon links
         Self::build_internal_links(&mut tile)?;
 
         Ok(tile)
@@ -135,12 +119,10 @@ impl NavMeshBuilder {
         let mut poly_idx = 0;
 
         for i in 0..params.poly_count as usize {
-            // Get polygon properties
             let area = params.poly_areas.get(i).copied().unwrap_or(0);
             let flags = params.poly_flags.get(i).copied().unwrap_or(PolyFlags::WALK);
             let mut poly = Poly::new(area, PolyType::Ground, flags);
 
-            // Read polygon vertices
             let mut vert_count = 0;
             for j in 0..params.nvp as usize {
                 let idx = poly_idx + j;
@@ -153,7 +135,6 @@ impl NavMeshBuilder {
                 }
             }
 
-            // Read polygon neighbors
             for j in 0..params.nvp as usize {
                 let idx = poly_idx + params.nvp as usize + j;
                 if idx < params.polys.len() {
@@ -232,11 +213,9 @@ impl NavMeshBuilder {
 
             let mut conn = OffMeshConnection::new();
 
-            // Copy position data
             conn.pos
                 .copy_from_slice(&params.off_mesh_con_verts[vert_idx..vert_idx + 6]);
 
-            // Set connection properties
             conn.radius = params.off_mesh_con_rad.get(i).copied().unwrap_or(1.0);
             conn.flags = params
                 .off_mesh_con_flags
@@ -260,14 +239,12 @@ impl NavMeshBuilder {
             return Ok(());
         }
 
-        // Calculate bounding boxes for all polygons
         let mut poly_bounds: Vec<([f32; 3], [f32; 3])> = Vec::with_capacity(poly_count);
 
         for poly in &tile.polys {
             let mut bmin = [f32::MAX; 3];
             let mut bmax = [f32::MIN; 3];
 
-            // Calculate polygon bounds
             for j in 0..poly.vert_count as usize {
                 let v_idx = poly.verts[j] as usize * 3;
                 if v_idx + 2 < tile.verts.len() {
@@ -281,11 +258,9 @@ impl NavMeshBuilder {
             poly_bounds.push((bmin, bmax));
         }
 
-        // Build the BVH tree
         let mut items: Vec<usize> = (0..poly_count).collect();
         Self::build_bvh_recursive(tile, &poly_bounds, &mut items, 0, poly_count)?;
 
-        // Update header with BVH node count
         if let Some(header) = tile.header.as_mut() {
             header.bvh_node_count = tile.bvh_nodes.len() as i32;
         }
@@ -307,7 +282,6 @@ impl NavMeshBuilder {
 
         let node_idx = tile.bvh_nodes.len() as i32;
 
-        // Calculate bounds for all items
         let mut node_bmin = [f32::MAX; 3];
         let mut node_bmax = [f32::MIN; 3];
 
@@ -320,17 +294,14 @@ impl NavMeshBuilder {
             }
         }
 
-        // Get tile header for quantization
         let header = tile
             .header
             .as_ref()
             .ok_or_else(|| DetourError::InvalidParam)?;
 
-        // Quantize bounds
         let (quant_bounds, _) =
             BVNode::quantize_bounds(&node_bmin, &node_bmax, &header.bmin, &header.bmax);
 
-        // Create node
         let mut node = BVNode {
             bmin: quant_bounds.bmin,
             bmax: quant_bounds.bmax,
@@ -351,7 +322,6 @@ impl NavMeshBuilder {
             // Internal node
             tile.bvh_nodes.push(node); // Reserve space
 
-            // Find best split axis
             let mut axis = 0;
             let mut max_span = node_bmax[0] - node_bmin[0];
             for k in 1..3 {
@@ -362,7 +332,6 @@ impl NavMeshBuilder {
                 }
             }
 
-            // Sort along axis
             let items_slice = &mut items[item_start..item_start + item_count];
             items_slice.sort_by(|&a, &b| {
                 let a_center = (poly_bounds[a].0[axis] + poly_bounds[a].1[axis]) * 0.5;
@@ -372,7 +341,6 @@ impl NavMeshBuilder {
                     .unwrap_or(std::cmp::Ordering::Equal)
             });
 
-            // Split and recurse
             let split = item_count / 2;
             let left = Self::build_bvh_recursive(tile, poly_bounds, items, item_start, split)?;
             let right = Self::build_bvh_recursive(
@@ -383,7 +351,6 @@ impl NavMeshBuilder {
                 item_count - split,
             )?;
 
-            // Update node
             tile.bvh_nodes[node_idx as usize].i = ((left & 0xFFFF) << 16) | (right & 0xFFFF);
         }
 
@@ -397,29 +364,24 @@ impl NavMeshBuilder {
     }
 
     fn build_internal_links(tile: &mut MeshTile) -> Result<(), DetourError> {
-        // For each polygon, check if it shares edges with neighbors
         for i in 0..tile.polys.len() {
             // Skip off-mesh connections - they don't use neighbor-based links
             if tile.polys[i].poly_type == super::PolyType::OffMeshConnection {
                 continue;
             }
 
-            // Collect neighbor information first
             let mut links_to_add = Vec::new();
 
             {
                 let poly = &tile.polys[i];
 
-                // Check each edge
                 for j in 0..poly.vert_count as usize {
                     let neighbor_idx = poly.neighbors[j];
 
                     // Skip external link markers - they don't create internal links
                     if neighbor_idx != MESH_NULL_IDX && (neighbor_idx & DT_EXT_LINK) == 0 {
-                        // Create internal link to neighbor
                         let neighbor_ref = encode_poly_ref(0, neighbor_idx as u32);
 
-                        // Find which edge on the neighbor connects back
                         let mut _neighbor_edge = 0u8;
                         if (neighbor_idx as usize) < tile.polys.len() {
                             let neighbor_poly = &tile.polys[neighbor_idx as usize];
@@ -431,7 +393,6 @@ impl NavMeshBuilder {
                             }
                         }
 
-                        // Create link
                         let link = super::Link::new(
                             neighbor_ref,
                             neighbor_idx as u8,
@@ -445,14 +406,11 @@ impl NavMeshBuilder {
                 }
             }
 
-            // Now add the links
             for link in links_to_add {
                 let link_idx = tile.links.len();
                 tile.links.push(link);
 
-                // Update polygon's link list
                 if let Some(first) = tile.polys[i].first_link {
-                    // Find last link and append
                     let mut last_idx = first;
                     while let Some(next) = tile.links[last_idx].next {
                         last_idx = next as usize;
@@ -475,7 +433,6 @@ impl NavMeshBuilder {
         ty: i32,
         layer: i32,
     ) -> Result<Vec<ExternalLinkRequest>, DetourError> {
-        // Get the tile we're connecting from
         let tile = nav_mesh.get_tile_at(tx, ty, layer);
         if tile.is_none() {
             return Ok(Vec::new()); // No tile to connect from
@@ -495,7 +452,6 @@ impl NavMeshBuilder {
             let neighbor_tx = tx + dx;
             let neighbor_ty = ty + dy;
 
-            // Check if neighbor tile exists
             if nav_mesh
                 .get_tile_at(neighbor_tx, neighbor_ty, layer)
                 .is_some()
@@ -529,7 +485,6 @@ impl NavMeshBuilder {
         layer2: i32,
         direction: u8,
     ) -> Result<Vec<ExternalLinkRequest>, DetourError> {
-        // Get references to both tiles
         let tile1 = nav_mesh.get_tile_at(tx1, ty1, layer1);
         let tile2 = nav_mesh.get_tile_at(tx2, ty2, layer2);
 
@@ -592,7 +547,6 @@ impl NavMeshBuilder {
             let poly_count = tile.polys.len();
             let mut portal_edges = Vec::new();
 
-            // Find all portal edges in the source tile
             for i in 0..poly_count {
                 let poly = &tile.polys[i];
                 let nv = poly.vert_count as usize;
@@ -608,7 +562,6 @@ impl NavMeshBuilder {
                         continue;
                     }
 
-                    // Get edge vertices
                     let va_idx = (poly.verts[j] as usize) * 3;
                     let vb_idx = (poly.verts[(j + 1) % nv] as usize) * 3;
 
@@ -644,7 +597,6 @@ impl NavMeshBuilder {
                 dt_opposite_tile(dir),
             )?;
 
-            // Create link requests for each connecting polygon
             for conn_poly_ref in connecting_polys {
                 requests.push(ExternalLinkRequest {
                     source_tile: (source_tx, source_ty, source_layer),
@@ -675,13 +627,11 @@ impl NavMeshBuilder {
         };
         let mut connections = Vec::new();
 
-        // Calculate slab end points for the source edge
         let (amin, amax) = Self::calc_slab_end_points(va, vb, side);
         let apos = Self::get_slab_coord(va, side);
 
         let external_marker = DT_EXT_LINK | (side as u16);
 
-        // Check each polygon in the target tile
         for i in 0..tile.polys.len() {
             let poly = &tile.polys[i];
             let nv = poly.vert_count as usize;
@@ -718,14 +668,11 @@ impl NavMeshBuilder {
                     continue;
                 }
 
-                // Check if the segments overlap
                 let (bmin, bmax) = Self::calc_slab_end_points(&vc, &vd, side);
                 if Self::overlap_slabs(&amin, &amax, &bmin, &bmax, 0.01, 0.9) {
-                    // Create polygon reference using tile reference at coordinates
                     if let Some(tile_ref) =
                         nav_mesh.get_tile_ref_at(target_tx, target_ty, target_layer)
                     {
-                        // Extract tile ID from the tile reference and combine with polygon index
                         let (tile_id, _) = super::nav_mesh::decode_poly_ref(tile_ref);
                         let poly_ref = super::nav_mesh::encode_poly_ref(tile_id, i as u32);
                         connections.push(poly_ref);
@@ -831,7 +778,6 @@ impl NavMeshBuilder {
         walkable_radius: f32,
         walkable_climb: f32,
     ) -> NavMeshCreateParams {
-        // Convert vertices from integer to world coordinates
         let vert_count = poly_mesh.vert_count();
         let poly_count = poly_mesh.poly_count();
         let bmin = poly_mesh.bmin();
@@ -849,17 +795,14 @@ impl NavMeshBuilder {
             verts.push(z);
         }
 
-        // Convert polygon data
         let polys = poly_mesh.polys().to_vec();
         let poly_flags = vec![PolyFlags::WALK; poly_count];
         let poly_areas = poly_mesh.areas().to_vec();
 
-        // Convert detail mesh data from PolyMeshDetail structure
         let mut detail_meshes = Vec::new();
         let mut detail_verts = Vec::new();
         let mut detail_tris = Vec::new();
 
-        // For each polygon, create detail mesh entry
         for i in 0..poly_count {
             let vert_base = 0u32; // No extra detail vertices in simple case
             let tri_base = (i * 2) as u32; // Assuming 2 triangles per quad polygon
@@ -885,7 +828,6 @@ impl NavMeshBuilder {
             }
         }
 
-        // Convert detail triangles from u32 to u8
         for &tri_idx in detail_mesh.triangles() {
             if tri_idx <= 255 {
                 detail_tris.push(tri_idx as u8);
@@ -934,7 +876,6 @@ mod tests {
 
     #[test]
     fn test_nav_mesh_builder_creation() {
-        // Create minimal valid params
         let nav_params = NavMeshParams {
             origin: [0.0, 0.0, 0.0],
             tile_width: 32.0,
@@ -983,10 +924,7 @@ mod tests {
             build_bv_tree: true,
         };
 
-        // Build tile
         let tile = NavMeshBuilder::build_tile(&params).unwrap();
-
-        // Verify tile was built correctly
         assert_eq!(tile.polys.len(), 1);
         assert_eq!(tile.verts.len(), 12);
         assert!(!tile.bvh_nodes.is_empty());

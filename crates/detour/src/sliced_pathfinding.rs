@@ -88,7 +88,6 @@ impl<'a> SlicedPathfindingQuery<'a> {
         end_pos: [f32; 3],
         filter: QueryFilter,
     ) -> Result<Self, DetourError> {
-        // Validate input
         if !query.nav_mesh().is_valid_poly_ref(start_ref) {
             return Err(DetourError::InvalidParam);
         }
@@ -111,7 +110,6 @@ impl<'a> SlicedPathfindingQuery<'a> {
             current_segment: 0,
         };
 
-        // Initialize the first segment
         sliced_query.initialize_pathfinding()?;
 
         Ok(sliced_query)

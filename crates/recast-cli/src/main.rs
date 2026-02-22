@@ -483,7 +483,6 @@ fn build_mesh(input: &Path, output: &Path, params: &BuildParams, timings: bool) 
         );
     }
 
-    // Convert to Detour format
     let mut nav_params = NavMeshParams::default();
     nav_params.origin = [bmin.x, bmin.y, bmin.z];
     nav_params.tile_width = bmax.x - bmin.x;
@@ -499,7 +498,6 @@ fn build_mesh(input: &Path, output: &Path, params: &BuildParams, timings: bool) 
     )
     .map_err(|e| anyhow!("Failed to convert to NavMesh: {:?}", e))?;
 
-    // Save the navigation mesh to a file
     eprintln!("Saving navigation mesh to {}...", output.display());
     save_nav_mesh(&nav_mesh, output)?;
 
@@ -536,7 +534,6 @@ fn bench(input: &Path, params: &BuildParams, iterations: u32) -> Result<()> {
     }
     eprintln!();
 
-    // Compute statistics
     durations.sort();
     let n = durations.len() as f64;
     let sum: Duration = durations.iter().sum();
@@ -605,7 +602,6 @@ fn save_nav_mesh(nav_mesh: &NavMesh, output: &Path) -> Result<()> {
 fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) -> Result<()> {
     println!("Loading navigation mesh from {}...", mesh_path.display());
 
-    // Load the navigation mesh from a file
     let nav_mesh = if let Some(extension) = mesh_path.extension().and_then(|ext| ext.to_str()) {
         match extension.to_lowercase().as_str() {
             "json" => NavMesh::load_from_json(mesh_path)
@@ -640,18 +636,13 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
 
     println!("Finding path from {:?} to {:?}...", start, end);
 
-    // Create a query
     let mut query = NavMeshQuery::new(&nav_mesh);
-
-    // Find nearest polygons to start and end points
     let start_pos = Vec3::new(start.x, start.y, start.z);
     let end_pos = Vec3::new(end.x, end.y, end.z);
     let ext = Vec3::new(2.0, 4.0, 2.0); // Search extents
 
-    // Create a default filter
     let filter = QueryFilter::default();
 
-    // Find nearest polygons to start and end positions
     let (start_ref, closest_start) = query
         .find_nearest_poly(start_pos, ext, &filter)
         .map_err(|e| anyhow!("Failed to find start polygon: {:?}", e))?;
@@ -666,14 +657,12 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
     );
     println!("Found end polygon: {:?} at {:?}", end_ref, closest_end);
 
-    // Find the path
     let path = query
         .find_path(start_ref, end_ref, closest_start, closest_end, &filter)
         .map_err(|e| anyhow!("Failed to find path: {:?}", e))?;
 
     println!("Found path with {} polygons", path.len());
 
-    // Convert polygon path to straight path
     let straight_path = query
         .find_straight_path(closest_start, closest_end, &path)
         .map_err(|e| anyhow!("Failed to find straight path: {:?}", e))?;
@@ -683,14 +672,12 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
         straight_path.waypoints.len()
     );
 
-    // Output the path
     if let Some(output_path) = output {
         println!("Saving path to {}...", output_path.display());
 
         let mut file = File::create(output_path)
             .with_context(|| format!("Failed to create output file: {}", output_path.display()))?;
 
-        // Write the path
         writeln!(file, "# Path from {:?} to {:?}", start, end)?;
         writeln!(file, "# {} waypoints", straight_path.waypoints.len())?;
 
@@ -698,7 +685,6 @@ fn find_path(mesh_path: &Path, start: Vec3, end: Vec3, output: Option<&Path>) ->
             writeln!(file, "{},{},{}", waypoint[0], waypoint[1], waypoint[2])?;
         }
     } else {
-        // Print the path to stdout
         println!("Path:");
         for (i, waypoint) in straight_path.waypoints.iter().enumerate() {
             println!("{}: {},{},{}", i, waypoint[0], waypoint[1], waypoint[2]);

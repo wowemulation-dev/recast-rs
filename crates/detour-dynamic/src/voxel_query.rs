@@ -133,7 +133,6 @@ impl VoxelQuery {
                 return Some(hit);
             }
 
-            // Check if we've reached the end tile
             if (if dx > 0 {
                 current_x >= ex
             } else {
@@ -146,7 +145,6 @@ impl VoxelQuery {
                 break;
             }
 
-            // Move to the next tile
             if t_max_x < t_max_z {
                 t = t_max_x;
                 t_max_x += t_delta_x;
@@ -240,7 +238,6 @@ impl VoxelQuery {
         let mut t = 0.0f32;
 
         loop {
-            // Check if current cell is within heightfield bounds
             if current_x >= 0
                 && current_x < heightfield.width()
                 && current_z >= 0
@@ -251,14 +248,12 @@ impl VoxelQuery {
                 let y_min = (y1.min(y2) / heightfield.ch()).floor();
                 let y_max = (y1.max(y2) / heightfield.ch()).ceil();
 
-                // Check spans in this cell
                 let mut si = heightfield.column_first_span(current_x, current_z);
                 while si != recast::SPAN_NULL {
                     let s = heightfield.span(si);
                     let span_min = s.min as f32;
                     let span_max = s.max as f32;
 
-                    // Check if ray intersects this span
                     if span_min <= y_max && span_max >= y_min {
                         let hit_t = (t_min + t).min(1.0);
                         let hit_pos = Vec3::new(
@@ -279,7 +274,6 @@ impl VoxelQuery {
                 }
             }
 
-            // Check if we've reached the end of this tile
             if (if dx > 0 {
                 current_x >= ex
             } else {
@@ -292,7 +286,6 @@ impl VoxelQuery {
                 break;
             }
 
-            // Move to next cell
             if t_max_x < t_max_z {
                 t = t_max_x;
                 t_max_x += t_delta_x;
