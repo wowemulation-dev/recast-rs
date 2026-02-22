@@ -24,7 +24,7 @@ enum Axis {
 #[derive(Clone, Copy)]
 struct PolyBuf {
     data: [f32; 21], // 7 verts * 3 coords
-    len: usize,       // vertex count (not float count)
+    len: usize,      // vertex count (not float count)
 }
 
 impl PolyBuf {

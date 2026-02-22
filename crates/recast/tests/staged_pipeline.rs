@@ -68,10 +68,7 @@ fn load_mesh(name: &str) -> (TriMesh, RecastConfig) {
 /// Rasterize triangles into a heightfield WITHOUT filtering.
 /// This separates rasterization from filtering so each stage can be
 /// verified independently.
-fn rasterize_without_filtering(
-    mesh: &TriMesh,
-    config: &RecastConfig,
-) -> Heightfield {
+fn rasterize_without_filtering(mesh: &TriMesh, config: &RecastConfig) -> Heightfield {
     use glam::Vec3;
 
     let mut hf = Heightfield::new(
@@ -121,8 +118,7 @@ fn rasterize_without_filtering(
             0u8
         };
 
-        rasterize_triangle(&v0, &v1, &v2, area, &mut hf, 1)
-            .expect("rasterize_triangle failed");
+        rasterize_triangle(&v0, &v1, &v2, area, &mut hf, 1).expect("rasterize_triangle failed");
     }
 
     hf
@@ -221,7 +217,10 @@ mod nav_test {
         let (total, walkable) = count_spans(&hf);
         // C++ reference: 56689 walkable spans after all filters.
         assert_eq!(total, 120183, "total spans unchanged by filtering");
-        assert_eq!(walkable, 56689, "walkable after all filters (C++ reference)");
+        assert_eq!(
+            walkable, 56689,
+            "walkable after all filters (C++ reference)"
+        );
     }
 
     // -- Stage 2: Compact heightfield construction --
@@ -327,7 +326,11 @@ mod nav_test {
         assert_eq!(chf.max_distance(), 48, "max distance");
 
         let boundary = chf.dist().iter().filter(|&&d| d == 0).count();
-        let interior = chf.dist().iter().filter(|&&d| d > 0 && d < u16::MAX).count();
+        let interior = chf
+            .dist()
+            .iter()
+            .filter(|&&d| d > 0 && d < u16::MAX)
+            .count();
         assert_eq!(boundary, 15853, "boundary spans (dist=0)");
         assert_eq!(interior, 40836, "interior spans (dist>0)");
     }
@@ -363,7 +366,10 @@ mod nav_test {
 
         // Structural properties that must hold regardless of implementation
         let assigned = chf.spans().iter().filter(|s| s.reg > 0).count();
-        assert!(assigned > 0, "at least some spans should be assigned to regions");
+        assert!(
+            assigned > 0,
+            "at least some spans should be assigned to regions"
+        );
 
         let normal_regions: std::collections::HashSet<u16> = chf
             .spans()
@@ -386,7 +392,11 @@ mod nav_test {
 
         // Regression values — these may change if the watershed algorithm improves
         assert_eq!(chf.max_regions(), 249, "max_regions (regression)");
-        assert_eq!(normal_regions.len(), 147, "normal region count (regression)");
+        assert_eq!(
+            normal_regions.len(),
+            147,
+            "normal region count (regression)"
+        );
         assert_eq!(assigned, 47027, "assigned spans (regression)");
     }
 

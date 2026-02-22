@@ -550,6 +550,10 @@ impl CompactHeightfield {
     ///
     /// This is the primary neighbor lookup, matching C++ `rcGetCon`. Returns
     /// the absolute span index of the neighbor, or `None` if not connected.
+    ///
+    /// Recovers (x,z) from `span_cells` via integer division. For hot loops
+    /// that already have (x,z) in scope, use [`get_con_xy`](Self::get_con_xy)
+    /// to avoid the modular arithmetic.
     pub fn get_con(&self, span_idx: usize, dir: usize) -> Option<usize> {
         let layer = self.spans[span_idx].con[dir];
         if layer == RC_NOT_CONNECTED {
@@ -558,6 +562,22 @@ impl CompactHeightfield {
         let cell_idx = self.span_cells[span_idx] as usize;
         let x = (cell_idx % self.width as usize) as i32;
         let z = (cell_idx / self.width as usize) as i32;
+        let nx = x + Self::dir_offset_x(dir);
+        let nz = z + Self::dir_offset_z(dir);
+        let ncell = &self.cells[(nz * self.width + nx) as usize];
+        ncell.index.map(|idx| idx + layer as usize)
+    }
+
+    /// Gets the neighboring span when (x,z) are already known.
+    ///
+    /// Avoids the `% width` / `/ width` integer division in [`get_con`](Self::get_con).
+    /// Use this in hot loops that iterate `for z in 0..h { for x in 0..w { ... } }`.
+    #[inline(always)]
+    pub fn get_con_xy(&self, span_idx: usize, dir: usize, x: i32, z: i32) -> Option<usize> {
+        let layer = self.spans[span_idx].con[dir];
+        if layer == RC_NOT_CONNECTED {
+            return None;
+        }
         let nx = x + Self::dir_offset_x(dir);
         let nz = z + Self::dir_offset_z(dir);
         let ncell = &self.cells[(nz * self.width + nx) as usize];
@@ -622,7 +642,7 @@ impl CompactHeightfield {
 
                         let mut neighbor_count = 0;
                         for dir in 0..4 {
-                            if let Some(neighbor_idx) = self.get_con(span_idx, dir) {
+                            if let Some(neighbor_idx) = self.get_con_xy(span_idx, dir, x, y) {
                                 if self.areas[neighbor_idx] == self.areas[span_idx] {
                                     neighbor_count += 1;
                                 }
@@ -649,12 +669,13 @@ impl CompactHeightfield {
                         let span_idx = first_span_idx + s;
 
                         // dir 0 = -X (cardinal: +2)
-                        if let Some(neg_x_idx) = self.get_con(span_idx, 0) {
+                        if let Some(neg_x_idx) = self.get_con_xy(span_idx, 0, x, y) {
                             if src[neg_x_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[neg_x_idx].saturating_add(2);
                             }
                             // (-X,-Z) diagonal: from -X neighbor, go dir 3 (-Z)
-                            if let Some(diag_idx) = self.get_con(neg_x_idx, 3) {
+                            // Neighbor is at (x-1, y), so pass those coords
+                            if let Some(diag_idx) = self.get_con_xy(neg_x_idx, 3, x - 1, y) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
@@ -662,12 +683,13 @@ impl CompactHeightfield {
                         }
 
                         // dir 3 = -Z (cardinal: +2)
-                        if let Some(neg_z_idx) = self.get_con(span_idx, 3) {
+                        if let Some(neg_z_idx) = self.get_con_xy(span_idx, 3, x, y) {
                             if src[neg_z_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[neg_z_idx].saturating_add(2);
                             }
                             // (-Z,+X) diagonal: from -Z neighbor, go dir 2 (+X)
-                            if let Some(diag_idx) = self.get_con(neg_z_idx, 2) {
+                            // Neighbor is at (x, y-1), so pass those coords
+                            if let Some(diag_idx) = self.get_con_xy(neg_z_idx, 2, x, y - 1) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
@@ -690,12 +712,13 @@ impl CompactHeightfield {
                         let span_idx = first_span_idx + s;
 
                         // dir 2 = +X (cardinal: +2)
-                        if let Some(pos_x_idx) = self.get_con(span_idx, 2) {
+                        if let Some(pos_x_idx) = self.get_con_xy(span_idx, 2, x, y) {
                             if src[pos_x_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[pos_x_idx].saturating_add(2);
                             }
                             // (+X,+Z) diagonal: from +X neighbor, go dir 1 (+Z)
-                            if let Some(diag_idx) = self.get_con(pos_x_idx, 1) {
+                            // Neighbor is at (x+1, y), so pass those coords
+                            if let Some(diag_idx) = self.get_con_xy(pos_x_idx, 1, x + 1, y) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
@@ -703,12 +726,13 @@ impl CompactHeightfield {
                         }
 
                         // dir 1 = +Z (cardinal: +2)
-                        if let Some(pos_z_idx) = self.get_con(span_idx, 1) {
+                        if let Some(pos_z_idx) = self.get_con_xy(span_idx, 1, x, y) {
                             if src[pos_z_idx].saturating_add(2) < src[span_idx] {
                                 src[span_idx] = src[pos_z_idx].saturating_add(2);
                             }
                             // (+Z,-X) diagonal: from +Z neighbor, go dir 0 (-X)
-                            if let Some(diag_idx) = self.get_con(pos_z_idx, 0) {
+                            // Neighbor is at (x, y+1), so pass those coords
+                            if let Some(diag_idx) = self.get_con_xy(pos_z_idx, 0, x, y + 1) {
                                 if src[diag_idx].saturating_add(3) < src[span_idx] {
                                     src[span_idx] = src[diag_idx].saturating_add(3);
                                 }
@@ -759,11 +783,15 @@ impl CompactHeightfield {
                         // For each dir, diagonal is reached by going (dir+1)&3 from
                         // the cardinal neighbor.
                         for dir in 0..4usize {
-                            if let Some(neighbor_idx) = self.get_con(span_idx, dir) {
+                            if let Some(neighbor_idx) = self.get_con_xy(span_idx, dir, x, y) {
                                 d += src[neighbor_idx] as i32;
 
                                 let next_dir = (dir + 1) & 3;
-                                if let Some(diag_idx) = self.get_con(neighbor_idx, next_dir) {
+                                let nx = x + Self::dir_offset_x(dir);
+                                let nz = y + Self::dir_offset_z(dir);
+                                if let Some(diag_idx) =
+                                    self.get_con_xy(neighbor_idx, next_dir, nx, nz)
+                                {
                                     d += src[diag_idx] as i32;
                                 } else {
                                     d += cd as i32;
