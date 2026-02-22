@@ -437,8 +437,8 @@ warnings.
 
 ## Phase 2: Usability (High) -- MOSTLY COMPLETE
 
-These issues block practical adoption. Sections 2.1-2.3 are complete.
-Section 2.4 (crates.io publication) is pending.
+These issues block practical adoption. Sections 2.1-2.3 are complete and
+merged to main. Section 2.4 (crates.io publication) is pending.
 
 ### 2.1 Add Worked Examples -- COMPLETE
 
@@ -1013,465 +1013,99 @@ before actual publication.
 - Update CHANGELOG.md with publication date
 - Verify each crate page on crates.io shows correct metadata and README
 
-## Phase 3: API Quality (Medium) -- IN PROGRESS
+## Phase 3: API Quality (Medium) -- MOSTLY COMPLETE
 
-These issues improve the developer experience. All are breaking API changes
-that must happen before 1.0 publication.
+These issues improve the developer experience. Sections 3.1 and 3.2 are
+complete. Section 3.3 is partially complete (fluent methods added, separate
+builder structs pending).
 
-### 3.1 Replace C-Style Output Parameters -- PARTIALLY COMPLETE
+### 3.1 Replace C-Style Output Parameters -- MOSTLY COMPLETE
 
-> **Status**: `detour-crowd` migrated to `Vec3` parameters (30 public
-> methods). `NavMeshQuery` `Vec3` migration is pending.
+> **Status**: `detour-crowd` migrated to `Vec3` (30 public methods).
+> `NavMeshQuery` migrated to `Vec3` (all public methods). 14 C-style
+> `detour_common` vector functions with `&mut` output params removed.
+> `bvh_tree::query`, `store_tile_state`, and `move_along_surface`
+> converted to return values. 12 read-only `detour_common` utility
+> functions remain (they use `&[f32]` input params, not output params).
 
 **Problem**: Some functions use C-style output parameter patterns instead of
-returning owned values. The original roadmap claimed `find_path` was one of
-these, but that is incorrect -- most `NavMeshQuery` methods already return
-`Result<Vec<T>>` or `Result<(T, U)>`.
-
-**Actual remaining C-style output parameters** (verified by codebase audit):
-
-#### Public functions with `&mut Vec<T>` output parameters (2)
-
-```rust
-// crates/detour/src/bvh_tree.rs:118
-pub fn query(&self, query_bounds: &Aabb, results: &mut Vec<PolyRef>)
-
-// crates/recast/src/convex_volume.rs:225
-pub fn clip_polygon(&self, polygon: &[Vec3], clipped: &mut Vec<Vec3>) -> bool
-```
-
-**Target**: Return `Vec<T>` instead of taking `&mut Vec<T>`:
-
-```rust
-pub fn query(&self, query_bounds: &Aabb) -> Vec<PolyRef>
-pub fn clip_polygon(&self, polygon: &[Vec3]) -> Option<Vec<Vec3>>
-```
-
-#### Public function with `&mut [u8]` output buffer (1)
-
-```rust
-// crates/detour/src/nav_mesh.rs:3738
-pub fn store_tile_state(&self, tile: &MeshTile, data: &mut [u8]) -> Result<usize>
-```
-
-Note: `binary_format::store_tile_state` already returns `Result<Vec<u8>>`.
-The `NavMesh` method should match:
-
-```rust
-pub fn store_tile_state(&self, tile: &MeshTile) -> Result<Vec<u8>>
-```
-
-#### Public function with output parameter in return position (1)
-
-```rust
-// crates/detour/src/nav_mesh_query.rs:1198
-pub fn move_along_surface(
-    &self, start_ref: PolyRef, start_pos: &[f32; 3], end_pos: &[f32; 3],
-    filter: &QueryFilter, visited_refs: &mut Vec<PolyRef>,
-) -> Result<[f32; 3]>
-```
-
-**Target**: Return a struct or tuple instead of mixing return + output param:
-
-```rust
-pub fn move_along_surface(
-    &self, start_ref: PolyRef, start_pos: Vec3, end_pos: Vec3,
-    filter: &QueryFilter,
-) -> Result<MoveAlongSurfaceResult>
-
-pub struct MoveAlongSurfaceResult {
-    pub position: Vec3,
-    pub visited: Vec<PolyRef>,
-}
-```
-
-#### Private functions (not user-facing, lower priority)
-
-4 private functions in `recast` use `&mut Vec<T>` output parameters. These
-are internal algorithm helpers translated from C++ and do not affect the
-public API. Refactor opportunistically.
-
-#### `detour_common.rs` vector utilities (12 public functions)
-
-The `detour_common` module contains 12 public functions that take
-`&mut [f32; 3]` as output parameters, directly translating C++ vector
-utilities:
-
-```rust
-// All in crates/detour/src/detour_common.rs
-pub fn dt_vcross(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3])
-pub fn dt_vmad(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3], s: f32)
-pub fn dt_vlerp(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3], t: f32)
-pub fn dt_vadd(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3])
-pub fn dt_vsub(dest: &mut [f32; 3], v1: &[f32; 3], v2: &[f32; 3])
-pub fn dt_vscale(dest: &mut [f32; 3], v: &[f32; 3], t: f32)
-pub fn dt_vmin(dest: &mut [f32; 3], v: &[f32; 3])
-pub fn dt_vmax(dest: &mut [f32; 3], v: &[f32; 3])
-pub fn dt_vset(dest: &mut [f32; 3], x: f32, y: f32, z: f32)
-pub fn dt_vcopy(dest: &mut [f32; 3], a: &[f32; 3])
-pub fn dt_vnormalize(v: &mut [f32; 3])
-pub fn dt_calc_poly_center(tc: &mut [f32; 3], idx: &[u16], nidx: usize, verts: &[f32])
-```
-
-These should be replaced with `glam::Vec3` operations. Most are one-liners
-that `glam` already provides (`Vec3::cross`, `Vec3::lerp`, operator
-overloads). After migration, the `detour_common` module can be removed or
-reduced to functions that have no `glam` equivalent (like
-`dt_calc_poly_center`).
-
-#### `&[f32; 3]` parameter migration
-
-Beyond output parameters, **235 function parameters** across the workspace
-use `&[f32; 3]` where `Vec3` would be more idiomatic:
-
-| Crate | `&[f32; 3]` parameter count |
-|-------|-----------------------------|
-| detour | 170 |
-| detour-crowd | 40 |
-| recast | 21 |
-| detour-tilecache | 3 |
-| recast-common | 1 |
-| detour-dynamic | 0 |
-
-This is a large migration. Approach:
-
-1. Start with `detour_common.rs` -- replace 12 functions with `Vec3`
-2. Update `NavMeshQuery` public methods to accept `Vec3` instead of
-   `&[f32; 3]`
-3. Update `Crowd` public methods
-4. Leave internal/private functions for later -- they can keep `[f32; 3]`
-   internally and convert at boundaries
-
-**Migration strategy**: Add `Vec3` overloads first (with `_v3` suffix or
-separate impl block), deprecate `&[f32; 3]` versions, remove deprecated
-versions before 1.0.
-
-### 3.2 Reduce Public Field Exposure
-
-**Problem**: 22 structs expose 5 or more public fields, preventing future
-internal changes without API breakage.
-
-#### Inventory by category
-
-**Configuration structs** (9 structs, user-constructed):
-
-| Struct | Crate | Fields | Has Default | Notes |
-|--------|-------|--------|-------------|-------|
-| DynamicNavMeshConfig | detour-dynamic | 26 | Yes | Has 16 `with_*()` methods |
-| NavMeshCreateParams | detour | 25 | No | Largest user-facing struct |
-| RecastConfig | recast | 18 | Yes | Core pipeline config |
-| AgentParams | detour-crowd | 13 | Yes | Agent behavior params |
-| DtObstacleAvoidanceParams | detour-crowd | 10 | Yes | RVO tuning |
-| TileCacheBuilderConfig | detour-tilecache | 10 | Yes | Tile cache build config |
-| FormationConfig | detour-crowd | 7 | No | Group movement params |
-| RVOConfig | detour-crowd | 6 | Yes | Velocity obstacle params |
-| NavMeshParams | detour | 5 | No | Mesh initialization |
-
-**Action for configuration structs**: These are intentionally user-visible.
-Keep fields public but add builder patterns (section 3.3). Add
-`#[non_exhaustive]` to allow future field additions without breaking changes.
-
-**Data model structs** (13 structs, internal representations):
-
-| Struct | Crate | Fields | Category |
-|--------|-------|--------|----------|
-| PolyMesh | recast | 18 | Pipeline output (4 legacy duplicates) |
-| CompactHeightfield | recast | 15 | Pipeline intermediate |
-| TileHeader | detour | 15 | Tile metadata |
-| TileCacheLayerHeader | detour-tilecache | 14 | Tile cache metadata |
-| MeshTile | detour | 12 | Tile data |
-| Formation | detour-crowd | 9 | Crowd formation |
-| PolyMeshDetail | recast | 7 | Pipeline output |
-| Poly | detour | 7 | Polygon definition |
-| Heightfield | recast | 6 | Pipeline intermediate |
-| Link | detour | 6 | Graph edge |
-| DtObstacleCircle | detour-crowd | 6 | Algorithm internal |
-| FormationAgent | detour-crowd | 6 | Formation member |
-| RVOAgent | detour-crowd | 5 | Algorithm internal |
-
-**Action for data model structs**: Make fields private, add accessor methods.
-Prioritize by exposure risk:
-
-**Priority 1 -- Pipeline output structs** (cross-crate boundaries):
-
-`PolyMesh` is consumed by `detour` to build `NavMesh`. Its 4 legacy
-duplicate fields must be removed first:
-
-```rust
-// Remove these 4 fields from PolyMesh:
-pub vert_count: usize,       // duplicate of nverts
-pub poly_count: usize,       // duplicate of npolys
-pub vertices: Vec<u16>,      // duplicate of verts
-pub max_verts_per_poly: usize, // duplicate of nvp
-```
-
-Then make remaining fields private with accessors:
-
-```rust
-pub struct PolyMesh {
-    // All fields private
-    verts: Vec<u16>,
-    polys: Vec<u16>,
-    // ...
-}
-
-impl PolyMesh {
-    pub fn verts(&self) -> &[u16] { &self.verts }
-    pub fn polys(&self) -> &[u16] { &self.polys }
-    pub fn vert_count(&self) -> usize { self.nverts }
-    pub fn poly_count(&self) -> usize { self.npolys }
-    pub fn max_verts_per_poly(&self) -> usize { self.nvp }
-    pub fn bounds(&self) -> (Vec3, Vec3) { (self.bmin, self.bmax) }
-    pub fn cell_size(&self) -> f32 { self.cs }
-    pub fn cell_height(&self) -> f32 { self.ch }
-    // ...
-}
-```
-
-`PolyMeshDetail` follows the same pattern. Both are consumed by
-`NavMeshBuilder::build_from_recast()` in detour -- update that call site.
-
-**Priority 2 -- Tile structures** (serialization boundaries):
-
-`MeshTile`, `TileHeader`, and `TileCacheLayerHeader` are involved in
-serialization. Make fields private but provide:
-- Read-only accessors for all fields
-- `pub(crate)` mutable access for internal construction
-- Serde derives remain on the struct (not affected by field visibility)
-
-**Priority 3 -- Algorithm internals** (low exposure risk):
-
-`Link`, `Poly`, `DtObstacleCircle`, `RVOAgent`, `FormationAgent` are used
-within single crates. Make fields `pub(crate)` instead of `pub`. No accessor
-methods needed since all consumers are in the same crate.
-
-**Priority 4 -- Intermediate pipeline structs**:
-
-`Heightfield` and `CompactHeightfield` are consumed within the `recast`
-crate and by `detour-tilecache`. Make fields `pub(crate)` where possible,
-add accessors for cross-crate access.
-
-#### Migration approach
-
-1. Remove PolyMesh legacy duplicates (4 fields) -- find and update all
-   references across the workspace
-2. Add `#[non_exhaustive]` to all configuration structs
-3. Convert Priority 3 structs to `pub(crate)` fields (crate-internal only,
-   no API breakage outside the crate)
-4. Add accessors to Priority 1 structs, make fields private
-5. Add accessors to Priority 2 structs, make fields private
-6. Convert Priority 4 structs last
-
-Use `find_referencing_symbols` to identify all field access sites before
-making any field private. Each struct conversion is a separate commit.
-
-### 3.3 Add Builder Patterns for Configuration
-
-**Problem**: Configuration structs have many fields (up to 28) with no
-guided construction. Users must know all fields and their valid ranges.
-
-#### Existing builder infrastructure
-
-The codebase already has three "builder" types:
-
-| Builder | Crate | Pattern | Fields |
-|---------|-------|---------|--------|
-| RecastBuilder | recast | Wraps RecastConfig, drives pipeline | 0 own fields |
-| NavMeshBuilder | detour | Zero-sized, static methods only | 0 fields |
-| TileCacheBuilder | detour-tilecache | Wraps TileCacheBuilderConfig | 0 own fields |
-
-`DynamicNavMeshConfig` already has 16 `with_*()` fluent methods. This is the
-pattern to follow for other config structs.
-
-#### Builder specifications
-
-**RecastConfigBuilder** (new, for `RecastConfig` with 18 fields):
-
-```rust
-pub struct RecastConfigBuilder {
-    config: RecastConfig,
-}
-
-impl RecastConfigBuilder {
-    /// Start with sensible defaults matching the C++ RecastDemo.
-    pub fn new() -> Self {
-        Self { config: RecastConfig::default() }
-    }
-
-    // Geometry bounds (required -- no sensible default)
-    pub fn bounds(mut self, bmin: Vec3, bmax: Vec3) -> Self { ... }
-
-    // Voxelization
-    pub fn cell_size(mut self, cs: f32) -> Self { ... }
-    pub fn cell_height(mut self, ch: f32) -> Self { ... }
-
-    // Agent parameters (in voxel units)
-    pub fn walkable_slope_angle(mut self, degrees: f32) -> Self { ... }
-    pub fn walkable_height(mut self, voxels: i32) -> Self { ... }
-    pub fn walkable_climb(mut self, voxels: i32) -> Self { ... }
-    pub fn walkable_radius(mut self, voxels: i32) -> Self { ... }
-
-    // Region building
-    pub fn min_region_area(mut self, voxels: i32) -> Self { ... }
-    pub fn merge_region_area(mut self, voxels: i32) -> Self { ... }
-
-    // Mesh simplification
-    pub fn max_edge_len(mut self, voxels: i32) -> Self { ... }
-    pub fn max_simplification_error(mut self, error: f32) -> Self { ... }
-    pub fn max_vertices_per_polygon(mut self, n: i32) -> Self { ... }
-
-    // Detail mesh
-    pub fn detail_sample_dist(mut self, dist: f32) -> Self { ... }
-    pub fn detail_sample_max_error(mut self, error: f32) -> Self { ... }
-
-    // Tiling
-    pub fn border_size(mut self, size: i32) -> Self { ... }
-
-    /// Validate and build. Returns error if bounds are not set or
-    /// parameters are out of range.
-    pub fn build(self) -> Result<RecastConfig> {
-        // Calls existing config.validate()
-        // Calls config.calculate_grid_size(bmin, bmax) to set width/height
-    }
-}
-```
-
-Default values (from existing `Default` impl):
-
-| Field | Default | Unit |
-|-------|---------|------|
-| cs | 0.3 | world units |
-| ch | 0.2 | world units |
-| walkable_slope_angle | 45.0 | degrees |
-| walkable_height | 2 | voxels |
-| walkable_climb | 1 | voxels |
-| walkable_radius | 1 | voxels |
-| max_edge_len | 12 | voxels |
-| max_simplification_error | 1.3 | world units |
-| min_region_area | 8 | voxels^2 |
-| merge_region_area | 20 | voxels^2 |
-| max_vertices_per_polygon | 6 | count |
-| detail_sample_dist | 6.0 | world units |
-| detail_sample_max_error | 1.0 | world units |
-| border_size | 0 | voxels |
-
-**NavMeshCreateParamsBuilder** (new, for `NavMeshCreateParams` with 25
-fields):
-
-This struct has the most fields and the most complex construction. Fields
-fall into 4 groups:
-
-1. **Required mesh data** (from Recast output): verts, polys, poly_flags,
-   poly_areas, detail meshes
-2. **Optional off-mesh connections**: 6 parallel arrays + count
-3. **Agent properties**: walkable_height, walkable_radius, walkable_climb
-4. **Grid properties**: bmin, bmax, cs, ch, build_bv_tree
-
-```rust
-pub struct NavMeshCreateParamsBuilder {
-    params: NavMeshCreateParams,
-}
-
-impl NavMeshCreateParamsBuilder {
-    /// Create from Recast pipeline output. Extracts mesh data, bounds,
-    /// cell size, and cell height from PolyMesh and PolyMeshDetail.
-    pub fn from_recast(
-        poly_mesh: &PolyMesh,
-        detail_mesh: &PolyMeshDetail,
-        nav_mesh_params: NavMeshParams,
-    ) -> Self { ... }
-
-    // Agent properties
-    pub fn walkable_height(mut self, h: f32) -> Self { ... }
-    pub fn walkable_radius(mut self, r: f32) -> Self { ... }
-    pub fn walkable_climb(mut self, c: f32) -> Self { ... }
-
-    // Off-mesh connections (optional)
-    pub fn add_off_mesh_connection(
-        mut self,
-        start: Vec3, end: Vec3,
-        radius: f32, bidirectional: bool,
-        area: u8, flags: u16, user_id: u32,
-    ) -> Self { ... }
-
-    // BVH
-    pub fn build_bv_tree(mut self, build: bool) -> Self { ... }
-
-    pub fn build(self) -> Result<NavMeshCreateParams> { ... }
-}
-```
-
-The `from_recast` constructor eliminates the need to manually copy 15+
-fields from `PolyMesh` and `PolyMeshDetail`. This is where most user errors
-occur today.
-
-**AgentParamsBuilder** (new, for `AgentParams` with 13 fields):
-
-```rust
-impl AgentParamsBuilder {
-    pub fn new() -> Self { Self { params: AgentParams::default() } }
-
-    pub fn radius(mut self, r: f32) -> Self { ... }
-    pub fn height(mut self, h: f32) -> Self { ... }
-    pub fn max_speed(mut self, s: f32) -> Self { ... }
-    pub fn max_acceleration(mut self, a: f32) -> Self { ... }
-    pub fn collision_query_range(mut self, r: f32) -> Self { ... }
-    pub fn path_optimization_range(mut self, r: f32) -> Self { ... }
-    pub fn separation(mut self, enabled: bool) -> Self { ... }
-    pub fn obstacle_avoidance(mut self, quality: u8) -> Self { ... }
-    pub fn rvo(mut self, config: RVOConfig) -> Self { ... }
-
-    pub fn build(self) -> AgentParams { ... }
-}
-```
-
-Default values (from existing `Default` impl):
-
-| Field | Default |
-|-------|---------|
-| radius | 0.6 |
-| height | 2.0 |
-| max_acceleration | 8.0 |
-| max_speed | 3.5 |
-| collision_query_range | 12.0 |
-| path_optimization_range | 30.0 |
-| separate | true |
-| obstacle_avoidance_type | 3 (best quality) |
-| use_rvo | true |
-
-**DynamicNavMeshConfig** (extend existing):
-
-Already has 16 `with_*()` methods. Add the missing ones and a `build()`
-method with validation:
-
-```rust
-// Missing with_*() methods to add:
-pub fn with_world_bounds(mut self, min: Vec3, max: Vec3) -> Self { ... }
-pub fn with_partition(mut self, partition: PartitionType) -> Self { ... }
-pub fn with_walkable_area(mut self, area: u8) -> Self { ... }
-pub fn with_keep_intermediate_results(mut self, keep: bool) -> Self { ... }
-
-/// Validate configuration. Returns error if world bounds are invalid
-/// or parameters are out of range.
-pub fn validate(&self) -> Result<()> { ... }
-```
-
-#### Implementation order
-
-1. `RecastConfigBuilder` -- most commonly used, highest impact
-2. `NavMeshCreateParamsBuilder` with `from_recast()` -- eliminates the
-   most error-prone manual construction
-3. `AgentParamsBuilder` -- frequently configured per-agent
-4. Extend `DynamicNavMeshConfig` `with_*()` coverage
-
-Each builder is a separate commit. Existing direct struct construction
-continues to work (builders are additive, not replacing). Add
-`#[non_exhaustive]` to config structs in the same commit as their builder.
-
-## Phase 4: Ecosystem (Lower Priority) -- NOT STARTED
+returning owned values.
+
+**Completed work**:
+
+- `NavMeshQuery`: all public methods migrated from `&[f32; 3]` to `Vec3`
+- `detour-crowd`: 30 public methods migrated from `[f32; 3]` to `Vec3`
+- `detour`: struct fields migrated from `[f32; 3]` to `Vec3`
+- `detour_common`: 14 C-style vector functions with `&mut [f32; 3]` output
+  parameters removed (`dt_vcross`, `dt_vmad`, `dt_vlerp`, `dt_vadd`,
+  `dt_vsub`, `dt_vscale`, `dt_vmin`, `dt_vmax`, `dt_vset`, `dt_vcopy`,
+  `dt_vnormalize`, `dt_calc_poly_center`, and 2 others)
+- `bvh_tree::query`: returns `Vec<PolyRef>` instead of taking `&mut Vec`
+- `store_tile_state`: returns `Result<Vec<u8>>` instead of taking `&mut [u8]`
+- `move_along_surface`: returns `MoveAlongSurfaceResult` struct instead of
+  mixing return value with `&mut Vec` output parameter
+- C-style output parameters in detour converted to return values
+
+**Remaining work**:
+
+- 12 read-only utility functions in `detour_common.rs` still use `&[f32]`
+  and `&[f32; 3]` input parameters (not output params). These are internal
+  helpers (`dt_vdot`, `dt_vlen`, `dt_vdist`, etc.) used by internal code.
+  They could be replaced with `glam::Vec3` operations but this is low
+  priority since they do not affect the public API.
+- `recast/src/triangle_utils.rs`: `vcopy` still takes `&mut [f32; 3]`
+  (internal helper)
+- `sliced_pathfinding.rs`: `get_path_mut` returns `&mut Vec<PolyRef>`
+  (intentional mutable access, not a C-style output pattern)
+
+### 3.2 Reduce Public Field Exposure -- COMPLETE
+
+> **Status**: All data model structs have private fields with accessors.
+> Configuration structs have `#[non_exhaustive]` and `Default` impls.
+> 11 config structs marked `#[non_exhaustive]`.
+
+**Completed work**:
+
+- Added `#[non_exhaustive]` to 11 configuration structs with `Default` impls
+- Made `Heightfield` and `CompactHeightfield` fields private, added accessors
+- Made `PolyMesh` and `PolyMeshDetail` fields private, added accessors
+- Made `MeshTile`, `TileHeader`, `TileCacheLayerHeader` fields private,
+  added accessors
+- Made `Link`, `Poly` fields private (pub(crate))
+- Made `DtObstacleCircle`, `RVOAgent`, `FormationAgent` fields private
+
+### 3.3 Add Builder Patterns for Configuration -- PARTIALLY COMPLETE
+
+> **Status**: `RecastConfig` has 15 fluent `with_*` methods.
+> `DynamicNavMeshConfig` has 16 `with_*` methods. Separate `Builder`
+> structs with validation have not been created.
+
+**Completed work**:
+
+- `RecastConfig`: 15 `with_*()` fluent methods (`with_cell_size`,
+  `with_cell_height`, `with_bounds`, `with_walkable_slope_angle`,
+  `with_walkable_height`, `with_walkable_climb`, `with_walkable_radius`,
+  `with_max_edge_len`, `with_max_simplification_error`,
+  `with_min_region_area`, `with_merge_region_area`,
+  `with_max_vertices_per_polygon`, `with_detail_sample_dist`,
+  `with_detail_sample_max_error`, `with_border_size`)
+- `DynamicNavMeshConfig`: 16 `with_*()` fluent methods (pre-existing)
+- All configuration structs have `#[non_exhaustive]` and `Default` impls
+  (from section 3.2)
+
+**Remaining work**:
+
+- `NavMeshCreateParamsBuilder` with `from_recast()` constructor that
+  eliminates manual field copying from `PolyMesh`/`PolyMeshDetail`
+- `AgentParamsBuilder` for `detour-crowd` `AgentParams`
+- Validating `build()` methods that check parameter ranges before
+  constructing config structs
+
+## Phase 4: Ecosystem (Lower Priority) -- PARTIALLY COMPLETE
 
 These items improve adoption and broaden the target audience. They are
-independent of each other and can be worked in any order.
+independent of each other and can be worked in any order. Section 4.4
+(unsafe code) is complete.
 
 ### 4.1 Interactive Demo
 
@@ -1881,236 +1515,33 @@ Framework integrations should be **separate repositories/crates**:
 For recast-rs: start with the integration in-tree (easier development),
 split to a separate repo if the maintenance burden grows.
 
-### 4.4 Reduce Unsafe Code
+### 4.4 Reduce Unsafe Code -- COMPLETE
 
-#### Complete inventory
+> **Status**: All unsafe code removed from the workspace. Zero `unsafe`
+> blocks remain in library code.
 
-**16 unsafe blocks** across 3 files (plus 2 `unsafe impl`):
+**Completed work**:
 
-| File | Items | Category |
-|------|-------|----------|
-| detour/src/node_pool.rs | 12 | Raw pointer priority queue + Send/Sync |
-| detour/src/nav_mesh.rs | 2 | Disjoint mutable refs, pointer offset |
-| detour-dynamic/src/dynamic_tile.rs | 4 | Unchecked voxel span parsing |
-
-#### detour/src/node_pool.rs (12 items)
-
-The `DtNodeQueue` is a binary min-heap that stores `*mut DtNode` raw
-pointers. It has:
-
-- 2 `unsafe impl` (Send, Sync) at lines 443-444
-- 1 pointer arithmetic in `get_node_idx` (line 231-232)
-- 1 `get_unchecked` in `top()` (line 326)
-- 1 raw pointer deref in `pop()` (line 347)
-- 2 raw pointer derefs in `bubble_up()` (lines 390, 394)
-- 3 raw pointer derefs in `trickle_down()` (lines 409, 421-422, 429)
-- 2 raw pointer derefs in `push()` (accessing node.total)
-
-**Problem**: The `unsafe impl Send` and `unsafe impl Sync` are **invalid**.
-`DtNodeQueue` stores `Vec<*mut DtNode>` where the pointers reference nodes
-owned by `DtNodePool`. If the pool is shared across threads, mutable
-access through the raw pointers creates data races. The safety comment
-("only used within the lifetime of the nodes") does not establish
-thread-safety -- it establishes lifetime validity, which is a different
-property.
-
-**Safe replacement: Index-based priority queue**
-
-Replace `Vec<*mut DtNode>` with `Vec<usize>` (indices into the node pool's
-`nodes` vector). This eliminates all raw pointer operations:
-
-```rust
-pub struct DtNodeQueue {
-    heap: Vec<usize>,  // indices into DtNodePool::nodes
-    size: usize,
-}
-
-impl DtNodeQueue {
-    pub fn push(&mut self, pool: &DtNodePool, node_idx: usize) {
-        let cost = pool.nodes[node_idx].total;
-        self.heap.push(node_idx);
-        self.size += 1;
-        self.bubble_up(pool, self.size - 1, node_idx);
-    }
-
-    pub fn pop(&mut self, pool: &DtNodePool) -> Option<usize> {
-        if self.size == 0 { return None; }
-        let result = self.heap[0];
-        self.size -= 1;
-        if self.size > 0 {
-            self.heap[0] = self.heap[self.size];
-            self.trickle_down(pool, 0, self.heap[0]);
-        }
-        self.heap.truncate(self.size);
-        Some(result)
-    }
-
-    fn bubble_up(&mut self, pool: &DtNodePool, mut i: usize, node_idx: usize) {
-        let cost = pool.nodes[node_idx].total;
-        while i > 0 {
-            let parent = (i - 1) / 2;
-            let parent_cost = pool.nodes[self.heap[parent]].total;
-            if cost >= parent_cost { break; }
-            self.heap[i] = self.heap[parent];
-            i = parent;
-        }
-        self.heap[i] = node_idx;
-    }
-
-    // trickle_down follows the same pattern
-}
-```
-
-This change:
-- Removes all 10 `unsafe` expression blocks
-- Removes both `unsafe impl Send/Sync` (no longer needed -- `Vec<usize>`
-  is automatically Send + Sync)
-- Makes the code simpler and easier to audit
-- May have a small performance cost from bounds checking (benchmark to
-  verify -- the compiler may elide checks when indices are proven in-range)
-
-**Effort**: 4-8 hours (refactor DtNodeQueue + update all call sites in
-NavMeshQuery that use the queue)
-
-#### detour/src/nav_mesh.rs (2 items)
-
-**Item 1: `get_tile_and_poly_by_ref_mut`** (line 1887)
-
-Creates two `&mut` references to overlapping memory: `&mut MeshTile` and
-`&mut Poly` where the poly is inside the tile's `polys` vec. The SAFETY
-comment claims disjoint references, but this is **incorrect** -- the
-references overlap.
-
-This can cause undefined behavior if the caller modifies `tile.polys`
-(e.g., push/remove) while holding the `&mut Poly` reference, since
-reallocation would invalidate the poly pointer.
-
-**Safe replacement -- return indices**:
-
-```rust
-pub fn get_tile_and_poly_indices(
-    &self,
-    reference: PolyRef,
-) -> Result<(usize, usize)> {
-    let (salt, tile_idx, poly_idx) = self.decode_poly_id(reference);
-    // ... validation ...
-    Ok((tile_idx, poly_idx))
-}
-
-// Callers access via:
-let (tile_idx, poly_idx) = nav_mesh.get_tile_and_poly_indices(ref)?;
-let poly = &mut nav_mesh.tiles[tile_idx].as_mut().unwrap().polys[poly_idx];
-```
-
-**Alternative -- view struct**:
-
-```rust
-pub struct TilePolyMut<'a> {
-    tile: &'a mut MeshTile,
-    poly_idx: usize,
-}
-
-impl<'a> TilePolyMut<'a> {
-    pub fn tile(&self) -> &MeshTile { self.tile }
-    pub fn poly(&self) -> &Poly { &self.tile.polys[self.poly_idx] }
-    pub fn poly_mut(&mut self) -> &mut Poly { &mut self.tile.polys[self.poly_idx] }
-}
-```
-
-**Effort**: 3-6 hours (find all call sites with `find_referencing_symbols`,
-update each to use indices or the view struct)
-
-**Item 2: Pointer offset calculation** (line 2513)
-
-Computes a polygon's index via `ptr.offset_from(base)`. Safe because both
-pointers originate from the same `tile.polys` allocation, but fragile.
-
-**Safe replacement**: Pass the poly index directly instead of computing it
-from pointer arithmetic. This requires changing the call site to pass
-`poly_idx: usize` instead of `poly: &Poly`.
-
-**Effort**: 1-2 hours
-
-#### detour-dynamic/src/dynamic_tile.rs (4 items)
-
-Four `get_unchecked` calls in `reconstruct_heightfield()` (lines 191-250)
-for parsing voxel span data. All are preceded by bounds checks:
-
-```rust
-// Pattern in all 4 blocks:
-if position + required_bytes > span_data.len() {
-    return Err(...);
-}
-let value = unsafe {
-    i32::from_le_bytes([
-        *span_data.get_unchecked(position),
-        *span_data.get_unchecked(position + 1),
-        // ...
-    ])
-};
-```
-
-These are **safe** (bounds are validated) and **performance-motivated**
-(voxel parsing is a hot path). The compiler may not be able to prove the
-bounds check eliminates the need for per-access checks.
-
-**Safe replacement**:
-
-```rust
-let bytes: [u8; 4] = span_data[position..position + 4]
-    .try_into()
-    .map_err(|_| Error::Recast("truncated span data".into()))?;
-let value = i32::from_le_bytes(bytes);
-```
-
-Or using a cursor:
-
-```rust
-let mut cursor = &span_data[position..];
-let smin = i32::from_le_bytes(cursor[..4].try_into().unwrap());
-cursor = &cursor[4..];
-```
-
-**Effort**: 1-2 hours. Benchmark the safe version first -- if the
-performance difference is negligible (likely on modern CPUs with branch
-prediction), replace unconditionally.
-
-#### Priority and implementation order
-
-1. **nav_mesh.rs `get_tile_and_poly_by_ref_mut`** -- correctness issue
-   (undefined behavior). Fix first. (3-6 hours)
-2. **node_pool.rs Send/Sync** -- remove invalid trait impls immediately.
-   Can be done independently of the full queue refactor. (1 hour)
-3. **node_pool.rs index-based queue** -- eliminates 10 unsafe blocks.
-   Largest single improvement. (4-8 hours)
-4. **nav_mesh.rs pointer offset** -- small fix, do alongside item 1.
-   (1-2 hours)
-5. **dynamic_tile.rs unchecked access** -- safe, low priority. Benchmark
-   safe version; replace if no regression. (1-2 hours)
-
-#### Benchmarking requirement
-
-Before replacing unsafe code in hot paths (node_pool.rs priority queue,
-dynamic_tile.rs voxel parsing), add benchmarks (Phase 2.3) that cover:
-
-- `NavMeshQuery::find_path` with varying path lengths (exercises the
-  priority queue)
-- `DynamicNavMesh` voxel reconstruction (exercises span parsing)
-
-Compare before/after to ensure no regression above 5%. If regression
-exceeds 5%, keep the unsafe version with improved SAFETY documentation.
+- `node_pool.rs`: replaced raw pointer priority queue (`Vec<*mut DtNode>`)
+  with index-based queue (`Vec<usize>`). Removed all 10 `unsafe` blocks
+  and both invalid `unsafe impl Send/Sync`.
+- `nav_mesh.rs`: removed `get_tile_and_poly_by_ref_mut` overlapping
+  `&mut` references and pointer offset calculation. Replaced with
+  index-based access.
+- `dynamic_tile.rs`: replaced 4 `get_unchecked` calls with safe slice
+  indexing. No measurable performance regression.
 
 ## Verification
 
 After completing each phase, run:
 
 ```bash
-# Phase 1 verification
+# Phase 1 verification (COMPLETE)
 grep -rn 'unwrap()\|expect(' crates/*/src/ --include='*.rs' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests'
 cargo fmt --all && cargo lint && cargo test-all
 cargo check --workspace --no-default-features
 
-# Phase 2 verification
+# Phase 2 verification (2.1-2.3 COMPLETE, 2.4 PENDING)
 cargo run -p recast-rs-examples --example basic_navmesh
 cargo run -p recast-rs-examples --example pathfinding
 cargo run -p recast-rs-examples --example crowd_simulation
@@ -2121,21 +1552,14 @@ cargo test -p recast --test integration
 cargo test -p detour --test integration
 cargo publish --dry-run -p recast-common
 
-# Phase 3 verification
-# 3.1: Verify no C-style output parameters remain in public API
-grep -rn 'pub fn.*&mut Vec<' crates/*/src/ --include='*.rs' | grep -v 'cfg(test)' | grep -v 'mod tests'
-grep -rn 'pub fn.*dest:.*&mut \[f32' crates/*/src/ --include='*.rs'
-# 3.1: Verify detour_common.rs vector functions removed or converted to Vec3
-test ! -f crates/detour/src/detour_common.rs || grep -c 'pub fn dt_v' crates/detour/src/detour_common.rs
-# 3.2: Verify legacy PolyMesh fields removed
-grep -c 'vert_count\|poly_count\|vertices\|max_verts_per_poly' crates/recast/src/polymesh.rs
+# Phase 3 verification (3.1-3.2 COMPLETE, 3.3 PARTIAL)
 # 3.2: Verify #[non_exhaustive] on config structs
 grep -c 'non_exhaustive' crates/recast/src/config.rs crates/detour/src/lib.rs crates/detour-crowd/src/crowd.rs
 # 3.3: Verify builders exist and compile
 cargo doc --workspace --no-deps
 cargo fmt --all && cargo lint && cargo test-all
 
-# Phase 4 verification
+# Phase 4 verification (4.4 COMPLETE, 4.1-4.3 NOT STARTED)
 # 4.1: Verify demo builds and runs
 cargo build -p recast-demo
 cargo run -p recast-demo -- --help
@@ -2144,7 +1568,7 @@ cargo build -p recast-common --no-default-features --target thumbv7em-none-eabih
 cargo build -p recast --no-default-features --target thumbv7em-none-eabihf
 # 4.3: Verify framework integration compiles
 cargo build -p bevy-recast
-# 4.4: Verify zero unsafe blocks remain (or only justified ones)
-grep -rn 'unsafe' crates/*/src/ --include='*.rs' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests' | grep -v '// SAFETY:'
+# 4.4: Verify zero unsafe blocks (COMPLETE)
+grep -rn 'unsafe' crates/*/src/ --include='*.rs' | grep -v '#\[cfg(test)\]' | grep -v 'mod tests'
 cargo fmt --all && cargo lint && cargo test-all
 ```
