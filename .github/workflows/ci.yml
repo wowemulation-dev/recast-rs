@@ -17,7 +17,6 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
   RUSTUP_MAX_RETRIES: 10
-  # Performance improvements
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   CARGO_PROFILE_DEV_DEBUG: 0
 
@@ -26,21 +25,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Detect which files and crates have changed
   changed-files:
-    name: Detect changes
+    name: Detect changed crates
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
-      # Crate-level changes
-      crates_changed: ${{ steps.changes.outputs.crates_changed }}
-      any_crate_changed: ${{ steps.changes.outputs.any_crate_changed }}
-      # Category-level changes
-      rust_changed: ${{ steps.changes.outputs.rust_changed }}
-      deps_changed: ${{ steps.changes.outputs.deps_changed }}
-      ci_changed: ${{ steps.changes.outputs.ci_changed }}
-      wasm_crates_changed: ${{ steps.changes.outputs.wasm_crates_changed }}
+      crates_changed: ${{ steps.list-changed-crates.outputs.crates_changed }}
+      any_crate_changed: ${{ steps.list-changed-crates.outputs.any_crate_changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -51,90 +43,68 @@ jobs:
         id: changed-files
         uses: tj-actions/changed-files@v45
         with:
-          files_yaml: |
-            rust:
-              - 'crates/**/*.rs'
-              - 'crates/**/Cargo.toml'
-            deps:
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-              - 'deny.toml'
-            ci:
-              - '.github/workflows/**'
-            wasm_crates:
-              - 'crates/recast-common/**'
-              - 'crates/recast/**'
-              - 'crates/detour/**'
-              - 'crates/detour-crowd/**'
-              - 'crates/detour-tilecache/**'
-              - 'crates/detour-dynamic/**'
-            recast_common:
-              - 'crates/recast-common/**'
-            recast:
-              - 'crates/recast/**'
-            detour:
-              - 'crates/detour/**'
-            detour_crowd:
-              - 'crates/detour-crowd/**'
-            detour_tilecache:
-              - 'crates/detour-tilecache/**'
-            detour_dynamic:
-              - 'crates/detour-dynamic/**'
-            recast_cli:
-              - 'crates/recast-cli/**'
+          files: |
+            Cargo.toml
+            Cargo.lock
+            crates/**
+            src/**
+          files_ignore: |
+            **/*.md
+            **/*.txt
+            **/benches/**
+            **/examples/**
 
-      - name: Determine changes
-        id: changes
+      - name: List changed crates
+        id: list-changed-crates
         env:
-          RUST_CHANGED: ${{ steps.changed-files.outputs.rust_any_changed }}
-          DEPS_CHANGED: ${{ steps.changed-files.outputs.deps_any_changed }}
-          CI_CHANGED: ${{ steps.changed-files.outputs.ci_any_changed }}
-          WASM_CRATES_CHANGED: ${{ steps.changed-files.outputs.wasm_crates_any_changed }}
-          RECAST_COMMON_CHANGED: ${{ steps.changed-files.outputs.recast_common_any_changed }}
-          RECAST_CHANGED: ${{ steps.changed-files.outputs.recast_any_changed }}
-          DETOUR_CHANGED: ${{ steps.changed-files.outputs.detour_any_changed }}
-          DETOUR_CROWD_CHANGED: ${{ steps.changed-files.outputs.detour_crowd_any_changed }}
-          DETOUR_TILECACHE_CHANGED: ${{ steps.changed-files.outputs.detour_tilecache_any_changed }}
-          DETOUR_DYNAMIC_CHANGED: ${{ steps.changed-files.outputs.detour_dynamic_any_changed }}
-          RECAST_CLI_CHANGED: ${{ steps.changed-files.outputs.recast_cli_any_changed }}
+          ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
-          echo "Rust code changed: $RUST_CHANGED"
-          echo "Dependencies changed: $DEPS_CHANGED"
-          echo "CI changed: $CI_CHANGED"
-          echo "WASM crates changed: $WASM_CRATES_CHANGED"
+          echo "Changed files: $ALL_CHANGED_FILES"
 
-          # Output category-level changes
-          echo "rust_changed=$RUST_CHANGED" >> "$GITHUB_OUTPUT"
-          echo "deps_changed=$DEPS_CHANGED" >> "$GITHUB_OUTPUT"
-          echo "ci_changed=$CI_CHANGED" >> "$GITHUB_OUTPUT"
-          echo "wasm_crates_changed=$WASM_CRATES_CHANGED" >> "$GITHUB_OUTPUT"
-
-          # Build list of changed crates
-          crates_changed=""
-          [ "$RECAST_COMMON_CHANGED" == "true" ] && crates_changed="$crates_changed recast-common"
-          [ "$RECAST_CHANGED" == "true" ] && crates_changed="$crates_changed recast"
-          [ "$DETOUR_CHANGED" == "true" ] && crates_changed="$crates_changed detour"
-          [ "$DETOUR_CROWD_CHANGED" == "true" ] && crates_changed="$crates_changed detour-crowd"
-          [ "$DETOUR_TILECACHE_CHANGED" == "true" ] && crates_changed="$crates_changed detour-tilecache"
-          [ "$DETOUR_DYNAMIC_CHANGED" == "true" ] && crates_changed="$crates_changed detour-dynamic"
-          [ "$RECAST_CLI_CHANGED" == "true" ] && crates_changed="$crates_changed recast-cli"
-
-          crates_changed=$(echo "$crates_changed" | xargs)
-          echo "Crates changed: $crates_changed"
-          echo "crates_changed=$crates_changed" >> "$GITHUB_OUTPUT"
-
-          # Determine if any crate changed (including via dependency changes)
-          if [ "$RUST_CHANGED" == "true" ] || [ "$DEPS_CHANGED" == "true" ] || [ "$CI_CHANGED" == "true" ]; then
+          if [ -z "$ALL_CHANGED_FILES" ]; then
+            echo "No files changed, will test all crates"
             echo "any_crate_changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "any_crate_changed=false" >> "$GITHUB_OUTPUT"
+            echo "crates_changed=" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-  # Quick checks - only run if Rust code, deps, or CI changed
+          if echo "$ALL_CHANGED_FILES" | grep -E "^Cargo\.(toml|lock)$"; then
+            echo "Root Cargo files changed, will test all crates"
+            echo "any_crate_changed=true" >> "$GITHUB_OUTPUT"
+            echo "crates_changed=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$ALL_CHANGED_FILES" | grep -E "^src/"; then
+            echo "Source files changed, will test all crates"
+            echo "any_crate_changed=true" >> "$GITHUB_OUTPUT"
+            echo "crates_changed=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          crates_changed=""
+          if [ -d "crates" ]; then
+            for crate_dir in crates/*/; do
+              crate=$(basename "$crate_dir")
+              if echo "$ALL_CHANGED_FILES" | grep -E "crates/$crate/"; then
+                crates_changed="$crates_changed $crate"
+              fi
+            done
+          fi
+
+          crates_changed=$(echo "$crates_changed" | xargs)
+          if [ -n "$crates_changed" ]; then
+            echo "Crates changed: $crates_changed"
+            echo "any_crate_changed=true" >> "$GITHUB_OUTPUT"
+            echo "crates_changed=$crates_changed" >> "$GITHUB_OUTPUT"
+          else
+            echo "No crate changes detected"
+            echo "any_crate_changed=false" >> "$GITHUB_OUTPUT"
+            echo "crates_changed=" >> "$GITHUB_OUTPUT"
+          fi
+
   quick-checks:
     name: Quick Checks
-    needs: changed-files
-    if: needs.changed-files.outputs.rust_changed == 'true' || needs.changed-files.outputs.deps_changed == 'true' || needs.changed-files.outputs.ci_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -143,7 +113,7 @@ jobs:
       - name: Install Rust toolchain with formatting and linting components
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: 1.92.0
+          toolchain: 1.92
           components: rustfmt, clippy
 
       - name: Cache Rust dependencies
@@ -153,23 +123,17 @@ jobs:
           cache-on-failure: true
           cache-all-crates: true
 
-      # Format check (fastest)
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      # Check compilation
       - name: Check compilation
         run: cargo check --workspace --all-targets
 
-      # Clippy lints
       - name: Clippy
         run: cargo clippy --workspace --all-targets
 
-  # Dependency security and license checks - only run if deps changed
   deny:
     name: Cargo Deny
-    needs: changed-files
-    if: needs.changed-files.outputs.deps_changed == 'true' || needs.changed-files.outputs.ci_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -179,9 +143,8 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
-          arguments: --all-features
+          rust-version: "1.92"
 
-  # Main test suite - only run if code changed
   test:
     name: Test (${{ matrix.rust }} on ${{ matrix.os }})
     needs: [quick-checks, changed-files]
@@ -191,7 +154,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            rust: 1.92.0
+            rust: 1.92
           - os: ubuntu-latest
             rust: stable
     runs-on: ${{ matrix.os }}
@@ -204,6 +167,11 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Cache Rust dependencies for ${{ matrix.os }}
         uses: Swatinem/rust-cache@v2
         with:
@@ -212,23 +180,14 @@ jobs:
           cache-all-crates: true
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
-
-      # Determine test scope based on changed crates
       - name: Determine test scope
         id: test-scope
         env:
           CRATES_CHANGED: ${{ needs.changed-files.outputs.crates_changed }}
-          DEPS_CHANGED: ${{ needs.changed-files.outputs.deps_changed }}
         run: |
-          # If deps changed, test all crates
-          if [ "$DEPS_CHANGED" == "true" ] || [ -z "$CRATES_CHANGED" ]; then
-            echo "Testing all crates (dependency or CI change)"
+          if [ -z "$CRATES_CHANGED" ]; then
+            echo "Testing all crates (full workspace test)"
             echo "test_args=--workspace" >> "$GITHUB_OUTPUT"
-            echo "test_all=true" >> "$GITHUB_OUTPUT"
           else
             echo "Testing only changed crates: $CRATES_CHANGED"
             args=""
@@ -236,30 +195,18 @@ jobs:
               args="$args -p $crate"
             done
             echo "test_args=$args" >> "$GITHUB_OUTPUT"
-            echo "test_all=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Test with default features
-      - name: Test default features
+      - name: Test default features (changed crates)
         run: cargo nextest run --profile ci ${{ steps.test-scope.outputs.test_args }}
 
-      # Test with no default features (only when testing all or specific library crates changed)
-      - name: Test no default features (library crates)
-        if: steps.test-scope.outputs.test_all == 'true' || contains(needs.changed-files.outputs.crates_changed, 'recast-common') || contains(needs.changed-files.outputs.crates_changed, 'recast') || contains(needs.changed-files.outputs.crates_changed, 'detour')
-        run: |
-          cargo nextest run --profile ci --no-default-features -p recast-common || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --profile ci --no-default-features -p recast || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --profile ci --no-default-features -p detour || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --profile ci --no-default-features -p detour-crowd || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --profile ci --no-default-features -p detour-tilecache || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
-          cargo nextest run --profile ci --no-default-features -p detour-dynamic || { ec=$?; [ $ec -eq 4 ] && echo "No tests (OK)" || exit $ec; }
+      - name: Test no default features (changed crates)
+        run: cargo nextest run --profile ci --no-default-features ${{ steps.test-scope.outputs.test_args }}
 
-  # WASM compilation check - only run if WASM-compatible crates changed
   wasm:
     name: WASM Compilation
-    needs: changed-files
-    if: needs.changed-files.outputs.wasm_crates_changed == 'true' || needs.changed-files.outputs.deps_changed == 'true' || needs.changed-files.outputs.ci_changed == 'true'
     runs-on: ubuntu-latest
+    if: vars.WASM_CRATES != '[]'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -267,7 +214,7 @@ jobs:
       - name: Install Rust toolchain with WASM target
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: 1.92.0
+          toolchain: 1.92
           targets: wasm32-unknown-unknown
 
       - name: Cache Rust dependencies
@@ -277,32 +224,19 @@ jobs:
           cache-on-failure: true
           cache-all-crates: true
 
-      - name: Ensure WASM target is installed
-        run: rustup target add wasm32-unknown-unknown
+      - name: Check WASM compilation
+        env:
+          WASM_CRATES: ${{ vars.WASM_CRATES }}
+        run: |
+          if [ -n "$WASM_CRATES" ]; then
+            for crate in $(echo "$WASM_CRATES" | jq -r '.[]'); do
+              echo "Checking $crate for WASM..."
+              cargo check --target wasm32-unknown-unknown -p "$crate"
+            done
+          fi
 
-      - name: Check WASM compilation (recast-common)
-        run: cargo check --target wasm32-unknown-unknown -p recast-common --no-default-features
-
-      - name: Check WASM compilation (recast)
-        run: cargo check --target wasm32-unknown-unknown -p recast
-
-      - name: Check WASM compilation (detour)
-        run: cargo check --target wasm32-unknown-unknown -p detour
-
-      - name: Check WASM compilation (detour-crowd)
-        run: cargo check --target wasm32-unknown-unknown -p detour-crowd
-
-      - name: Check WASM compilation (detour-tilecache)
-        run: cargo check --target wasm32-unknown-unknown -p detour-tilecache
-
-      - name: Check WASM compilation (detour-dynamic)
-        run: cargo check --target wasm32-unknown-unknown -p detour-dynamic
-
-  # Documentation build - only run if code changed
   docs:
     name: Documentation
-    needs: changed-files
-    if: needs.changed-files.outputs.rust_changed == 'true' || needs.changed-files.outputs.deps_changed == 'true' || needs.changed-files.outputs.ci_changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -311,7 +245,7 @@ jobs:
       - name: Install Rust toolchain for documentation
         uses: dtolnay/rust-toolchain@v1
         with:
-          toolchain: 1.92.0
+          toolchain: 1.92
 
       - name: Cache documentation dependencies
         uses: Swatinem/rust-cache@v2
@@ -321,18 +255,12 @@ jobs:
           cache-all-crates: true
 
       - name: Build documentation
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --workspace --no-deps --document-private-items
         env:
           RUSTDOCFLAGS: -D warnings
 
-      - name: Check for broken links
-        run: cargo doc --workspace --no-deps --document-private-items
-
-  # Coverage collection - only run if code changed
   coverage:
     name: Code Coverage
-    needs: changed-files
-    if: needs.changed-files.outputs.rust_changed == 'true' || needs.changed-files.outputs.deps_changed == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -357,8 +285,13 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
+      - name: Install cargo-nextest for faster coverage collection
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
       - name: Collect coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov nextest --workspace --lcov --output-path lcov.info
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -367,69 +300,25 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Success marker for branch protection
   ci-success:
     name: CI Success
     if: always()
-    needs: [changed-files, quick-checks, deny, test, docs, wasm]
+    needs: [quick-checks, deny, test, docs, wasm, coverage, changed-files]
     runs-on: ubuntu-latest
     steps:
       - name: Check all jobs
-        env:
-          RUST_CHANGED: ${{ needs.changed-files.outputs.rust_changed }}
-          DEPS_CHANGED: ${{ needs.changed-files.outputs.deps_changed }}
-          CI_CHANGED: ${{ needs.changed-files.outputs.ci_changed }}
-          ANY_CRATE_CHANGED: ${{ needs.changed-files.outputs.any_crate_changed }}
-          QUICK_CHECKS_RESULT: ${{ needs.quick-checks.result }}
-          DENY_RESULT: ${{ needs.deny.result }}
-          TEST_RESULT: ${{ needs.test.result }}
-          DOCS_RESULT: ${{ needs.docs.result }}
-          WASM_RESULT: ${{ needs.wasm.result }}
         run: |
-          echo "Change detection:"
-          echo "  Rust changed: $RUST_CHANGED"
-          echo "  Deps changed: $DEPS_CHANGED"
-          echo "  CI changed: $CI_CHANGED"
-          echo "  Any crate changed: $ANY_CRATE_CHANGED"
-          echo ""
-          echo "Job results:"
-          echo "  quick-checks: $QUICK_CHECKS_RESULT"
-          echo "  deny: $DENY_RESULT"
-          echo "  test: $TEST_RESULT"
-          echo "  docs: $DOCS_RESULT"
-          echo "  wasm: $WASM_RESULT"
-
-          # Check for failures (skipped jobs are OK)
-          failed=false
-
-          if [[ "$QUICK_CHECKS_RESULT" == "failure" ]]; then
-            echo "quick-checks failed"
-            failed=true
+          if [[ "${{ needs.changed-files.outputs.any_crate_changed }}" == "false" ]]; then
+            echo "No crate changes detected, skipping test job check"
+            if [[ "${{ needs.quick-checks.result }}" == "failure" || "${{ needs.deny.result }}" == "failure" || "${{ needs.docs.result }}" == "failure" ]]; then
+              echo "Quick checks, deny, or docs failed"
+              exit 1
+            fi
+          else
+            # Check critical jobs (wasm and coverage are optional)
+            if [[ "${{ needs.quick-checks.result }}" == "failure" || "${{ needs.deny.result }}" == "failure" || "${{ needs.test.result }}" == "failure" || "${{ needs.docs.result }}" == "failure" ]]; then
+              echo "Critical job failed"
+              exit 1
+            fi
           fi
-
-          if [[ "$DENY_RESULT" == "failure" ]]; then
-            echo "deny failed"
-            failed=true
-          fi
-
-          if [[ "$TEST_RESULT" == "failure" ]]; then
-            echo "test failed"
-            failed=true
-          fi
-
-          if [[ "$DOCS_RESULT" == "failure" ]]; then
-            echo "docs failed"
-            failed=true
-          fi
-
-          if [[ "$WASM_RESULT" == "failure" ]]; then
-            echo "wasm failed"
-            failed=true
-          fi
-
-          if [[ "$failed" == "true" ]]; then
-            echo "One or more jobs failed"
-            exit 1
-          fi
-
-          echo "All required jobs succeeded (or were skipped)"
+          echo "All required jobs succeeded"
