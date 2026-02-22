@@ -10,7 +10,6 @@
 //! lookups and cache-friendly iteration.
 
 use glam::Vec3;
-use std::collections::HashSet;
 
 use crate::error::BuildError;
 
@@ -541,18 +540,18 @@ impl Heightfield {
         let width = self.width;
         let height = self.height;
 
-        // Create a copy of area values for reading
-        let mut area_copy = std::collections::HashMap::new();
+        // Create a copy of area values for reading, indexed by column
+        let num_cols = (width * height) as usize;
+        let mut column_areas: Vec<Vec<u8>> = vec![Vec::new(); num_cols];
 
         for z in 0..height {
             for x in 0..width {
                 let mut si = self.columns[self.col_index(x, z)];
-                let mut span_index = 0;
+                let col_idx = (z * width + x) as usize;
 
                 while si != SPAN_NULL {
-                    area_copy.insert((x, z, span_index), self.spans[si as usize].area);
+                    column_areas[col_idx].push(self.spans[si as usize].area);
                     si = self.spans[si as usize].next;
-                    span_index += 1;
                 }
             }
         }
@@ -570,7 +569,8 @@ impl Heightfield {
                         for dx in -1..=1 {
                             let nx = x + dx;
                             let nz = z + dz;
-                            if let Some(&area) = area_copy.get(&(nx, nz, span_index)) {
+                            let col_idx = (nz * width + nx) as usize;
+                            if let Some(&area) = column_areas[col_idx].get(span_index) {
                                 neighbor_areas.push(area);
                             }
                         }
@@ -607,26 +607,38 @@ impl Heightfield {
         let width = self.width;
         let height = self.height;
 
-        // Find all non-walkable spans
-        let mut non_walkable = HashSet::new();
+        // Build column-to-arena-index mapping for O(1) ordinal lookups
+        let num_cols = (width * height) as usize;
+        let mut column_spans: Vec<Vec<u32>> = vec![Vec::new(); num_cols];
 
         for z in 0..height {
             for x in 0..width {
                 let mut si = self.columns[self.col_index(x, z)];
-                let mut span_index = 0;
+                let col_idx = (z * width + x) as usize;
 
                 while si != SPAN_NULL {
-                    if self.spans[si as usize].area == 0 {
-                        non_walkable.insert((x, z, span_index));
-                    }
+                    column_spans[col_idx].push(si);
                     si = self.spans[si as usize].next;
-                    span_index += 1;
+                }
+            }
+        }
+
+        // Find all non-walkable spans
+        let mut non_walkable: Vec<(i32, i32, usize)> = Vec::new();
+
+        for z in 0..height {
+            for x in 0..width {
+                let col_idx = (z * width + x) as usize;
+                for (span_index, &si) in column_spans[col_idx].iter().enumerate() {
+                    if self.spans[si as usize].area == 0 {
+                        non_walkable.push((x, z, span_index));
+                    }
                 }
             }
         }
 
         // Erode walkable areas near non-walkable spans
-        let mut to_erode = HashSet::new();
+        let mut to_erode = vec![false; self.spans.len()];
 
         for &(x, z, span_index) in &non_walkable {
             for dz in -radius..=radius {
@@ -640,24 +652,19 @@ impl Heightfield {
 
                     let dist_sq = dx * dx + dz * dz;
                     if dist_sq <= radius * radius {
-                        to_erode.insert((nx, nz, span_index));
+                        let col_idx = (nz * width + nx) as usize;
+                        if let Some(&si) = column_spans[col_idx].get(span_index) {
+                            to_erode[si as usize] = true;
+                        }
                     }
                 }
             }
         }
 
         // Apply erosion
-        for (x, z, span_index) in to_erode {
-            let mut si = self.columns[self.col_index(x, z)];
-            let mut idx = 0;
-
-            while si != SPAN_NULL {
-                if idx == span_index {
-                    self.spans[si as usize].area = 0;
-                    break;
-                }
-                si = self.spans[si as usize].next;
-                idx += 1;
+        for (si, &erode) in to_erode.iter().enumerate() {
+            if erode {
+                self.spans[si].area = 0;
             }
         }
 
