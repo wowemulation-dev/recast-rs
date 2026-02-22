@@ -14,29 +14,27 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
-//! use detour_crowd::{Crowd, CrowdConfig, AgentParams};
-//! use detour::NavMesh;
+//! ```no_run
+//! use detour_crowd::{Crowd, AgentParams};
+//! use detour::{NavMesh, NavMeshParams, PolyRef};
+//! use glam::Vec3;
 //!
-//! // Create a crowd simulation
-//! let config = CrowdConfig::default();
-//! let mut crowd = Crowd::new(&nav_mesh, config)?;
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let nav_mesh = NavMesh::new(NavMeshParams::default())?;
+//! let mut crowd = Crowd::new(&nav_mesh, 25, 0.6);
 //!
-//! // Add an agent
-//! let params = AgentParams {
-//!     radius: 0.6,
-//!     height: 2.0,
-//!     max_acceleration: 8.0,
-//!     max_speed: 3.5,
-//!     ..Default::default()
-//! };
-//! let agent_id = crowd.add_agent(&start_pos, &params)?;
+//! let params = AgentParams::default()
+//!     .with_radius(0.6)
+//!     .with_height(2.0)
+//!     .with_max_acceleration(8.0)
+//!     .with_max_speed(3.5);
+//! let agent_id = crowd.add_agent(Vec3::new(0.0, 0.0, 0.0), params)?;
 //!
-//! // Set agent target
-//! crowd.request_move_target(agent_id, target_poly, &target_pos)?;
+//! crowd.request_move_target(agent_id, PolyRef::new(1), Vec3::new(10.0, 0.0, 10.0))?;
 //!
-//! // Update simulation
-//! crowd.update(delta_time)?;
+//! crowd.update(1.0 / 60.0)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Architecture

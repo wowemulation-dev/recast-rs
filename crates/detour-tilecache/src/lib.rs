@@ -14,32 +14,28 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
-//! use detour_tilecache::{TileCache, TileCacheParams, ObstacleRequest};
-//! use glam::Vec3;
+//! ```no_run
+//! use detour_tilecache::{TileCache, TileCacheParams};
 //!
-//! // Create tile cache with configuration
-//! let params = TileCacheParams {
-//!     tile_width: 48,
-//!     tile_height: 48,
-//!     max_obstacles: 128,
-//!     ..Default::default()
-//! };
-//! let mut tile_cache = TileCache::new(&params)?;
+//! # fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut params = TileCacheParams::default();
+//! params.max_obstacles = 128;
+//! let mut tile_cache = TileCache::new(params)?;
 //!
 //! // Add a cylinder obstacle
-//! let obstacle_id = tile_cache.add_cylinder_obstacle(
-//!     &Vec3::new(10.0, 0.0, 10.0),  // position
-//!     2.0,                               // radius
-//!     4.0,                               // height
+//! let obstacle_id = tile_cache.add_obstacle(
+//!     [10.0, 0.0, 10.0],  // position
+//!     2.0,                 // radius
+//!     4.0,                 // height
 //! )?;
 //!
-//! // Update affected tiles
 //! tile_cache.update()?;
 //!
 //! // Remove the obstacle later
 //! tile_cache.remove_obstacle(obstacle_id)?;
 //! tile_cache.update()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Architecture
