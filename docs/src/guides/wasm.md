@@ -7,15 +7,15 @@ every commit.
 
 ```bash
 # Build specific crates for WASM
-cargo build --target wasm32-unknown-unknown -p recast -p detour
+cargo build --target wasm32-unknown-unknown -p landmark -p waymark
 
 # Build all library crates
 cargo build --target wasm32-unknown-unknown \
-    -p recast-common -p recast -p detour \
-    -p detour-crowd -p detour-tilecache -p detour-dynamic
+    -p landmark-common -p landmark -p waymark \
+    -p waymark-crowd -p waymark-tilecache -p waymark-dynamic
 ```
 
-The `recast-cli` crate does not compile to WASM (it uses file I/O and `clap`).
+The `landmark-cli` crate does not compile to WASM (it uses file I/O and `clap`).
 
 ## Feature Compatibility
 
@@ -31,30 +31,30 @@ The `recast-cli` crate does not compile to WASM (it uses file I/O and `clap`).
 
 ## Crate-Specific Notes
 
-### recast-common
+### landmark-common
 
 Disable the `std` feature to remove file I/O dependencies:
 
 ```toml
 [dependencies]
-recast-common = { version = "0.1", default-features = false }
+landmark-common = { version = "0.1", default-features = false }
 ```
 
 This removes:
 - `TriMesh::from_obj()` (use `TriMesh::from_obj_str()` instead)
 - `MeshError::Io` variant
 
-### detour
+### waymark
 
 Serialization works on WASM using in-memory buffers. File-based save/load
 methods require native targets.
 
-### detour-tilecache
+### waymark-tilecache
 
 Uses `lz4_flex` (pure Rust) instead of system LZ4. No C dependencies,
 works on WASM without configuration.
 
-### detour-dynamic
+### waymark-dynamic
 
 Async operations use `async-lock` and `futures-lite` by default. These are
 runtime-agnostic and work on WASM without tokio.
@@ -64,12 +64,12 @@ WASM-compatible:
 
 ```toml
 # Native only - do not use with WASM
-detour-dynamic = { version = "0.1", features = ["tokio"] }
+waymark-dynamic = { version = "0.1", features = ["tokio"] }
 ```
 
 ### Timing
 
-The `recast` crate uses `web-time` instead of `std::time::Instant`. This
+The `landmark` crate uses `web-time` instead of `std::time::Instant`. This
 provides WASM-compatible timing via `performance.now()` on web targets.
 
 ## Dependency Summary
@@ -78,6 +78,6 @@ WASM-incompatible features are isolated behind feature flags:
 
 | Feature | Crate | WASM-compatible |
 |---------|-------|-----------------|
-| `std` | recast-common | No (file I/O) |
-| `tokio` | detour-dynamic | No (tokio runtime) |
-| `serialization` | detour, detour-tilecache | Yes (in-memory) |
+| `std` | landmark-common | No (file I/O) |
+| `tokio` | waymark-dynamic | No (tokio runtime) |
+| `serialization` | waymark, waymark-tilecache | Yes (in-memory) |

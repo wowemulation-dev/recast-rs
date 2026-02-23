@@ -16,12 +16,12 @@
 
 # Crate Reference
 
-- [recast-common](crates/recast-common.md)
-- [recast](crates/recast.md)
-- [detour](crates/detour.md)
-- [detour-crowd](crates/detour-crowd.md)
-- [detour-tilecache](crates/detour-tilecache.md)
-- [detour-dynamic](crates/detour-dynamic.md)
+- [landmark-common](crates/landmark-common.md)
+- [landmark](crates/landmark.md)
+- [waymark](crates/waymark.md)
+- [waymark-crowd](crates/waymark-crowd.md)
+- [waymark-tilecache](crates/waymark-tilecache.md)
+- [waymark-dynamic](crates/waymark-dynamic.md)
 
 # Development
 

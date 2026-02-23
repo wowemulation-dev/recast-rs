@@ -21,7 +21,7 @@ consists of two main parts:
 - **Detour**: Provides pathfinding on the generated navigation meshes using
   A* search and the funnel algorithm.
 
-recast-rs ports all five C++ modules and adds a sixth (`detour-dynamic`) that
+recast-rs ports all five C++ modules and adds a sixth (`waymark-dynamic`) that
 is not present in the original.
 
 ## Workspace Crates
@@ -29,8 +29,8 @@ is not present in the original.
 See the [Architecture Overview](architecture/overview.md) for the workspace layout and
 [Crate Dependencies](architecture/crate-dependencies.md) for the dependency graph.
 
-The workspace contains 7 crates: `recast-common`, `recast`, `detour`, `detour-crowd`,
-`detour-tilecache`, `detour-dynamic`, and `recast-cli`. All library crates compile to
+The workspace contains 7 crates: `landmark-common`, `landmark`, `waymark`, `waymark-crowd`,
+`waymark-tilecache`, `waymark-dynamic`, and `landmark-cli`. All library crates compile to
 WASM (see [WebAssembly](guides/wasm.md)).
 
 ## License

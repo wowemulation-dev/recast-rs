@@ -5,32 +5,32 @@
 ```text
 recast-rs/
 ├── crates/
-│   ├── recast-common/      # Shared utilities, math, error types
-│   ├── recast/             # Navigation mesh generation
-│   ├── detour/             # Pathfinding and navigation queries
-│   ├── detour-crowd/       # Multi-agent crowd simulation
-│   ├── detour-tilecache/   # Dynamic obstacle management
-│   ├── detour-dynamic/     # Dynamic navmesh support
-│   └── recast-cli/         # Command-line tool
-├── docs/                   # This mdbook documentation
-├── .github/workflows/      # CI: ci.yml, cross-build.yml
-└── .cargo/config.toml      # Aliases, build settings
+│   ├── landmark-common/      # Shared utilities, math, error types
+│   ├── landmark/             # Navigation mesh generation
+│   ├── waymark/              # Pathfinding and navigation queries
+│   ├── waymark-crowd/        # Multi-agent crowd simulation
+│   ├── waymark-tilecache/    # Dynamic obstacle management
+│   ├── waymark-dynamic/      # Dynamic navmesh support
+│   └── landmark-cli/         # Command-line tool
+├── docs/                     # This mdbook documentation
+├── .github/workflows/        # CI: ci.yml, cross-build.yml
+└── .cargo/config.toml        # Aliases, build settings
 ```
 
-Unit tests are inline `#[cfg(test)]` modules. Integration tests in `crates/recast/tests/` and `crates/detour/tests/`. Examples in `examples/`. Benchmarks in per-crate `benches/` directories.
+Unit tests are inline `#[cfg(test)]` modules. Integration tests in `crates/landmark/tests/` and `crates/waymark/tests/`. Examples in `examples/`. Benchmarks in per-crate `benches/` directories.
 
 ## C++ Module Mapping
 
 | C++ Module | Rust Crate | C++ Prefix | Rust Module |
 |------------|------------|------------|-------------|
-| Recast | `recast` | `rc` | `recast::` |
-| Detour | `detour` | `dt` | `detour::` |
-| DetourCrowd | `detour-crowd` | `dt` | `detour_crowd::` |
-| DetourTileCache | `detour-tilecache` | `dt` | `detour_tilecache::` |
-| DebugUtils | `recast-common::debug` | `du` | `recast_common::debug::` |
-| (none) | `detour-dynamic` | - | `detour_dynamic::` |
+| Recast | `landmark` | `rc` | `landmark::` |
+| Detour | `waymark` | `dt` | `waymark::` |
+| DetourCrowd | `waymark-crowd` | `dt` | `waymark_crowd::` |
+| DetourTileCache | `waymark-tilecache` | `dt` | `waymark_tilecache::` |
+| DebugUtils | `landmark-common::debug` | `du` | `landmark_common::debug::` |
+| (none) | `waymark-dynamic` | - | `waymark_dynamic::` |
 
-The `detour-dynamic` crate has no C++ equivalent. It extends the original
+The `waymark-dynamic` crate has no C++ equivalent. It extends the original
 library with 7 collider types, async operations, and a checkpoint system.
 
 ## Key Dependencies

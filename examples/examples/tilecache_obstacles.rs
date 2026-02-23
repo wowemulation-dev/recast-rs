@@ -9,7 +9,7 @@
 //! cargo run -p recast-rs-examples --example tilecache_obstacles
 //! ```
 
-use detour_tilecache::{TileCache, TileCacheParams};
+use waymark_tilecache::{TileCache, TileCacheParams};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create tile cache parameters matching the navmesh config

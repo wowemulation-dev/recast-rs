@@ -3,25 +3,25 @@
 ## Dependency Graph
 
 ```text
-recast-common          (base crate, no workspace deps)
+landmark-common          (base crate, no workspace deps)
     │
-    ├── recast         (depends on recast-common)
+    ├── landmark         (depends on landmark-common)
     │       │
-    │       ├── detour          (depends on recast-common, recast)
+    │       ├── waymark          (depends on landmark-common, landmark)
     │       │       │
-    │       │       ├── detour-crowd     (depends on recast-common, detour)
+    │       │       ├── waymark-crowd     (depends on landmark-common, waymark)
     │       │       │
-    │       │       └── detour-tilecache (depends on recast-common, recast, detour)
+    │       │       └── waymark-tilecache (depends on landmark-common, landmark, waymark)
     │       │               │
-    │       │               └── detour-dynamic   (depends on recast-common, recast,
-    │       │                                      detour, detour-tilecache)
+    │       │               └── waymark-dynamic   (depends on landmark-common, landmark,
+    │       │                                      waymark, waymark-tilecache)
     │       │
     │       └───────────────────┘
     │
-    └── recast-cli     (depends on all workspace crates)
+    └── landmark-cli     (depends on all workspace crates)
 ```
 
-## recast-common
+## landmark-common
 
 Base crate with no workspace dependencies. Provides:
 
@@ -31,32 +31,32 @@ Base crate with no workspace dependencies. Provides:
 - Geometry utilities
 - Debug visualization primitives
 
-## recast
+## landmark
 
-Depends on `recast-common`. Provides the navmesh generation pipeline from
+Depends on `landmark-common`. Provides the navmesh generation pipeline from
 input triangles to polygon meshes.
 
-## detour
+## waymark
 
-Depends on `recast-common` and `recast`. Provides pathfinding, spatial queries,
+Depends on `landmark-common` and `landmark`. Provides pathfinding, spatial queries,
 and NavMesh data structures.
 
-## detour-crowd
+## waymark-crowd
 
-Depends on `recast-common` and `detour`. Provides multi-agent simulation.
-Does not depend on `recast` since it operates on pre-built NavMesh data.
+Depends on `landmark-common` and `waymark`. Provides multi-agent simulation.
+Does not depend on `landmark` since it operates on pre-built NavMesh data.
 
-## detour-tilecache
+## waymark-tilecache
 
-Depends on `recast-common`, `recast`, and `detour`. Needs `recast` for tile
+Depends on `landmark-common`, `landmark`, and `waymark`. Needs `landmark` for tile
 regeneration when obstacles change.
 
-## detour-dynamic
+## waymark-dynamic
 
-Depends on `recast-common`, `recast`, `detour`, and `detour-tilecache`.
+Depends on `landmark-common`, `landmark`, `waymark`, and `waymark-tilecache`.
 The most dependent crate, combining mesh generation, pathfinding, and tile
 caching for dynamic navmesh updates.
 
-## recast-cli
+## landmark-cli
 
 Binary crate depending on all workspace crates. Not published as a library.

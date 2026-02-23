@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "crates/recast-common",
-    "crates/recast",
-    "crates/detour",
-    "crates/detour-crowd",
-    "crates/detour-tilecache",
-    "crates/detour-dynamic",
-    "crates/recast-cli",
+    "crates/landmark-common",
+    "crates/landmark",
+    "crates/waymark",
+    "crates/waymark-crowd",
+    "crates/waymark-tilecache",
+    "crates/waymark-dynamic",
+    "crates/landmark-cli",
     "examples",
 ]
 resolver = "3"
@@ -19,17 +19,17 @@ authors = ["Daniel S. Reichenbach <daniel@kogito.network>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/wowemulation-dev/recast-rs"
 homepage = "https://github.com/wowemulation-dev/recast-rs"
-keywords = ["game", "pathfinding", "navmesh", "recast", "detour"]
+keywords = ["game", "pathfinding", "navmesh", "landmark", "waymark"]
 categories = ["game-development", "algorithms"]
 
 [workspace.dependencies]
 # Internal workspace dependencies
-recast-common = { path = "crates/recast-common", version = "0.1.0" }
-recast = { path = "crates/recast", version = "0.1.0" }
-detour = { path = "crates/detour", version = "0.1.0" }
-detour-crowd = { path = "crates/detour-crowd", version = "0.1.0" }
-detour-tilecache = { path = "crates/detour-tilecache", version = "0.1.0" }
-detour-dynamic = { path = "crates/detour-dynamic", version = "0.1.0" }
+landmark-common = { path = "crates/landmark-common", version = "0.1.0" }
+landmark = { path = "crates/landmark", version = "0.1.0" }
+waymark = { path = "crates/waymark", version = "0.1.0" }
+waymark-crowd = { path = "crates/waymark-crowd", version = "0.1.0" }
+waymark-tilecache = { path = "crates/waymark-tilecache", version = "0.1.0" }
+waymark-dynamic = { path = "crates/waymark-dynamic", version = "0.1.0" }
 
 # Error handling
 thiserror = "2.0"

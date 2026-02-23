@@ -5,11 +5,11 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-recast-common = { workspace = true }
-recast = { workspace = true }
-detour = { workspace = true, features = ["serialization"] }
-detour-crowd = { workspace = true }
-detour-tilecache = { workspace = true, features = ["serialization"] }
+landmark-common = { workspace = true }
+landmark = { workspace = true }
+waymark = { workspace = true, features = ["serialization"] }
+waymark-crowd = { workspace = true }
+waymark-tilecache = { workspace = true, features = ["serialization"] }
 glam = { workspace = true }
 
 [lints]

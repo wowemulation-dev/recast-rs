@@ -1,0 +1,36 @@
+[package]
+name = "waymark-crowd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Multi-agent crowd simulation on navigation meshes"
+readme = "../../README.md"
+keywords = ["crowd", "simulation", "waymark", "agents", "ai"]
+categories = ["game-development", "simulation"]
+
+[dependencies]
+landmark-common = { workspace = true }
+waymark = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+fastrand = { workspace = true }
+bitflags = { workspace = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+criterion = { workspace = true }
+landmark = { workspace = true }
+
+[[bench]]
+name = "crowd_update"
+harness = false
+
+[features]
+default = []
+
+[lints]
+workspace = true

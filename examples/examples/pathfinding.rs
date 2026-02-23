@@ -9,8 +9,8 @@
 //! cargo run -p recast-rs-examples --example pathfinding
 //! ```
 
-use detour::{NavMeshQuery, QueryFilter};
 use glam::Vec3;
+use waymark::{NavMeshQuery, QueryFilter};
 
 use recast_rs_examples::common;
 

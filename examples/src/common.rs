@@ -1,6 +1,6 @@
-use detour::{NavMesh, NavMeshFlags, NavMeshParams};
-use recast::{PolyMesh, PolyMeshDetail, RecastBuilder, RecastConfig};
-use recast_common::TriMesh;
+use landmark::{PolyMesh, PolyMeshDetail, RecastBuilder, RecastConfig};
+use landmark_common::TriMesh;
+use waymark::{NavMesh, NavMeshFlags, NavMeshParams};
 
 /// Build a navmesh from an OBJ file with default config.
 ///
