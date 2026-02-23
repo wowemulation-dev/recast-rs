@@ -2,7 +2,7 @@
 //!
 //! Demonstrates saving and loading a NavMesh in JSON and binary (postcard)
 //! formats. Shows in-memory round-trip and compares sizes.
-//! Requires the `serialization` feature on the `detour` crate.
+//! Requires the `serialization` feature on the `waymark` crate.
 //!
 //! Run with:
 //! ```sh

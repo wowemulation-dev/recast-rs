@@ -9,7 +9,7 @@
 #   -m, --mesh FILE       Input mesh file (default: test-data/meshes/nav_test.obj)
 #   -n, --iterations N    Iterations per bench run (default: 10)
 #   --cpp-bin PATH        Path to C++ RecastCLI binary
-#   --rust-bin PATH       Path to Rust recast-cli binary
+#   --rust-bin PATH       Path to Rust landmark-cli binary
 #   --hyperfine-runs N    Number of hyperfine runs (default: 5)
 #   -h, --help            Show this help
 
@@ -56,8 +56,8 @@ fi
 
 if [[ -z "$RUST_BIN" ]]; then
     # Build release if needed
-    cargo build --release -p recast-cli --manifest-path="${PROJECT_ROOT}/Cargo.toml" 2>/dev/null
-    RUST_BIN="${PROJECT_ROOT}/target/release/recast-cli"
+    cargo build --release -p landmark-cli --manifest-path="${PROJECT_ROOT}/Cargo.toml" 2>/dev/null
+    RUST_BIN="${PROJECT_ROOT}/target/release/landmark-cli"
 fi
 
 # Validate
@@ -72,7 +72,7 @@ if [[ -z "$CPP_BIN" || ! -x "$CPP_BIN" ]]; then
 fi
 
 if [[ ! -x "$RUST_BIN" ]]; then
-    echo "ERROR: Rust recast-cli binary not found at: $RUST_BIN" >&2
+    echo "ERROR: Rust landmark-cli binary not found at: $RUST_BIN" >&2
     exit 1
 fi
 
@@ -119,7 +119,7 @@ if command -v hyperfine &>/dev/null; then
         --warmup 2 \
         --export-markdown /dev/stdout \
         -n "C++ RecastCLI" "'$CPP_BIN' bench --input '$MESH' --iterations 1 2>/dev/null" \
-        -n "Rust recast-cli" "'$RUST_BIN' bench --input '$MESH' --iterations 1 2>/dev/null"
+        -n "Rust landmark-cli" "'$RUST_BIN' bench --input '$MESH' --iterations 1 2>/dev/null"
 else
     echo "(hyperfine not found, skipping end-to-end comparison)"
     echo "Install with: cargo install hyperfine"

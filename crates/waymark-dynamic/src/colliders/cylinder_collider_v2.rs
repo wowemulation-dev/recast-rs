@@ -83,7 +83,7 @@ impl Collider for CylinderCollider {
         _world_min: &Vec3,
     ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeCylinder
-        // We need to implement cylinder rasterization in the recast crate
+        // We need to implement cylinder rasterization in the landmark crate
         // For now, we'll use a simplified approach
 
         let flag_merge_threshold = (self.base.flag_merge_threshold / cell_height).floor() as i16;

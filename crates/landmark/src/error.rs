@@ -1,4 +1,4 @@
-//! Error types for the recast crate
+//! Error types for the landmark crate
 //!
 //! These types replace the generic `landmark_common::Error` variants with structured
 //! errors that carry context about what went wrong during navmesh generation.

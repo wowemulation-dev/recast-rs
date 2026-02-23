@@ -97,7 +97,7 @@ impl Collider for CylinderCollider {
     ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeCylinder
         // For now, we'll use a simple voxel-based approach
-        // TODO: Implement proper cylinder rasterization in recast crate
+        // TODO: Implement proper cylinder rasterization in landmark crate
 
         let (aabb_min, aabb_max) = self.bounds();
 

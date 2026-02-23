@@ -88,7 +88,7 @@ impl Collider for CapsuleCollider {
     ) -> Result<(), DynamicError> {
         // In , this calls RcFilledVolumeRasterization.RasterizeCapsule
         // For now, we'll use a simple voxel-based approach
-        // TODO: Implement proper capsule rasterization in recast crate
+        // TODO: Implement proper capsule rasterization in landmark crate
 
         let (aabb_min, aabb_max) = self.bounds();
 

@@ -1,4 +1,4 @@
-//! Error types for the detour crate
+//! Error types for the waymark crate
 //!
 //! These types replace the generic `landmark_common::Error` variants with structured
 //! errors that carry context about what went wrong during pathfinding and
