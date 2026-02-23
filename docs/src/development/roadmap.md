@@ -9,12 +9,12 @@ These issues must be resolved before crates.io publication.
 
 ### 1.1 Eliminate `unwrap()`/`expect()` from Library Code -- COMPLETE
 
-> **Status**: Reduced from 45 to 2. The 2 remaining are in detour-dynamic
+> **Status**: Reduced from 45 to 2. The 2 remaining are in waymark-dynamic
 > job processing (`collider_removal_job.rs`, `dynamic_tile_job.rs`).
 
 **Problem**: 45 `unwrap()`/`expect()` calls in non-test library code
-(verified count: 20 in detour, 13 in detour-tilecache, 9 in recast, 2 in
-detour-crowd, 1 doctest in recast-common). A library that panics on
+(verified count: 20 in waymark, 13 in waymark-tilecache, 9 in landmark, 2 in
+waymark-crowd, 1 doctest in landmark-common). A library that panics on
 recoverable errors is not usable.
 
 **Approach**:
@@ -30,11 +30,11 @@ recoverable errors is not usable.
 
 **Priority by crate** (based on risk, not just count):
 
-1. `detour-tilecache` -- 13 panics on resource exhaustion in `tile_cache.rs`
-2. `detour` -- 20 calls, includes A\* open list pop at `nav_mesh_query.rs:438`
-3. `recast` -- 9 calls, includes cell index unwraps in `watershed.rs`
-4. `detour-crowd` -- 2 calls
-5. `recast-common` -- 1 doctest in `mesh.rs`
+1. `waymark-tilecache` -- 13 panics on resource exhaustion in `tile_cache.rs`
+2. `waymark` -- 20 calls, includes A\* open list pop at `nav_mesh_query.rs:438`
+3. `landmark` -- 9 calls, includes cell index unwraps in `watershed.rs`
+4. `waymark-crowd` -- 2 calls
+5. `landmark-common` -- 1 doctest in `mesh.rs`
 
 **Verification**: `grep -rn 'unwrap()\|expect(' crates/*/src/ --include='*.rs'`
 filtered to exclude `#[cfg(test)]` modules should return zero results.
@@ -42,13 +42,13 @@ filtered to exclude `#[cfg(test)]` modules should return zero results.
 ### 1.2 Add Structured Error Types -- COMPLETE
 
 > **Status**: Per-crate error types implemented. The old catch-all `Error`
-> enum has been removed from recast-common. Each crate owns its errors:
+> enum has been removed from landmark-common. Each crate owns its errors:
 > `MeshError`, `ConfigError`/`BuildError`/`ConvexVolumeError`, `DetourError`,
 > `CrowdError`, `TileCacheError`, `DynamicError`.
 
-**Problem**: The workspace `Error` enum in `recast-common/src/lib.rs` has
+**Problem**: The workspace `Error` enum in `landmark-common/src/lib.rs` has
 6 variants. 5 of 6 use bare `String` as payload. The `Pathfinding` variant
-is unused (zero occurrences in the codebase). The `detour` crate has a
+is unused (zero occurrences in the codebase). The `waymark` crate has a
 well-designed `Status` enum with 22 variants (`InvalidParam`, `OutOfMemory`,
 `PathInvalid`, etc.) but converts these to strings via `.to_string()` before
 wrapping in `Error::Detour(String)`. This pattern appears 242 times,
@@ -58,34 +58,34 @@ destroying type information that callers need for error handling.
 
 | Pattern | Count | Location |
 |---------|-------|----------|
-| `Error::Detour(Status::InvalidParam.to_string())` | 159 | detour, detour-crowd, detour-tilecache |
-| `Error::Detour(Status::Failure.to_string())` | 45 | detour, detour-crowd, detour-tilecache |
-| `Error::NavMeshGeneration(String)` | 26 | recast |
-| `Error::InvalidMesh(String)` | 23 | recast, detour-crowd, detour-tilecache |
-| `Error::Detour(Status::NotFound.to_string())` | 13 | detour, detour-tilecache |
-| `Error::Detour(Status::PathInvalid.to_string())` | 7 | detour, detour-crowd |
-| `Error::Detour(Status::OutOfMemory.to_string())` | 7 | detour, detour-tilecache |
-| `Error::Recast(String)` | 7 | recast, detour-dynamic |
-| `Error::Detour(Status::WrongVersion.to_string())` | 4 | detour |
-| `Error::Detour(Status::WrongMagic.to_string())` | 3 | detour |
-| `Error::Detour(Status::BufferTooSmall.to_string())` | 3 | detour |
-| `Error::Detour(Status::InProgress.to_string())` | 1 | detour |
-| `Error::Detour(ad-hoc string)` | 3 | detour (nav_mesh.rs, nav_mesh_query.rs) |
+| `Error::Detour(Status::InvalidParam.to_string())` | 159 | waymark, waymark-crowd, waymark-tilecache |
+| `Error::Detour(Status::Failure.to_string())` | 45 | waymark, waymark-crowd, waymark-tilecache |
+| `Error::NavMeshGeneration(String)` | 26 | landmark |
+| `Error::InvalidMesh(String)` | 23 | landmark, waymark-crowd, waymark-tilecache |
+| `Error::Detour(Status::NotFound.to_string())` | 13 | waymark, waymark-tilecache |
+| `Error::Detour(Status::PathInvalid.to_string())` | 7 | waymark, waymark-crowd |
+| `Error::Detour(Status::OutOfMemory.to_string())` | 7 | waymark, waymark-tilecache |
+| `Error::Recast(String)` | 7 | landmark, waymark-dynamic |
+| `Error::Detour(Status::WrongVersion.to_string())` | 4 | waymark |
+| `Error::Detour(Status::WrongMagic.to_string())` | 3 | waymark |
+| `Error::Detour(Status::BufferTooSmall.to_string())` | 3 | waymark |
+| `Error::Detour(Status::InProgress.to_string())` | 1 | waymark |
+| `Error::Detour(ad-hoc string)` | 3 | waymark (nav_mesh.rs, nav_mesh_query.rs) |
 | `Error::Pathfinding(String)` | 0 | unused |
 | **Total** | **301** | |
 
 #### Approach
 
 Each crate defines its own error type. The workspace `Error` in
-`recast-common` is removed. Functions return crate-specific
+`landmark-common` is removed. Functions return crate-specific
 `Result<T, CrateError>`.
 
-#### Step 1: `recast-common` -- Remove catch-all Error
+#### Step 1: `landmark-common` -- Remove catch-all Error
 
 Delete the current `Error` enum. Replace with:
 
 ```rust
-// recast-common/src/error.rs
+// landmark-common/src/error.rs
 
 /// Error for mesh I/O operations (std-only)
 #[derive(thiserror::Error, Debug)]
@@ -113,12 +113,12 @@ pub enum MeshError {
 Remove: `InvalidMesh(String)`, `NavMeshGeneration(String)`,
 `Pathfinding(String)`, `Recast(String)`, `Detour(String)`.
 
-#### Step 2: `recast` -- Per-stage error types
+#### Step 2: `landmark` -- Per-stage error types
 
-The 58 error sites in the recast crate fall into these categories:
+The 58 error sites in the landmark crate fall into these categories:
 
 ```rust
-// recast/src/error.rs
+// landmark/src/error.rs
 
 /// Error during recast configuration validation
 #[derive(thiserror::Error, Debug)]
@@ -207,16 +207,16 @@ specific `BuildError` variant. Each `Error::InvalidMesh(...)` in config.rs
 becomes a `ConfigError` variant. Each `Error::InvalidMesh(...)` in
 convex_volume.rs becomes a `ConvexVolumeError` variant.
 
-#### Step 3: `detour` -- Promote Status to error type
+#### Step 3: `waymark` -- Promote Status to error type
 
 The `Status` enum already has the right categories. Make it implement
 `std::error::Error` and use it directly:
 
 ```rust
-// detour/src/error.rs
+// waymark/src/error.rs
 use crate::status::Status;
 
-/// Error from detour operations
+/// Error from waymark operations
 #[derive(thiserror::Error, Debug)]
 pub enum DetourError {
     #[error("invalid parameter")]
@@ -250,7 +250,7 @@ pub enum DetourError {
     DataCorrupted,
 
     #[error("navmesh build failed")]
-    Build(#[from] recast::BuildError),
+    Build(#[from] landmark::BuildError),
 
     #[cfg(feature = "serialization")]
     #[error("serialization failed: {0}")]
@@ -291,10 +291,10 @@ The `Serialization` variant wraps serde/postcard errors that are currently
 discarded by `.map_err(|_| Error::Detour(Status::Failure.to_string()))`.
 This recovers the original error information.
 
-#### Step 4: `detour-crowd` -- Crowd-specific error type
+#### Step 4: `waymark-crowd` -- Crowd-specific error type
 
 ```rust
-// detour-crowd/src/error.rs
+// waymark-crowd/src/error.rs
 
 #[derive(thiserror::Error, Debug)]
 pub enum CrowdError {
@@ -311,7 +311,7 @@ pub enum CrowdError {
     Rvo(&'static str),
 
     #[error(transparent)]
-    Detour(#[from] detour::DetourError),
+    Detour(#[from] waymark::DetourError),
 }
 ```
 
@@ -319,10 +319,10 @@ pub enum CrowdError {
 `CrowdError::Rvo(...)`. The `Error::Detour(Status::InvalidParam...)` calls
 become `CrowdError::InvalidParam`.
 
-#### Step 5: `detour-tilecache` -- TileCache-specific error type
+#### Step 5: `waymark-tilecache` -- TileCache-specific error type
 
 ```rust
-// detour-tilecache/src/error.rs
+// waymark-tilecache/src/error.rs
 
 #[derive(thiserror::Error, Debug)]
 pub enum TileCacheError {
@@ -345,7 +345,7 @@ pub enum TileCacheError {
     InvalidAreaData,
 
     #[error(transparent)]
-    Detour(#[from] detour::DetourError),
+    Detour(#[from] waymark::DetourError),
 
     #[cfg(feature = "serialization")]
     #[error("serialization failed: {0}")]
@@ -362,10 +362,10 @@ pub enum TileCacheError {
 `"obstacles"`. The 2 `Error::InvalidMesh(...)` calls in
 tile_cache_builder.rs become `InvalidRegionData` and `InvalidAreaData`.
 
-#### Step 6: `detour-dynamic` -- Dynamic-specific error type
+#### Step 6: `waymark-dynamic` -- Dynamic-specific error type
 
 ```rust
-// detour-dynamic/src/error.rs
+// waymark-dynamic/src/error.rs
 
 #[derive(thiserror::Error, Debug)]
 pub enum DynamicError {
@@ -379,13 +379,13 @@ pub enum DynamicError {
     JobQueueFull,
 
     #[error(transparent)]
-    Config(#[from] recast::ConfigError),
+    Config(#[from] landmark::ConfigError),
 
     #[error(transparent)]
-    Build(#[from] recast::BuildError),
+    Build(#[from] landmark::BuildError),
 
     #[error(transparent)]
-    Detour(#[from] detour::DetourError),
+    Detour(#[from] waymark::DetourError),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -401,10 +401,10 @@ pub enum DynamicError {
 
 1. Define new error types in each crate (add `error.rs` modules)
 2. Update function signatures crate by crate, bottom-up:
-   recast-common -> recast -> detour -> detour-crowd -> detour-tilecache ->
-   detour-dynamic
-3. Delete old `Error` enum from recast-common
-4. Update recast-cli to handle new error types (use `anyhow` to collect)
+   landmark-common -> landmark -> waymark -> waymark-crowd -> waymark-tilecache ->
+   waymark-dynamic
+3. Delete old `Error` enum from landmark-common
+4. Update landmark-cli to handle new error types (use `anyhow` to collect)
 
 #### Verification
 
@@ -484,11 +484,11 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-recast-common = { workspace = true }
-recast = { workspace = true }
-detour = { workspace = true, features = ["serialization"] }
-detour-crowd = { workspace = true }
-detour-tilecache = { workspace = true, features = ["serialization"] }
+landmark-common = { workspace = true }
+landmark = { workspace = true }
+waymark = { workspace = true, features = ["serialization"] }
+waymark-crowd = { workspace = true }
+waymark-tilecache = { workspace = true, features = ["serialization"] }
 glam = { workspace = true }
 
 [[example]]
@@ -638,7 +638,7 @@ non-zero polygon counts and valid path waypoints.
 
 > **Status**: Test fixtures exist in `test-data/meshes/` with 3 OBJ files
 > (nav_test.obj, dungeon.obj, bridge.obj). Integration tests in
-> `crates/recast/tests/` and `crates/detour/tests/` validate against C++
+> `crates/landmark/tests/` and `crates/waymark/tests/` validate against C++
 > reference output. 447 tests total (416 unit + 27 integration + 4 tokio).
 
 **Problem**: Tests do not validate against known-good reference output. The
@@ -779,14 +779,14 @@ C++ and Rust math.
 #### Verification
 
 ```bash
-cargo test -p recast --test integration
-cargo test -p detour --test integration
+cargo test -p landmark --test integration
+cargo test -p waymark --test integration
 ```
 
 ### 2.3 Add Benchmarks -- COMPLETE
 
-> **Status**: Benchmark directories exist in `crates/recast/benches/`,
-> `crates/detour/benches/`, and `crates/detour-crowd/benches/`. Uses
+> **Status**: Benchmark directories exist in `crates/landmark/benches/`,
+> `crates/waymark/benches/`, and `crates/waymark-crowd/benches/`. Uses
 > criterion. Flamegraph profiling support added via cargo aliases.
 
 **Problem**: No performance data. Cannot measure regressions or compare
@@ -811,14 +811,14 @@ Each crate with benchmarks gets a `benches/` directory:
 
 ```text
 crates/
-  recast/
+  landmark/
     benches/
       generation.rs     # Heightfield, compact, contour, polymesh
-  detour/
+  waymark/
     benches/
       pathfinding.rs    # find_path, find_straight_path, sliced
       spatial_queries.rs # find_nearest_poly, raycast, find_distance_to_wall
-  detour-crowd/
+  waymark-crowd/
     benches/
       crowd_update.rs   # crowd.update() with varying agent counts
 ```
@@ -836,7 +836,7 @@ harness = false
 
 #### Benchmark specifications
 
-**`recast/benches/generation.rs`** -- Navmesh generation pipeline:
+**`landmark/benches/generation.rs`** -- Navmesh generation pipeline:
 
 ```rust
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
@@ -878,7 +878,7 @@ fn bench_build_mesh(c: &mut Criterion) {
 Input meshes: bridge.obj (1.5 KB), nav_test.obj (113 KB), dungeon.obj
 (382 KB). Store in `test-data/meshes/` (shared with test fixtures).
 
-**`detour/benches/pathfinding.rs`** -- Path queries:
+**`waymark/benches/pathfinding.rs`** -- Path queries:
 
 | Benchmark | Setup | Measure |
 |-----------|-------|---------|
@@ -888,7 +888,7 @@ Input meshes: bridge.obj (1.5 KB), nav_test.obj (113 KB), dungeon.obj
 | `find_straight_path` | Pre-computed poly path | `find_straight_path` funnel |
 | `sliced_find_path` | dungeon.obj navmesh, 100 iterations | `init_sliced_find_path` + `update_sliced_find_path` |
 
-**`detour/benches/spatial_queries.rs`** -- Spatial queries:
+**`waymark/benches/spatial_queries.rs`** -- Spatial queries:
 
 | Benchmark | Setup | Measure |
 |-----------|-------|---------|
@@ -898,7 +898,7 @@ Input meshes: bridge.obj (1.5 KB), nav_test.obj (113 KB), dungeon.obj
 | `move_along_surface` | nav_test.obj navmesh | `move_along_surface` at 100 positions |
 | `find_polys_around_circle` | nav_test.obj navmesh | `find_polys_around_circle` varying radii |
 
-**`detour-crowd/benches/crowd_update.rs`** -- Crowd simulation:
+**`waymark-crowd/benches/crowd_update.rs`** -- Crowd simulation:
 
 | Benchmark | Setup | Measure |
 |-----------|-------|---------|
@@ -932,9 +932,9 @@ pub fn build_test_navmesh(name: &str) -> NavMesh {
 #### Verification
 
 ```bash
-cargo bench -p recast
-cargo bench -p detour
-cargo bench -p detour-crowd
+cargo bench -p landmark
+cargo bench -p waymark
+cargo bench -p waymark-crowd
 
 # Verify all benchmarks compile and run at least one iteration
 cargo bench -- --test
@@ -966,12 +966,12 @@ cargo bench -- --test
 
 | Crate | Description |
 |-------|-------------|
-| `recast-common` | `Shared types and utilities for the recast-rs navigation mesh library` |
-| `recast` | `Navigation mesh generation from triangle meshes (Rust port of Recast)` |
-| `detour` | `Pathfinding and spatial queries on navigation meshes (Rust port of Detour)` |
-| `detour-crowd` | `Multi-agent crowd simulation with collision avoidance` |
-| `detour-tilecache` | `Dynamic obstacle management with compressed tile storage` |
-| `detour-dynamic` | `Dynamic navigation mesh generation with async support` |
+| `landmark-common` | `Shared types and utilities for the recast-rs navigation mesh library` |
+| `landmark` | `Navigation mesh generation from triangle meshes (Rust port of Recast)` |
+| `waymark` | `Pathfinding and spatial queries on navigation meshes (Rust port of Detour)` |
+| `waymark-crowd` | `Multi-agent crowd simulation with collision avoidance` |
+| `waymark-tilecache` | `Dynamic obstacle management with compressed tile storage` |
+| `waymark-dynamic` | `Dynamic navigation mesh generation with async support` |
 
 **Documentation coverage**: Run `cargo doc --workspace --no-deps` with
 `RUSTDOCFLAGS="-D warnings"`. Fix any missing doc comments on public items.
@@ -982,26 +982,26 @@ Priority: public functions and structs that appear in examples.
 Publish in dependency order. Each crate must be published and available on
 crates.io before its dependents can be published:
 
-1. `recast-common` (no workspace deps)
-2. `recast` (depends on recast-common)
-3. `detour` (depends on recast-common, recast)
-4. `detour-crowd` (depends on recast-common, detour)
-5. `detour-tilecache` (depends on recast-common, recast, detour)
-6. `detour-dynamic` (depends on recast-common, recast, detour,
-   detour-tilecache)
+1. `landmark-common` (no workspace deps)
+2. `landmark` (depends on landmark-common)
+3. `waymark` (depends on landmark-common, landmark)
+4. `waymark-crowd` (depends on landmark-common, waymark)
+5. `waymark-tilecache` (depends on landmark-common, landmark, waymark)
+6. `waymark-dynamic` (depends on landmark-common, landmark, waymark,
+   waymark-tilecache)
 
-Do **not** publish `recast-cli` or `recast-rs-examples`.
+Do **not** publish `landmark-cli` or `recast-rs-examples`.
 
 #### Dry run
 
 ```bash
 # Verify each crate passes dry-run (run in order)
-cargo publish --dry-run -p recast-common
-cargo publish --dry-run -p recast
-cargo publish --dry-run -p detour
-cargo publish --dry-run -p detour-crowd
-cargo publish --dry-run -p detour-tilecache
-cargo publish --dry-run -p detour-dynamic
+cargo publish --dry-run -p landmark-common
+cargo publish --dry-run -p landmark
+cargo publish --dry-run -p waymark
+cargo publish --dry-run -p waymark-crowd
+cargo publish --dry-run -p waymark-tilecache
+cargo publish --dry-run -p waymark-dynamic
 ```
 
 Fix any issues (missing fields, path dependencies without version, etc.)
@@ -1021,7 +1021,7 @@ builder structs pending).
 
 ### 3.1 Replace C-Style Output Parameters -- MOSTLY COMPLETE
 
-> **Status**: `detour-crowd` migrated to `Vec3` (30 public methods).
+> **Status**: `waymark-crowd` migrated to `Vec3` (30 public methods).
 > `NavMeshQuery` migrated to `Vec3` (all public methods). 14 C-style
 > `detour_common` vector functions with `&mut` output params removed.
 > `bvh_tree::query`, `store_tile_state`, and `move_along_surface`
@@ -1034,8 +1034,8 @@ returning owned values.
 **Completed work**:
 
 - `NavMeshQuery`: all public methods migrated from `&[f32; 3]` to `Vec3`
-- `detour-crowd`: 30 public methods migrated from `[f32; 3]` to `Vec3`
-- `detour`: struct fields migrated from `[f32; 3]` to `Vec3`
+- `waymark-crowd`: 30 public methods migrated from `[f32; 3]` to `Vec3`
+- `waymark`: struct fields migrated from `[f32; 3]` to `Vec3`
 - `detour_common`: 14 C-style vector functions with `&mut [f32; 3]` output
   parameters removed (`dt_vcross`, `dt_vmad`, `dt_vlerp`, `dt_vadd`,
   `dt_vsub`, `dt_vscale`, `dt_vmin`, `dt_vmax`, `dt_vset`, `dt_vcopy`,
@@ -1097,7 +1097,7 @@ returning owned values.
 
 - `NavMeshCreateParamsBuilder` with `from_recast()` constructor that
   eliminates manual field copying from `PolyMesh`/`PolyMeshDetail`
-- `AgentParamsBuilder` for `detour-crowd` `AgentParams`
+- `AgentParamsBuilder` for `waymark-crowd` `AgentParams`
 - Validating `build()` methods that check parameter ranges before
   constructing config structs
 
@@ -1214,11 +1214,11 @@ already has a clean API).
 [dependencies]
 three-d = "0.19"       # 3D rendering + windowing + egui integration
 egui = "0.31"           # Immediate mode UI
-recast = { path = "../recast" }
-detour = { path = "../detour" }
-detour-crowd = { path = "../detour-crowd" }
-detour-tilecache = { path = "../detour-tilecache" }
-recast-common = { path = "../recast-common" }
+landmark = { path = "../landmark" }
+waymark = { path = "../waymark" }
+waymark-crowd = { path = "../waymark-crowd" }
+waymark-tilecache = { path = "../waymark-tilecache" }
+landmark-common = { path = "../landmark-common" }
 ```
 
 The demo crate is a `[[bin]]` target, not a library. It does not need to
@@ -1231,18 +1231,18 @@ separately). Exclude it from workspace WASM CI checks.
 
 | Crate | Difficulty | Effort | Key blockers |
 |-------|-----------|--------|-------------|
-| recast-common | Easy | 2-3h | HashMap in mesh_simplification, std::io in Error |
-| recast | Medium | 6-8h | HashMap (6), BinaryHeap (1), format! in logging |
-| detour | Hard | 16-20h | std::io in binary_format, std::fs for persistence, HashMap (9) |
-| detour-crowd | Medium | 4-6h | HashMap (4); blocked by detour |
-| detour-tilecache | Medium-Hard | 8-10h | std::fs for persistence, HashMap (3) |
-| detour-dynamic | Hard | 12-16h | std::sync::Arc, AtomicU64, mpsc channels |
+| landmark-common | Easy | 2-3h | HashMap in mesh_simplification, std::io in Error |
+| landmark | Medium | 6-8h | HashMap (6), BinaryHeap (1), format! in logging |
+| waymark | Hard | 16-20h | std::io in binary_format, std::fs for persistence, HashMap (9) |
+| waymark-crowd | Medium | 4-6h | HashMap (4); blocked by waymark |
+| waymark-tilecache | Medium-Hard | 8-10h | std::fs for persistence, HashMap (3) |
+| waymark-dynamic | Hard | 12-16h | std::sync::Arc, AtomicU64, mpsc channels |
 
 **Total estimated effort: 48-63 hours across all crates.**
 
 #### std type usage inventory
 
-| std type | recast-common | recast | detour | detour-crowd | detour-tilecache | detour-dynamic |
+| std type | landmark-common | landmark | waymark | waymark-crowd | waymark-tilecache | waymark-dynamic |
 |----------|--------------|--------|--------|-------------|-----------------|---------------|
 | HashMap | 4 | 6 | 9 | 4 | 3 | 4 |
 | HashSet | 1 | 1 | 1 | 0 | 1 | 0 |
@@ -1283,11 +1283,11 @@ Problematic:
    otherwise.
 
 Recommendation: Option 3 (feature-gated `hashbrown`). The performance
-difference matters in `detour`'s pathfinding hot path.
+difference matters in `waymark`'s pathfinding hot path.
 
 #### Implementation order
 
-**Phase 1 -- recast-common** (easy, 2-3 hours):
+**Phase 1 -- landmark-common** (easy, 2-3 hours):
 
 ```rust
 // lib.rs
@@ -1310,7 +1310,7 @@ use hashbrown::{HashMap, HashSet};
 - File I/O already behind `#[cfg(feature = "std")]`
 - `Error::Io` variant already behind `std` feature
 
-**Phase 2 -- recast** (medium, 6-8 hours):
+**Phase 2 -- landmark** (medium, 6-8 hours):
 
 - Replace `HashMap`/`HashSet`/`BinaryHeap` with feature-gated imports
 - `BinaryHeap` is in `alloc::collections` (no replacement needed)
@@ -1320,7 +1320,7 @@ use hashbrown::{HashMap, HashSet};
 - `web-time` usage in `RecastContext`: gate timing behind `std` feature,
   provide no-op timing in `no_std` mode
 
-**Phase 3 -- detour** (hard, 16-20 hours):
+**Phase 3 -- waymark** (hard, 16-20 hours):
 
 The main blocker is `binary_format.rs` which uses `std::io::{Read, Write,
 Cursor}`. Options:
@@ -1336,17 +1336,17 @@ compatible separately.
 
 File persistence (`nav_mesh.rs` save/load) must be `std`-only regardless.
 
-**Phase 4 -- detour-crowd** (medium, 4-6 hours):
+**Phase 4 -- waymark-crowd** (medium, 4-6 hours):
 
-Blocked by detour. Once detour has `no_std` support, crowd is
+Blocked by waymark. Once waymark has `no_std` support, crowd is
 straightforward: replace 4 `HashMap` instances, gate test utilities.
 
-**Phase 5 -- detour-tilecache** (medium-hard, 8-10 hours):
+**Phase 5 -- waymark-tilecache** (medium-hard, 8-10 hours):
 
-Similar to detour: gate file persistence behind `std`, replace collections.
+Similar to waymark: gate file persistence behind `std`, replace collections.
 `lz4_flex` compression already works without `std`.
 
-**Phase 6 -- detour-dynamic** (hard, 12-16 hours):
+**Phase 6 -- waymark-dynamic** (hard, 12-16 hours):
 
 `std::sync::Arc` can be replaced with `alloc::sync::Arc`.
 `AtomicU64` requires `core::sync::atomic` (available on most targets but
@@ -1359,9 +1359,9 @@ use case is embedded systems that would not use async job processing.
 
 #### What to prioritize
 
-The highest-value `no_std` targets are `recast-common` and `recast`.
+The highest-value `no_std` targets are `landmark-common` and `landmark`.
 These enable navmesh generation on embedded and bare-metal targets.
-`detour` is the next priority for pathfinding on embedded. The crowd,
+`waymark` is the next priority for pathfinding on embedded. The crowd,
 tilecache, and dynamic crates are lower priority -- embedded systems
 rarely need crowd simulation or dynamic obstacles.
 
@@ -1548,13 +1548,13 @@ cargo run -p recast-rs-examples --example crowd_simulation
 cargo run -p recast-rs-examples --example tilecache_obstacles
 cargo run -p recast-rs-examples --example serialization
 cargo bench -- --test   # verify benchmarks compile and run
-cargo test -p recast --test integration
-cargo test -p detour --test integration
-cargo publish --dry-run -p recast-common
+cargo test -p landmark --test integration
+cargo test -p waymark --test integration
+cargo publish --dry-run -p landmark-common
 
 # Phase 3 verification (3.1-3.2 COMPLETE, 3.3 PARTIAL)
 # 3.2: Verify #[non_exhaustive] on config structs
-grep -c 'non_exhaustive' crates/recast/src/config.rs crates/detour/src/lib.rs crates/detour-crowd/src/crowd.rs
+grep -c 'non_exhaustive' crates/landmark/src/config.rs crates/waymark/src/lib.rs crates/waymark-crowd/src/crowd.rs
 # 3.3: Verify builders exist and compile
 cargo doc --workspace --no-deps
 cargo fmt --all && cargo lint && cargo test-all
@@ -1564,8 +1564,8 @@ cargo fmt --all && cargo lint && cargo test-all
 cargo build -p recast-demo
 cargo run -p recast-demo -- --help
 # 4.2: Verify no_std builds
-cargo build -p recast-common --no-default-features --target thumbv7em-none-eabihf
-cargo build -p recast --no-default-features --target thumbv7em-none-eabihf
+cargo build -p landmark-common --no-default-features --target thumbv7em-none-eabihf
+cargo build -p landmark --no-default-features --target thumbv7em-none-eabihf
 # 4.3: Verify framework integration compiles
 cargo build -p bevy-recast
 # 4.4: Verify zero unsafe blocks (COMPLETE)

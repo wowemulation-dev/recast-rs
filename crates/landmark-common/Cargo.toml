@@ -1,0 +1,29 @@
+[package]
+name = "landmark-common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Common utilities and types for Landmark navigation mesh generation"
+readme = "../../README.md"
+keywords = ["navmesh", "landmark", "utilities", "math", "geometry"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+tokio = { workspace = true, optional = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
+async = ["tokio"]
+
+[lints]
+workspace = true

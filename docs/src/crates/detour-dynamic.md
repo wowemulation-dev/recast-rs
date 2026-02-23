@@ -1,12 +1,12 @@
-# detour-dynamic
+# waymark-dynamic
 
 Dynamic navigation mesh generation with async support.
 
-**Lines**: ~6,000 | **WASM**: Yes | **Depends on**: `recast-common`, `recast`, `detour`, `detour-tilecache`
+**Lines**: ~6,000 | **WASM**: Yes | **Depends on**: `landmark-common`, `landmark`, `waymark`, `waymark-tilecache`
 
 ## Overview
 
-The `detour-dynamic` crate extends beyond the C++ original. It provides
+The `waymark-dynamic` crate extends beyond the C++ original. It provides
 runtime navmesh modification through colliders, async tile rebuilding, and
 a checkpoint system for incremental updates.
 
@@ -17,8 +17,8 @@ a checkpoint system for incremental updates.
 The main entry point for dynamic navmesh management.
 
 ```rust,ignore
-use detour_dynamic::{DynamicNavMesh, DynamicNavMeshConfig};
-use detour_dynamic::colliders::BoxCollider;
+use waymark_dynamic::{DynamicNavMesh, DynamicNavMeshConfig};
+use waymark_dynamic::colliders::BoxCollider;
 use glam::Vec3;
 use std::sync::Arc;
 
@@ -71,7 +71,7 @@ method to rasterize into heightfield tiles.
 Save and restore tile state for incremental rebuilds:
 
 ```rust,ignore
-use detour_dynamic::CheckpointManager;
+use waymark_dynamic::CheckpointManager;
 
 let mut checkpoint_mgr = CheckpointManager::new();
 
@@ -87,7 +87,7 @@ checkpoint_mgr.restore_checkpoint(&mut dynamic_navmesh, &checkpoint)?;
 Raycasting against heightfield data:
 
 ```rust,ignore
-use detour_dynamic::VoxelQuery;
+use waymark_dynamic::VoxelQuery;
 
 let voxel_query = VoxelQuery::from_single_heightfield(origin, tile_width, tile_depth);
 

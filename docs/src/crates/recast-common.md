@@ -1,4 +1,4 @@
-# recast-common
+# landmark-common
 
 Foundational types and utilities shared across all crates.
 
@@ -31,7 +31,7 @@ Foundational types and utilities shared across all crates.
 
 ### Error Types
 
-`recast-common` defines `MeshError` for mesh I/O operations:
+`landmark-common` defines `MeshError` for mesh I/O operations:
 
 ```rust,ignore
 pub enum MeshError {
@@ -43,8 +43,8 @@ pub enum MeshError {
 ```
 
 Each downstream crate defines its own error type: `ConfigError`/`BuildError`
-in recast, `DetourError` in detour, `CrowdError` in detour-crowd,
-`TileCacheError` in detour-tilecache, `DynamicError` in detour-dynamic.
+in landmark, `DetourError` in waymark, `CrowdError` in waymark-crowd,
+`TileCacheError` in waymark-tilecache, `DynamicError` in waymark-dynamic.
 
 ## Feature Flags
 
@@ -56,5 +56,5 @@ For WASM builds, disable `std`:
 
 ```toml
 [dependencies]
-recast-common = { version = "0.1", default-features = false }
+landmark-common = { version = "0.1", default-features = false }
 ```

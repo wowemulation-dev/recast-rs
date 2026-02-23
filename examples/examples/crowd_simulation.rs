@@ -9,9 +9,9 @@
 //! cargo run -p recast-rs-examples --example crowd_simulation
 //! ```
 
-use detour::{NavMeshQuery, QueryFilter};
-use detour_crowd::{AgentParams, Crowd};
 use glam::Vec3;
+use waymark::{NavMeshQuery, QueryFilter};
+use waymark_crowd::{AgentParams, Crowd};
 
 use recast_rs_examples::common;
 

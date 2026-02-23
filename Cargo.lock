@@ -309,78 +309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
-name = "detour"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq",
- "bitflags",
- "byteorder",
- "criterion",
- "glam",
- "log",
- "ordered-float",
- "postcard",
- "recast",
- "recast-common",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "detour-crowd"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq",
- "bitflags",
- "criterion",
- "detour",
- "fastrand",
- "glam",
- "log",
- "recast",
- "recast-common",
- "thiserror",
-]
-
-[[package]]
-name = "detour-dynamic"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq",
- "async-lock",
- "detour",
- "futures-lite",
- "glam",
- "log",
- "lz4_flex",
- "recast",
- "recast-common",
- "serde",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "detour-tilecache"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq",
- "detour",
- "glam",
- "log",
- "lz4_flex",
- "postcard",
- "recast",
- "recast-common",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -567,6 +495,43 @@ checksum = "8c942ebf8e95485ca0d52d97da7c5a2c387d0e7f0ba4c35e93bfcaee045955b3"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "landmark"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "criterion",
+ "glam",
+ "landmark-common",
+ "log",
+ "thiserror",
+ "web-time",
+]
+
+[[package]]
+name = "landmark-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "glam",
+ "landmark",
+ "landmark-common",
+ "log",
+ "waymark",
+]
+
+[[package]]
+name = "landmark-common"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "glam",
+ "log",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -779,52 +744,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "recast"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq",
- "criterion",
- "glam",
- "log",
- "recast-common",
- "thiserror",
- "web-time",
-]
-
-[[package]]
-name = "recast-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "detour",
- "glam",
- "log",
- "recast",
- "recast-common",
-]
-
-[[package]]
-name = "recast-common"
-version = "0.1.0"
-dependencies = [
- "assert_approx_eq",
- "glam",
- "log",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "recast-rs-examples"
 version = "0.1.0"
 dependencies = [
- "detour",
- "detour-crowd",
- "detour-tilecache",
  "glam",
- "recast",
- "recast-common",
+ "landmark",
+ "landmark-common",
+ "waymark",
+ "waymark-crowd",
+ "waymark-tilecache",
 ]
 
 [[package]]
@@ -1172,6 +1100,78 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f01b580c9ac74c8d8f0c0e4afb04eeef2acf145458e52c03845ee9cd23e3d12"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "waymark"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "bitflags",
+ "byteorder",
+ "criterion",
+ "glam",
+ "landmark",
+ "landmark-common",
+ "log",
+ "ordered-float",
+ "postcard",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "waymark-crowd"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "bitflags",
+ "criterion",
+ "fastrand",
+ "glam",
+ "landmark",
+ "landmark-common",
+ "log",
+ "thiserror",
+ "waymark",
+]
+
+[[package]]
+name = "waymark-dynamic"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "async-lock",
+ "futures-lite",
+ "glam",
+ "landmark",
+ "landmark-common",
+ "log",
+ "lz4_flex",
+ "serde",
+ "thiserror",
+ "tokio",
+ "waymark",
+]
+
+[[package]]
+name = "waymark-tilecache"
+version = "0.1.0"
+dependencies = [
+ "assert_approx_eq",
+ "glam",
+ "landmark",
+ "landmark-common",
+ "log",
+ "lz4_flex",
+ "postcard",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "waymark",
 ]
 
 [[package]]

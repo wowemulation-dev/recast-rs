@@ -6,33 +6,33 @@ Add the crates you need to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-recast = "0.1"
-detour = "0.1"
+landmark = "0.1"
+waymark = "0.1"
 ```
 
 Optional crates:
 
 ```toml
 [dependencies]
-detour-crowd = "0.1"       # Multi-agent crowd simulation
-detour-tilecache = "0.1"   # Dynamic obstacle management
-detour-dynamic = "0.1"     # Dynamic navmesh generation
+waymark-crowd = "0.1"       # Multi-agent crowd simulation
+waymark-tilecache = "0.1"   # Dynamic obstacle management
+waymark-dynamic = "0.1"     # Dynamic navmesh generation
 ```
 
 ## Feature Flags
 
 | Crate | Feature | Dependencies | Default |
 |-------|---------|--------------|---------|
-| recast-common | `std` | standard library | Yes |
-| detour | `serialization` | serde, serde_json, postcard, byteorder | No |
-| detour-tilecache | `serialization` | serde, serde_json, postcard | No |
-| detour-dynamic | `tokio` | tokio (spawn_blocking) | No |
+| landmark-common | `std` | standard library | Yes |
+| waymark | `serialization` | serde, serde_json, postcard, byteorder | No |
+| waymark-tilecache | `serialization` | serde, serde_json, postcard | No |
+| waymark-dynamic | `tokio` | tokio (spawn_blocking) | No |
 
 Enable features in `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = { version = "0.1", features = ["serialization"] }
+waymark = { version = "0.1", features = ["serialization"] }
 ```
 
 ## Basic Usage
@@ -44,8 +44,8 @@ The typical workflow is:
 3. Query paths with Detour
 
 ```rust,ignore
-use recast::{RecastBuilder, RecastConfig};
-use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
+use landmark::{RecastBuilder, RecastConfig};
+use waymark::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
 use glam::Vec3;
 
 // Configure and build the navigation mesh

@@ -26,7 +26,7 @@ macOS users need [Instruments](https://help.apple.com/instruments/) or alternati
 #### Profile a Binary
 
 ```bash
-cargo flamegraph --bin recast-cli -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli -- build input.obj output.bin
 ```
 
 This generates `flamegraph.svg` showing CPU time for the navmesh generation pipeline.
@@ -55,13 +55,13 @@ Analyzes performance of benchmark functions defined in `benches/` directories.
 
 ```bash
 # Custom output file
-cargo flamegraph --bin recast-cli -o my-flamegraph.svg -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli -o my-flamegraph.svg -- build input.obj output.bin
 
 # Different frequency (lower = more samples)
-cargo flamegraph --bin recast-cli --freq 99 -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli --freq 99 -- build input.obj output.bin
 
 # With feature flags
-cargo flamegraph --bin recast-cli --features "tokio" -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli --features "tokio" -- build input.obj output.bin
 ```
 
 ### Interpreting Flamegraphs
@@ -81,7 +81,7 @@ Common patterns to look for:
 #### Identify Slow Pipeline Stage
 
 ```bash
-cargo flamegraph --bin recast-cli -- build dungeon.obj output.bin
+cargo flamegraph --bin landmark-cli -- build dungeon.obj output.bin
 ```
 
 Check which pipeline stage (heightfield, contours, polymesh) dominates.
@@ -116,7 +116,7 @@ cargo nextest run --workspace
 cargo nextest run --workspace --release
 
 # Run specific crate tests
-cargo nextest run -p detour
+cargo nextest run -p waymark
 
 # Run matching tests
 cargo nextest run --test-threads=4 detour::pathfinding
@@ -185,7 +185,7 @@ cargo nextest-lib
 cargo nextest run pathfinding
 
 # Run tests in a specific crate
-cargo nextest run -p detour
+cargo nextest run -p waymark
 
 # Exclude tests
 cargo nextest run --ignore 'integration'

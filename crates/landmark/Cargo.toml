@@ -1,0 +1,33 @@
+[package]
+name = "landmark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Navigation mesh generation from 3D triangle meshes"
+readme = "../../README.md"
+keywords = ["navmesh", "landmark", "pathfinding", "voxelization", "mesh"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+landmark-common = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+web-time = { workspace = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "generation"
+harness = false
+
+[features]
+default = []
+
+[lints]
+workspace = true

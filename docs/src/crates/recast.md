@@ -1,12 +1,12 @@
-# recast
+# landmark
 
 Navigation mesh generation from input triangle meshes.
 
-**Lines**: ~13,400 | **WASM**: Yes | **Depends on**: `recast-common`
+**Lines**: ~13,400 | **WASM**: Yes | **Depends on**: `landmark-common`
 
 ## Overview
 
-The `recast` crate implements the full navmesh generation pipeline. It takes
+The `landmark` crate implements the full navmesh generation pipeline. It takes
 input triangle geometry and produces polygon meshes for pathfinding.
 
 See [Processing Pipeline](../architecture/pipeline.md) for the stage-by-stage
@@ -19,7 +19,7 @@ description.
 Entry point for navmesh generation. Drives the full pipeline.
 
 ```rust,ignore
-use recast::{RecastBuilder, RecastConfig};
+use landmark::{RecastBuilder, RecastConfig};
 
 let config = RecastConfig::default();
 let builder = RecastBuilder::new(config);

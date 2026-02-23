@@ -39,14 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Round-trip: JSON
-    let restored_json = detour::NavMesh::from_json_bytes(&json_bytes)?;
+    let restored_json = waymark::NavMesh::from_json_bytes(&json_bytes)?;
     println!(
         "JSON round-trip: restored NavMesh from {} bytes",
         json_bytes.len()
     );
 
     // Round-trip: binary
-    let restored_binary = detour::NavMesh::from_binary_bytes(&binary_bytes)?;
+    let restored_binary = waymark::NavMesh::from_binary_bytes(&binary_bytes)?;
     println!(
         "Binary round-trip: restored NavMesh from {} bytes",
         binary_bytes.len()
@@ -97,8 +97,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         bin_file_size
     );
 
-    let _loaded_json = detour::NavMesh::load_from_json(&json_path)?;
-    let _loaded_binary = detour::NavMesh::load_from_binary(&bin_path)?;
+    let _loaded_json = waymark::NavMesh::load_from_json(&json_path)?;
+    let _loaded_binary = waymark::NavMesh::load_from_binary(&bin_path)?;
     println!("  Both files loaded back successfully");
 
     // Clean up temp files

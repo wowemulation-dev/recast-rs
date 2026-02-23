@@ -1,12 +1,12 @@
-# detour-crowd
+# waymark-crowd
 
 Multi-agent crowd simulation on navigation meshes.
 
-**Lines**: ~7,100 | **WASM**: Yes | **Depends on**: `recast-common`, `detour`
+**Lines**: ~7,100 | **WASM**: Yes | **Depends on**: `landmark-common`, `waymark`
 
 ## Overview
 
-The `detour-crowd` crate manages multiple agents navigating on a shared
+The `waymark-crowd` crate manages multiple agents navigating on a shared
 navigation mesh. It handles local steering, collision avoidance, and path
 following.
 
@@ -18,7 +18,7 @@ The simulation manager. Creates agents, sets targets, and steps the
 simulation.
 
 ```rust,ignore
-use detour_crowd::{Crowd, AgentParams};
+use waymark_crowd::{Crowd, AgentParams};
 use glam::Vec3;
 
 let mut crowd = Crowd::new(&nav_mesh, 128, 0.6);
@@ -69,7 +69,7 @@ Detects nearby navmesh boundaries and obstacles for local steering.
 Group movement patterns. Assign agents to formations and set group targets:
 
 ```rust,ignore
-use detour_crowd::Formation;
+use waymark_crowd::Formation;
 
 let formation = Formation::new(/* ... */);
 crowd.assign_formation(agent_id, &formation)?;

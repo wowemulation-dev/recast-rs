@@ -57,9 +57,9 @@ cargo test test_name      # Specific test
 
 Unsafe code exists in three locations:
 
-- `detour/src/nav_mesh.rs`: Disjoint mutable references, pointer offset
-- `detour/src/node_pool.rs`: Raw pointer priority queue, manual `Send`/`Sync`
-- `detour-dynamic/src/dynamic_tile.rs`: `get_unchecked` for span parsing
+- `waymark/src/nav_mesh.rs`: Disjoint mutable references, pointer offset
+- `waymark/src/node_pool.rs`: Raw pointer priority queue, manual `Send`/`Sync`
+- `waymark-dynamic/src/dynamic_tile.rs`: `get_unchecked` for span parsing
 
 New unsafe code should be avoided. If necessary, document the safety invariants
 with `// SAFETY:` comments.
@@ -80,9 +80,9 @@ Current `allow` settings cover:
 Follow [Conventional Commits v1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
 
 ```text
-feat(detour): add hierarchical pathfinding
-fix(recast): correct contour winding order
-refactor(detour-crowd): split crowd update into phases
+feat(waymark): add hierarchical pathfinding
+fix(landmark): correct contour winding order
+refactor(waymark-crowd): split crowd update into phases
 docs: add mdbook documentation site
 chore(deps): upgrade glam to 0.31
 ```

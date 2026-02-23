@@ -1,18 +1,18 @@
 # CLI Tool
 
-The `recast-cli` crate provides a command-line tool for navmesh generation
+The `landmark-cli` crate provides a command-line tool for navmesh generation
 and pathfinding.
 
 ## Installation
 
 ```bash
-cargo install --path crates/recast-cli
+cargo install --path crates/landmark-cli
 ```
 
 Or build from the workspace:
 
 ```bash
-cargo build -p recast-cli --release
+cargo build -p landmark-cli --release
 ```
 
 ## Commands
@@ -22,7 +22,7 @@ cargo build -p recast-cli --release
 Generate a navigation mesh from an OBJ mesh file.
 
 ```bash
-recast-cli build --input mesh.obj --output navmesh.bin
+landmark-cli build --input mesh.obj --output navmesh.bin
 ```
 
 Output format is determined by file extension:
@@ -33,7 +33,7 @@ Output format is determined by file extension:
 All `RecastConfig` parameters are available as flags:
 
 ```bash
-recast-cli build \
+landmark-cli build \
     --input mesh.obj \
     --output navmesh.bin \
     --cs 0.3 \
@@ -56,7 +56,7 @@ recast-cli build \
 Find a path between two positions on a navigation mesh.
 
 ```bash
-recast-cli find-path --mesh navmesh.bin --start 0,0,0 --end 10,0,10
+landmark-cli find-path --mesh navmesh.bin --start 0,0,0 --end 10,0,10
 ```
 
 Positions are comma-separated `x,y,z` values.
@@ -64,7 +64,7 @@ Positions are comma-separated `x,y,z` values.
 Optional output file:
 
 ```bash
-recast-cli find-path --mesh navmesh.bin --start 0,0,0 --end 10,0,10 --output path.csv
+landmark-cli find-path --mesh navmesh.bin --start 0,0,0 --end 10,0,10 --output path.csv
 ```
 
 The output file contains one waypoint per line in `x,y,z` format.
@@ -75,11 +75,11 @@ A typical workflow:
 
 ```bash
 # 1. Generate navmesh from level geometry
-recast-cli build --input level.obj --output level.bin
+landmark-cli build --input level.obj --output level.bin
 
 # 2. Query paths
-recast-cli find-path --mesh level.bin --start 0,1,0 --end 50,1,30
+landmark-cli find-path --mesh level.bin --start 0,1,0 --end 50,1,30
 
 # 3. Adjust parameters and rebuild
-recast-cli build --input level.obj --output level.bin --cs 0.2 --walkable-radius 2
+landmark-cli build --input level.obj --output level.bin --cs 0.2 --walkable-radius 2
 ```

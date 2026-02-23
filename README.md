@@ -104,13 +104,13 @@ Tested with `cs=0.3 ch=0.2 walkable_height=2 walkable_climb=1 walkable_radius=1`
 
 | Crate | Description | WASM |
 |-------|-------------|------|
-| `recast-common` | Shared utilities, math, error types | Yes |
-| `recast` | Navigation mesh generation | Yes |
-| `detour` | Pathfinding and navigation queries | Yes |
-| `detour-crowd` | Multi-agent crowd simulation | Yes |
-| `detour-tilecache` | Dynamic obstacle management | Yes |
-| `detour-dynamic` | Dynamic navmesh support | Yes |
-| `recast-cli` | Command-line tool | No |
+| `landmark-common` | Shared utilities, math, error types | Yes |
+| `landmark` | Navigation mesh generation | Yes |
+| `waymark` | Pathfinding and navigation queries | Yes |
+| `waymark-crowd` | Multi-agent crowd simulation | Yes |
+| `waymark-tilecache` | Dynamic obstacle management | Yes |
+| `waymark-dynamic` | Dynamic navmesh support | Yes |
+| `landmark-cli` | Command-line tool | No |
 
 ## Features
 
@@ -149,16 +149,16 @@ Add the crates you need to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-recast = "0.1"
-detour = "0.1"
-detour-crowd = "0.1"  # Optional: crowd simulation
+landmark = "0.1"
+waymark = "0.1"
+waymark-crowd = "0.1"  # Optional: crowd simulation
 ```
 
 ### Example
 
 ```rust,ignore
-use recast::{RecastBuilder, RecastConfig};
-use detour::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
+use landmark::{RecastBuilder, RecastConfig};
+use waymark::{NavMesh, NavMeshFlags, NavMeshParams, NavMeshQuery, QueryFilter};
 use glam::Vec3;
 
 // Build a navigation mesh from triangle data

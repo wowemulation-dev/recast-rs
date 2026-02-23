@@ -1,0 +1,45 @@
+[package]
+name = "waymark"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pathfinding and spatial queries on navigation meshes"
+readme = "../../README.md"
+keywords = ["pathfinding", "waymark", "navmesh", "astar", "navigation"]
+categories = ["game-development", "algorithms"]
+
+[dependencies]
+landmark-common = { workspace = true }
+landmark = { workspace = true }
+glam = { workspace = true }
+thiserror = { workspace = true }
+log = { workspace = true }
+bitflags = { workspace = true }
+ordered-float = { workspace = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+postcard = { workspace = true, optional = true }
+byteorder = { workspace = true, optional = true }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+tempfile = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "pathfinding"
+harness = false
+
+[[bench]]
+name = "spatial_queries"
+harness = false
+
+[features]
+default = []
+serialization = ["serde", "serde_json", "postcard", "byteorder"]
+
+[lints]
+workspace = true

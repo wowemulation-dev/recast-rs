@@ -1,12 +1,12 @@
-# detour-tilecache
+# waymark-tilecache
 
 Dynamic obstacle management with compressed tile storage.
 
-**Lines**: ~2,700 | **WASM**: Yes | **Depends on**: `recast-common`, `recast`, `detour`
+**Lines**: ~2,700 | **WASM**: Yes | **Depends on**: `landmark-common`, `landmark`, `waymark`
 
 ## Overview
 
-The `detour-tilecache` crate provides runtime obstacle management. Obstacles
+The `waymark-tilecache` crate provides runtime obstacle management. Obstacles
 can be added or removed without regenerating the entire navigation mesh. Only
 affected tiles are rebuilt.
 
@@ -17,7 +17,7 @@ affected tiles are rebuilt.
 The main cache managing tiles and obstacles.
 
 ```rust,ignore
-use detour_tilecache::{TileCache, TileCacheParams};
+use waymark_tilecache::{TileCache, TileCacheParams};
 
 let mut params = TileCacheParams::default();
 params.width = 48;

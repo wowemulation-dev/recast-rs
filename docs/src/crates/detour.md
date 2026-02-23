@@ -1,12 +1,12 @@
-# detour
+# waymark
 
 Pathfinding and navigation queries on navigation meshes.
 
-**Lines**: ~24,000 | **WASM**: Yes | **Depends on**: `recast-common`, `recast`
+**Lines**: ~24,000 | **WASM**: Yes | **Depends on**: `landmark-common`, `landmark`
 
 ## Overview
 
-The `detour` crate is the largest in the workspace. It provides the NavMesh
+The `waymark` crate is the largest in the workspace. It provides the NavMesh
 data structure, A* pathfinding, spatial queries, and serialization. This crate
 has 15 dedicated test modules.
 
@@ -17,7 +17,7 @@ has 15 dedicated test modules.
 Multi-tile navigation mesh with BVH spatial indexing and off-mesh connections.
 
 ```rust,ignore
-use detour::{NavMesh, NavMeshParams, NavMeshFlags};
+use waymark::{NavMesh, NavMeshParams, NavMeshFlags};
 
 let params = NavMeshParams {
     origin: [0.0, 0.0, 0.0],
@@ -44,7 +44,7 @@ Key components:
 Pathfinding and spatial query engine.
 
 ```rust,ignore
-use detour::{NavMeshQuery, QueryFilter};
+use waymark::{NavMeshQuery, QueryFilter};
 
 let mut query = NavMeshQuery::new(&nav_mesh);
 let filter = QueryFilter::default();
@@ -74,7 +74,7 @@ Available queries:
 For distributing A* work across frames:
 
 ```rust,ignore
-use detour::SlicedPathfindingQuery;
+use waymark::SlicedPathfindingQuery;
 
 let mut sliced = SlicedPathfindingQuery::new();
 sliced.init_sliced_find_path(&query, start_ref, end_ref, &start, &end, &filter)?;
@@ -103,7 +103,7 @@ Cluster-based pathfinding for large meshes:
 Controls polygon traversability and costs:
 
 ```rust,ignore
-use detour::{QueryFilter, PolyFlags};
+use waymark::{QueryFilter, PolyFlags};
 
 let mut filter = QueryFilter::default();
 filter.include_flags = PolyFlags::WALK | PolyFlags::SWIM;
@@ -118,7 +118,7 @@ filter.area_cost[2] = 5.0;  // Deep water
 Polygon reference encoding salt, tile index, and polygon index:
 
 ```rust,ignore
-use detour::{PolyRef, encode_poly_ref, decode_poly_ref};
+use waymark::{PolyRef, encode_poly_ref, decode_poly_ref};
 
 let poly_ref = encode_poly_ref(salt, tile_index, poly_index);
 let (salt, tile, poly) = decode_poly_ref(poly_ref);
