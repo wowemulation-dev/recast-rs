@@ -205,7 +205,14 @@ jobs:
 
           if [ "$DEPENDENT_COUNT" -gt 0 ]; then
             echo "::group::Publishing dependent crates"
+            FIRST=true
             for crate in $(echo "$DEPENDENT" | jq -r '.[]'); do
+              if [ "$FIRST" = true ]; then
+                FIRST=false
+              else
+                echo "::notice::Waiting 30s between publishes to avoid rate limiting..."
+                sleep 30
+              fi
               cargo publish -p "$crate"
             done
             echo "::endgroup::"
