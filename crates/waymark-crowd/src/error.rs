@@ -1,4 +1,4 @@
-//! Error types for the detour-crowd crate
+//! Error types for the waymark-crowd crate
 
 /// Error from crowd simulation operations
 #[derive(thiserror::Error, Debug)]

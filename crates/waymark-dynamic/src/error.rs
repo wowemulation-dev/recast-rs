@@ -1,4 +1,4 @@
-//! Error types for the detour-dynamic crate
+//! Error types for the waymark-dynamic crate
 
 /// Error from dynamic navmesh operations
 #[derive(thiserror::Error, Debug)]

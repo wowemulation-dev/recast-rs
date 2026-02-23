@@ -1,4 +1,4 @@
-//! Error types for the detour-tilecache crate
+//! Error types for the waymark-tilecache crate
 
 /// Error from tile cache operations
 #[derive(thiserror::Error, Debug)]
