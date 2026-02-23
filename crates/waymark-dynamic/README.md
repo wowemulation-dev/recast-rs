@@ -9,10 +9,15 @@ Dynamic navigation mesh generation with real-time obstacle support.
 
 ## Overview
 
-DetourDynamic provides dynamic navigation mesh generation capabilities,
-allowing real-time modification of navigation meshes by adding and removing
-obstacles. This is useful for games with destructible environments, moving
-platforms, or procedurally generated content.
+`waymark-dynamic` provides dynamic navigation mesh generation, allowing
+real-time modification of navigation meshes by adding and removing obstacles.
+Useful for games with destructible environments, moving platforms, or
+procedurally generated content.
+
+Rust port of the DetourDynamic concept, extended with colliders, async support,
+and a checkpoint system. Based on [RecastNavigation][recast-cpp].
+
+[recast-cpp]: https://github.com/recastnavigation/recastnavigation
 
 ## Features
 

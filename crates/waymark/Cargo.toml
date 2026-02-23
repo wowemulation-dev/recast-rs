@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Pathfinding and spatial queries on navigation meshes"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["pathfinding", "waymark", "navmesh", "astar", "navigation"]
 categories = ["game-development", "algorithms"]
 

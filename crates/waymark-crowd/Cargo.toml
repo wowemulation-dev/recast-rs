@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Multi-agent crowd simulation on navigation meshes"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["crowd", "simulation", "waymark", "agents", "ai"]
 categories = ["game-development", "simulation"]
 

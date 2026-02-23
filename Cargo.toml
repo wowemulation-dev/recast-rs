@@ -18,7 +18,6 @@ rust-version = "1.92"
 authors = ["Daniel S. Reichenbach <daniel@kogito.network>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/wowemulation-dev/recast-rs"
-homepage = "https://github.com/wowemulation-dev/recast-rs"
 keywords = ["game", "pathfinding", "navmesh", "landmark", "waymark"]
 categories = ["game-development", "algorithms"]
 

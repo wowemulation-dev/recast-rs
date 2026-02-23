@@ -9,11 +9,11 @@ Dynamic obstacle management and tile caching for navigation meshes.
 
 ## Overview
 
-DetourTileCache provides tile-based navigation mesh management with support for
-runtime obstacle addition and removal. It enables dynamic environments where
-obstacles can change without regenerating the entire navmesh.
+`waymark-tilecache` provides tile-based navigation mesh management with support
+for runtime obstacle addition and removal. It enables dynamic environments
+where obstacles can change without regenerating the entire navmesh.
 
-This is a Rust port of the DetourTileCache component from [RecastNavigation][recast-cpp].
+Rust port of the DetourTileCache component from [RecastNavigation][recast-cpp].
 
 [recast-cpp]: https://github.com/recastnavigation/recastnavigation
 

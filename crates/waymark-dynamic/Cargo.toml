@@ -7,7 +7,7 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Dynamic navigation mesh generation for Landmark and Waymark"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["pathfinding", "navigation", "mesh", "dynamic", "navmesh"]
 categories = ["game-development", "algorithms"]
 

@@ -1,6 +1,6 @@
 # landmark-common
 
-Common utilities and types shared by the recast-rs workspace crates.
+Common utilities and types shared by the landmark/waymark workspace crates.
 
 [![Crates.io](https://img.shields.io/crates/v/landmark-common.svg)](https://crates.io/crates/landmark-common)
 [![Documentation](https://docs.rs/landmark-common/badge.svg)](https://docs.rs/landmark-common)
@@ -31,7 +31,7 @@ strings instead of files.
 
 ## Usage
 
-This crate is an internal dependency of the recast-rs workspace. Add the
+This crate is an internal dependency of the landmark/waymark workspace. Add the
 specific crate you need instead:
 
 ```toml

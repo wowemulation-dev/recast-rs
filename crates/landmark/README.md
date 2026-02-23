@@ -9,11 +9,11 @@ Navigation mesh generation from 3D triangle meshes.
 
 ## Overview
 
-Recast generates navigation meshes from input geometry. It voxelizes triangle
-meshes into heightfields, filters non-walkable areas, and produces polygon
-meshes suitable for pathfinding.
+`landmark` generates navigation meshes from input geometry. It voxelizes
+triangle meshes into heightfields, filters non-walkable areas, and produces
+polygon meshes suitable for pathfinding.
 
-This is a Rust port of the Recast component from [RecastNavigation][recast-cpp].
+Rust port of the Recast component from [RecastNavigation][recast-cpp].
 
 [recast-cpp]: https://github.com/recastnavigation/recastnavigation
 

@@ -9,11 +9,11 @@ Multi-agent crowd simulation on navigation meshes.
 
 ## Overview
 
-DetourCrowd provides crowd simulation for managing multiple agents navigating
-on a shared navigation mesh. It handles local steering, collision avoidance,
-and path following for groups of agents.
+`waymark-crowd` provides crowd simulation for managing multiple agents
+navigating on a shared navigation mesh. It handles local steering, collision
+avoidance, and path following for groups of agents.
 
-This is a Rust port of the DetourCrowd component from [RecastNavigation][recast-cpp].
+Rust port of the DetourCrowd component from [RecastNavigation][recast-cpp].
 
 [recast-cpp]: https://github.com/recastnavigation/recastnavigation
 
