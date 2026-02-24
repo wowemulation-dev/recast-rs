@@ -14,26 +14,25 @@ Optional tools (provisioned by `.mise.toml`):
 
 ## Build Commands
 
-The workspace defines cargo aliases in `.cargo/config.toml`:
-
 ```bash
 # Build
-cargo build               # Debug build
-cargo build-release       # Release build
+cargo build                                      # Debug build
+cargo build --workspace --release                # Release build
 
 # Check
-cargo check-all           # Check all targets
+cargo check --workspace --all-targets --all-features
 
-# Test
-cargo test-all            # Run all tests (nextest)
-cargo test-lib            # Run library tests only (faster)
-cargo test test_name      # Run a specific test
+# Test (CI uses cargo-nextest)
+cargo nextest run --workspace --all-features     # Run all tests
+cargo nextest run --lib --workspace              # Run library tests only (faster)
+cargo nextest run test_name                      # Run a specific test
+cargo test --doc --workspace                     # Run doc tests (nextest does not support doc tests)
 
 # Quality
-cargo fmt --all           # Format code
-cargo fmt-check           # Check formatting
-cargo lint                # Clippy lints
-cargo docs                # Generate documentation
+cargo fmt --all                                  # Format code
+cargo fmt --all -- --check                       # Check formatting
+cargo clippy --workspace --all-targets --all-features  # Clippy lints
+cargo doc --workspace --all-features --no-deps   # Generate documentation
 ```
 
 ## QA Pipeline
@@ -41,7 +40,7 @@ cargo docs                # Generate documentation
 After completing any coding task, run the full QA suite:
 
 ```bash
-cargo fmt --all && cargo lint && cargo test-all
+cargo fmt --all && cargo clippy --workspace --all-targets --all-features && cargo nextest run --workspace --all-features
 ```
 
 CI runs these additional checks:
@@ -57,8 +56,7 @@ CI runs these additional checks:
 | Documentation | `cargo doc --workspace --no-deps` |
 | Coverage | `cargo llvm-cov --workspace --lcov` |
 
-CI sets `RUSTFLAGS="-D warnings"` to treat warnings as errors. The same
-flag is enabled in `.cargo/config.toml` for local development.
+CI sets `RUSTFLAGS="-D warnings"` to treat warnings as errors.
 
 ## Cross-Platform Builds
 
@@ -76,17 +74,17 @@ CI verifies compilation on 10 targets:
 Build the API documentation:
 
 ```bash
-cargo docs
+cargo doc --workspace --all-features --no-deps
 ```
 
 Build this mdbook site:
 
 ```bash
-cd docs && mdbook build
+mdbook build docs
 ```
 
 Serve locally with auto-reload:
 
 ```bash
-cd docs && mdbook serve
+mdbook serve docs
 ```

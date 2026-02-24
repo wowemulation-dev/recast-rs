@@ -14,7 +14,7 @@ recast-rs/
 │   └── landmark-cli/         # Command-line tool
 ├── docs/                     # This mdbook documentation
 ├── .github/workflows/        # CI: ci.yml, cross-build.yml
-└── .cargo/config.toml        # Aliases, build settings
+└── .cargo/config.toml        # Build settings
 ```
 
 Unit tests are inline `#[cfg(test)]` modules. Integration tests in `crates/landmark/tests/` and `crates/waymark/tests/`. Examples in `examples/`. Benchmarks in per-crate `benches/` directories.
@@ -37,7 +37,7 @@ library with 7 collider types, async operations, and a checkpoint system.
 
 | Purpose | Crate | Notes |
 |---------|-------|-------|
-| Vector math | `glam` 0.31 | WASM-compatible, game-oriented |
+| Vector math | `glam` 0.30 | WASM-compatible, game-oriented |
 | Error types | `thiserror` 2.0 | Library error derivation |
 | Bit flags | `bitflags` 2.10 | PolyFlags, NavMeshFlags |
 | Byte order | `byteorder` 1.5 | C++ binary format compatibility |

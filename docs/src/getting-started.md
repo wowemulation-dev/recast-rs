@@ -63,6 +63,9 @@ let nav_mesh = NavMesh::build_from_recast(params, &poly_mesh, &detail_mesh, NavM
 // Find a path
 let mut query = NavMeshQuery::new(&nav_mesh);
 let filter = QueryFilter::default();
+let extents = Vec3::new(2.0, 4.0, 2.0);
+let (start_ref, _) = query.find_nearest_poly(start_pos, extents, &filter)?;
+let (end_ref, _) = query.find_nearest_poly(end_pos, extents, &filter)?;
 let path = query.find_path(start_ref, end_ref, start_pos, end_pos, &filter)?;
 ```
 

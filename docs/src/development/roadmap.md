@@ -5,7 +5,7 @@ issues, then improvements.
 
 ## Phase 1: Library Safety (Critical) -- COMPLETE
 
-These issues must be resolved before crates.io publication.
+These issues were resolved for the v0.1.0 release.
 
 ### 1.1 Eliminate `unwrap()`/`expect()` from Library Code -- COMPLETE
 

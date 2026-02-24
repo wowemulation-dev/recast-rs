@@ -26,7 +26,7 @@ landmark-common          (base crate, no workspace deps)
 Base crate with no workspace dependencies. Provides:
 
 - `Vec3` type alias (`glam::Vec3`)
-- `Error` and `Result` types
+- `MeshError` type
 - `TriMesh` for OBJ loading
 - Geometry utilities
 - Debug visualization primitives

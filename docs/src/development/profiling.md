@@ -26,7 +26,7 @@ macOS users need [Instruments](https://help.apple.com/instruments/) or alternati
 #### Profile a Binary
 
 ```bash
-cargo flamegraph --bin landmark-cli -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli -- build --input input.obj --output output.bin
 ```
 
 This generates `flamegraph.svg` showing CPU time for the navmesh generation pipeline.
@@ -34,11 +34,8 @@ This generates `flamegraph.svg` showing CPU time for the navmesh generation pipe
 #### Profile Tests
 
 ```bash
-# Profile all tests
-cargo flamegraph-test
-
 # Profile a specific test
-cargo flamegraph-test pathfinding -- --test-threads=1
+cargo flamegraph --test test_name -- --test-threads=1
 ```
 
 Use `--test-threads=1` to avoid parallel execution interfering with profiling.
@@ -46,7 +43,7 @@ Use `--test-threads=1` to avoid parallel execution interfering with profiling.
 #### Profile Benchmarks
 
 ```bash
-cargo flamegraph-bench --bench pathfinding
+cargo flamegraph --bench pathfinding
 ```
 
 Analyzes performance of benchmark functions defined in `benches/` directories.
@@ -55,13 +52,10 @@ Analyzes performance of benchmark functions defined in `benches/` directories.
 
 ```bash
 # Custom output file
-cargo flamegraph --bin landmark-cli -o my-flamegraph.svg -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli -o my-flamegraph.svg -- build --input input.obj --output output.bin
 
 # Different frequency (lower = more samples)
-cargo flamegraph --bin landmark-cli --freq 99 -- build input.obj output.bin
-
-# With feature flags
-cargo flamegraph --bin landmark-cli --features "tokio" -- build input.obj output.bin
+cargo flamegraph --bin landmark-cli --freq 99 -- build --input input.obj --output output.bin
 ```
 
 ### Interpreting Flamegraphs
@@ -81,7 +75,7 @@ Common patterns to look for:
 #### Identify Slow Pipeline Stage
 
 ```bash
-cargo flamegraph --bin landmark-cli -- build dungeon.obj output.bin
+cargo flamegraph --bin landmark-cli -- build --input dungeon.obj --output output.bin
 ```
 
 Check which pipeline stage (heightfield, contours, polymesh) dominates.
@@ -89,7 +83,7 @@ Check which pipeline stage (heightfield, contours, polymesh) dominates.
 #### Profile Pathfinding
 
 ```bash
-cargo flamegraph-bench --bench pathfinding
+cargo flamegraph --bench pathfinding
 ```
 
 Identify bottlenecks in A* search, neighbor queries, or funnel algorithm.
@@ -161,21 +155,6 @@ For release-mode testing:
 cargo nextest run --profile release --workspace --release
 ```
 
-### Cargo Aliases
-
-The project provides convenient aliases:
-
-```bash
-# Run all tests with nextest
-cargo nextest-all
-
-# Run tests in release mode
-cargo nextest-release
-
-# Run library tests only
-cargo nextest-lib
-```
-
 ### Nextest Features
 
 #### Test Filtering
@@ -226,19 +205,19 @@ cargo nextest run --workspace --success-output=final
 Combine flamegraph and nextest to profile specific tests:
 
 ```bash
-cargo flamegraph-test --test-threads=1 -- exact::test_name
+cargo flamegraph --test exact_test_name -- --test-threads=1
 ```
 
 The `--test-threads=1` flag is important for accurate profiling with flamegraph.
 
 ## Performance Tuning Workflow
 
-1. **Baseline**: Run benchmarks with `cargo bench`
+1. **Baseline**: Run benchmarks with `cargo bench --workspace`
 2. **Profile**: Generate flamegraph with `cargo flamegraph`
 3. **Analyze**: Identify hot functions in the flamegraph
 4. **Optimize**: Modify code to target identified bottlenecks
 5. **Verify**: Re-run benchmarks to confirm improvement
-6. **Regression test**: Run `cargo nextest-all` to ensure no functional breakage
+6. **Regression test**: Run `cargo nextest run --workspace --all-features` to ensure no functional breakage
 
 ## Continuous Integration
 

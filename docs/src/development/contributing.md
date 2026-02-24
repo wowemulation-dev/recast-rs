@@ -48,9 +48,9 @@ per-crate error type definitions.
 Run tests:
 
 ```bash
-cargo test-all            # All tests
-cargo test-lib            # Library tests only
-cargo test test_name      # Specific test
+cargo nextest run --workspace --all-features     # All tests
+cargo nextest run --lib --workspace              # Library tests only
+cargo nextest run test_name                      # Specific test
 ```
 
 ## Unsafe Code
@@ -84,14 +84,13 @@ feat(waymark): add hierarchical pathfinding
 fix(landmark): correct contour winding order
 refactor(waymark-crowd): split crowd update into phases
 docs: add mdbook documentation site
-chore(deps): upgrade glam to 0.31
+chore(deps): upgrade glam to 0.30
 ```
 
 ## What to Work On
 
-The [Resolution Roadmap](roadmap.md) lists all known issues ordered by
-priority. Phase 1 (library safety) must be completed before crates.io
-publication. Each item includes specific files, counts, and code examples.
+The [Resolution Roadmap](roadmap.md) lists known issues ordered by
+priority. Each item includes specific files, counts, and code examples.
 
 ## Algorithm Translation from C++
 
