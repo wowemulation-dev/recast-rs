@@ -1,0 +1,81 @@
+name: C++ Compatibility Issue
+description: Report behavior differences with the original RecastNavigation C++ library
+title: "[Compat]: "
+labels: ["compatibility", "bug"]
+body:
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched existing issues to ensure this isn't a duplicate
+          required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief description of the compatibility issue
+    validations:
+      required: true
+
+  - type: input
+    id: cpp-function
+    attributes:
+      label: C++ Function/Method
+      description: The original C++ function name
+      placeholder: "e.g., rcBuildPolyMesh"
+    validations:
+      required: true
+
+  - type: input
+    id: rust-function
+    attributes:
+      label: Rust Function/Method
+      description: The corresponding Rust function name
+      placeholder: "e.g., PolyMesh::build"
+    validations:
+      required: true
+
+  - type: textarea
+    id: cpp-behavior
+    attributes:
+      label: C++ Behavior
+      description: How the original C++ library behaves
+      render: cpp
+    validations:
+      required: true
+
+  - type: textarea
+    id: rust-behavior
+    attributes:
+      label: Rust Behavior
+      description: How recast-rs behaves differently
+      render: rust
+    validations:
+      required: true
+
+  - type: input
+    id: cpp-version
+    attributes:
+      label: RecastNavigation Version
+      description: C++ library version or commit hash
+      placeholder: "e.g., commit abc1234 or v1.6.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: How does this difference affect your use case?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Links to relevant C++ source, related issues, etc.
+    validations:
+      required: false
