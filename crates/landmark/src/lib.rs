@@ -6,6 +6,7 @@
 mod area;
 mod compact_heightfield;
 mod config;
+#[cfg(feature = "context")]
 mod context;
 mod contour;
 mod convex_volume;
@@ -26,6 +27,7 @@ pub use area::{
 };
 pub use compact_heightfield::{CompactCell, CompactHeightfield, CompactSpan, RC_NOT_CONNECTED};
 pub use config::RecastConfig;
+#[cfg(feature = "context")]
 pub use context::{LogEntry, LogLevel, ProgressInfo, RecastContext, TimerCategory, TimerGuard};
 pub use contour::{BuildContoursFlags, Contour, ContourSet, ContourVertex};
 pub use convex_volume::{ConvexVolume, ConvexVolumeSet, MAX_CONVEX_VOLUME_VERTS};

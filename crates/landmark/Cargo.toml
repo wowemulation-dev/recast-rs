@@ -16,7 +16,7 @@ landmark-common = { workspace = true }
 glam = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
-web-time = { workspace = true }
+web-time = { workspace = true, optional = true }
 
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
@@ -27,7 +27,8 @@ name = "generation"
 harness = false
 
 [features]
-default = []
+default = ["context"]
+context = ["dep:web-time"]
 
 [lints]
 workspace = true
