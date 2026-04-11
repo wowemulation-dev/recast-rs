@@ -45,6 +45,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
+    env:
+      BINARY_DEFAULT: ${{ vars.BINARY_DEFAULT || 'landmark-cli' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -74,23 +76,17 @@ jobs:
 
       - name: Build with cross for ${{ matrix.target }}
         if: matrix.cross
-        env:
-          BINARY_DEFAULT: ${{ vars.BINARY_DEFAULT }}
         run: |
           cross build --target "${{ matrix.target }}" --release --bin "${BINARY_DEFAULT}"
 
       - name: Build natively for ${{ matrix.target }}
         if: '!matrix.cross'
         shell: bash
-        env:
-          BINARY_DEFAULT: ${{ vars.BINARY_DEFAULT }}
         run: |
           cargo build --target "${{ matrix.target }}" --release --bin "${BINARY_DEFAULT}"
 
       - name: Verify build artifacts exist
         shell: bash
-        env:
-          BINARY_DEFAULT: ${{ vars.BINARY_DEFAULT }}
         run: |
           if [[ "${{ matrix.target }}" == *"windows"* ]]; then
             ls -la "target/${{ matrix.target }}/release/${BINARY_DEFAULT}.exe" || true
@@ -103,5 +99,5 @@ jobs:
         with:
           name: build-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/release/${{ vars.BINARY_DEFAULT }}*
+            target/${{ matrix.target }}/release/${{ env.BINARY_DEFAULT }}*
           if-no-files-found: error
