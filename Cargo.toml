@@ -24,7 +24,7 @@ categories = ["game-development", "algorithms"]
 [workspace.dependencies]
 # Internal workspace dependencies
 landmark-common = { path = "crates/landmark-common", version = "0.1.0" }
-landmark = { path = "crates/landmark", version = "0.1.0" }
+landmark = { path = "crates/landmark", version = "0.1.0", default-features = false }
 waymark = { path = "crates/waymark", version = "0.1.0" }
 waymark-crowd = { path = "crates/waymark-crowd", version = "0.1.0" }
 waymark-tilecache = { path = "crates/waymark-tilecache", version = "0.1.0" }
