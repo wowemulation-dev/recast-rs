@@ -292,10 +292,12 @@ impl ContourSet {
         use_watershed: bool,
         build_flags: BuildContoursFlags,
     ) -> Result<Self, BuildError> {
-        let width = chf.width;
-        let height = chf.height;
-        let bmin = chf.bmin;
-        let bmax = chf.bmax;
+        let border_size = chf.border_size;
+        let width = chf.width - 2 * border_size;
+        let height = chf.height - 2 * border_size;
+        let pad = border_size as f32 * chf.cs;
+        let bmin = chf.bmin + Vec3::new(pad, 0.0, pad);
+        let bmax = chf.bmax - Vec3::new(pad, 0.0, pad);
         let cs = chf.cs;
         let ch = chf.ch;
 
@@ -389,6 +391,14 @@ impl ContourSet {
             &mut contours,
         )?;
 
+        // Remove the border offset from contour vertices to preserve world positions
+        for contour in &mut contours {
+            for vertex in &mut contour.vertices {
+                vertex.x -= border_size;
+                vertex.z -= border_size;
+            }
+        }
+
         // Merge hole contours into their parent outlines (matching C++).
         Self::merge_holes(&mut contours, region_count);
 
@@ -400,7 +410,7 @@ impl ContourSet {
             bmax,
             cs,
             ch,
-            border_size: 0, // Should be passed from caller, but using default for now
+            border_size,
             max_error,
         })
     }
@@ -1624,6 +1634,7 @@ impl ContourSet {
 mod tests {
     use super::*;
     use crate::heightfield::Heightfield;
+    use crate::polymesh::PolyMesh;
     use glam::Vec3;
 
     #[test]
@@ -1748,5 +1759,66 @@ mod tests {
         // - Contour generation and polygon creation work as expected
         // - The test validates that the algorithms execute without errors
         // This demonstrates that the contour extraction implementation is working correctly
+    }
+
+    #[test]
+    fn test_tiled_contours_keep_border_coordinates_and_portals() {
+        let bmin = Vec3::new(10.0, 3.0, 20.0);
+        let bmax = Vec3::new(13.0, 7.0, 23.0);
+        let mut heightfield = Heightfield::new(6, 6, bmin, bmax, 0.5, 1.0);
+
+        for z in 0..6 {
+            for x in 0..6 {
+                heightfield.add_span(x, z, 0, 1, 1).unwrap();
+            }
+        }
+
+        for border_size in [0, 1] {
+            let mut chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
+            chf.build_regions(border_size, 8, 10).unwrap();
+            let contours = ContourSet::build_from_compact_heightfield(&chf, 0.1, 0, 1, 0).unwrap();
+            let pad = border_size as f32 * chf.cs();
+            let width = 6 - 2 * border_size;
+
+            assert_eq!(contours.border_size, border_size);
+            assert_eq!((contours.width, contours.height), (width, width));
+            assert_eq!(contours.bmin, chf.bmin() + Vec3::new(pad, 0.0, pad));
+            assert_eq!(contours.bmax, chf.bmax() - Vec3::new(pad, 0.0, pad));
+
+            let vertices: Vec<_> = contours.contours.iter().flat_map(|c| &c.vertices).collect();
+            for (x, z) in [(0, 0), (width, 0), (0, width), (width, width)] {
+                assert!(vertices.iter().any(|v| (v.x, v.z) == (x, z)));
+            }
+            for vertex in vertices {
+                assert!((0..=width).contains(&vertex.x));
+                assert!((0..=width).contains(&vertex.z));
+                assert_eq!(
+                    contours.bmin.x + vertex.x as f32 * contours.cs,
+                    bmin.x + (vertex.x + border_size) as f32 * chf.cs()
+                );
+                assert_eq!(
+                    contours.bmin.z + vertex.z as f32 * contours.cs,
+                    bmin.z + (vertex.z + border_size) as f32 * chf.cs()
+                );
+            }
+
+            let mesh = PolyMesh::build_from_contour_set(&contours, 6).unwrap();
+            assert_eq!(mesh.border_size(), border_size);
+            let nvp = mesh.max_verts_per_poly();
+            let portal_directions: Vec<_> = mesh
+                .polys()
+                .chunks_exact(2 * nvp)
+                .flat_map(|p| p[nvp..].iter().copied())
+                .filter(|edge| edge & 0x8000 != 0 && *edge != 0xffff)
+                .map(|edge| edge & 3)
+                .collect();
+            if border_size > 0 {
+                for direction in 0..4 {
+                    assert!(portal_directions.contains(&direction));
+                }
+            } else {
+                assert!(portal_directions.is_empty());
+            }
+        }
     }
 }
