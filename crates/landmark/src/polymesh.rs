@@ -962,14 +962,6 @@ impl PolyMesh {
         harea.push(edges[3]);
 
         let mut remaining_edges = nedges;
-        // Remove edge 0 by swapping with last.
-        if remaining_edges > 1 {
-            edges[0] = edges[(remaining_edges - 1) * 4];
-            edges[1] = edges[(remaining_edges - 1) * 4 + 1];
-            edges[2] = edges[(remaining_edges - 1) * 4 + 2];
-            edges[3] = edges[(remaining_edges - 1) * 4 + 3];
-        }
-        remaining_edges -= 1;
 
         // Keep appending connected segments to start and end of the hole.
         loop {
@@ -1681,5 +1673,47 @@ mod tests {
         assert_eq!(dst.regs, src.regs);
         assert_eq!(dst.areas, src.areas);
         assert_eq!(dst.flags, src.flags);
+    }
+
+    #[test]
+    fn test_remove_outer_border_vertex_preserves_area() {
+        let nvp = 6;
+        let max_tris = 4;
+        let mut mesh = PolyMesh::new(nvp, 0);
+        // A, R, B, C, D
+        mesh.verts = vec![0, 0, 0, 10, 0, 5, 10, 0, 0, 10, 0, 10, 0, 0, 10];
+        mesh.nverts = 5;
+        mesh.npolys = 2;
+        mesh.maxpolys = max_tris;
+        mesh.polys = vec![MESH_NULL_IDX; max_tris * nvp * 2];
+        mesh.polys[0..3].copy_from_slice(&[0, 1, 2]);
+        mesh.polys[nvp * 2..nvp * 2 + 4].copy_from_slice(&[0, 4, 3, 1]);
+        mesh.regs = vec![1; max_tris];
+        mesh.areas = vec![1; max_tris];
+
+        let area = |mesh: &PolyMesh| {
+            let twice_area: i32 = (0..mesh.npolys)
+                .map(|i| {
+                    let poly = &mesh.polys[i * nvp * 2..];
+                    let count = PolyMesh::count_poly_verts(poly, nvp);
+                    (0..count)
+                        .map(|j| {
+                            let a = poly[j] as usize * 3;
+                            let b = poly[(j + 1) % count] as usize * 3;
+                            mesh.verts[a] as i32 * mesh.verts[b + 2] as i32
+                                - mesh.verts[b] as i32 * mesh.verts[a + 2] as i32
+                        })
+                        .sum::<i32>()
+                        .abs()
+                })
+                .sum();
+            twice_area / 2
+        };
+
+        assert_eq!(area(&mesh), 100);
+        assert!(PolyMesh::can_remove_vertex(&mesh, 1));
+        PolyMesh::remove_vertex(&mut mesh, 1, max_tris).unwrap();
+        assert_eq!(mesh.nverts, 4);
+        assert_eq!(area(&mesh), 100);
     }
 }
