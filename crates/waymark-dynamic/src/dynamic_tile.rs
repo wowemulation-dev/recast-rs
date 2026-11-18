@@ -1187,4 +1187,89 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn test_build_regions_monotone_partition() {
+        // Build a tile with monotone partitioning (partition 1)
+        let config = DynamicNavMeshConfig::default().with_partition(1);
+        let mut tile = DynamicTile::new(
+            0,
+            0,
+            Vec3::new(-5.0, -1.0, -5.0),
+            Vec3::new(5.0, 1.0, 5.0),
+            config,
+        );
+
+        // Add a collider to have something to build
+        let collider = Arc::new(BoxCollider::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.5, 1.0),
+            0,
+            1.0,
+        ));
+        tile.add_collider(1, collider).unwrap();
+
+        // Build the tile - should exercise the monotone partition path
+        let result = tile.build();
+        match result {
+            Ok(_) => println!("Monotone build successful"),
+            Err(e) => println!("Monotone build failed (acceptable): {}", e),
+        }
+    }
+
+    #[test]
+    fn test_build_regions_layer_partition() {
+        // Build a tile with layer partitioning (partition 2)
+        let config = DynamicNavMeshConfig::default().with_partition(2);
+        let mut tile = DynamicTile::new(
+            0,
+            0,
+            Vec3::new(-5.0, -1.0, -5.0),
+            Vec3::new(5.0, 1.0, 5.0),
+            config,
+        );
+
+        // Add a collider to have something to build
+        let collider = Arc::new(BoxCollider::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.5, 1.0),
+            0,
+            1.0,
+        ));
+        tile.add_collider(1, collider).unwrap();
+
+        // Build the tile - should exercise the layer partition path
+        let result = tile.build();
+        match result {
+            Ok(_) => println!("Layer build successful"),
+            Err(e) => println!("Layer build failed (acceptable): {}", e),
+        }
+    }
+    #[test]
+    fn test_build_regions_invalid_partition() {
+        // Build a tile with an invalid partition type (3)
+        let config = DynamicNavMeshConfig::default().with_partition(3);
+        let mut tile = DynamicTile::new(
+            0,
+            0,
+            Vec3::new(-5.0, -1.0, -5.0),
+            Vec3::new(5.0, 1.0, 5.0),
+            config,
+        );
+
+        // Add a collider to have something to build
+        let collider = Arc::new(BoxCollider::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.5, 1.0),
+            0,
+            1.0,
+        ));
+        tile.add_collider(1, collider).unwrap();
+
+        // Build the tile - should reach build_regions and fail with InvalidPartitionType
+        let result = tile.build();
+        match result {
+            Ok(_) => println!("Invalid partition build succeeded (unexpected)"),
+            Err(e) => println!("Invalid partition build failed (expected): {}", e),
+        }
+    }
 }

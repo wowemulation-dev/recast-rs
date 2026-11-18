@@ -1236,4 +1236,63 @@ mod tests {
         let neighbor_idx = neighbor_idx.unwrap();
         assert_eq!(neighbor_idx, 1); // Should be the span at (1, 0)
     }
+    #[test]
+    fn test_build_regions_monotone_method() {
+        // Create a simple heightfield
+        let width = 5;
+        let height = 5;
+        let bmin = Vec3::new(0.0, 0.0, 0.0);
+        let bmax = Vec3::new(5.0, 5.0, 5.0);
+        let cs = 1.0;
+        let ch = 1.0;
+
+        let mut heightfield = Heightfield::new(width, height, bmin, bmax, cs, ch);
+
+        // Add walkable spans everywhere
+        for z in 0..height {
+            for x in 0..width {
+                heightfield.add_span(x, z, 0, 5, 1).unwrap();
+            }
+        }
+
+        let mut chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
+
+        // Build monotone regions via the method
+        chf.build_regions_monotone(0, 1, 0).unwrap();
+
+        // Some spans should be assigned to regions
+        let assigned = chf.spans.iter().filter(|s| s.reg > 0).count();
+        assert!(assigned > 0, "Some spans should be assigned to regions");
+        assert!(chf.max_regions > 0);
+    }
+
+    #[test]
+    fn test_build_layer_regions_method() {
+        // Create a simple heightfield
+        let width = 5;
+        let height = 5;
+        let bmin = Vec3::new(0.0, 0.0, 0.0);
+        let bmax = Vec3::new(5.0, 5.0, 5.0);
+        let cs = 1.0;
+        let ch = 1.0;
+
+        let mut heightfield = Heightfield::new(width, height, bmin, bmax, cs, ch);
+
+        // Add walkable spans everywhere
+        for z in 0..height {
+            for x in 0..width {
+                heightfield.add_span(x, z, 0, 5, 1).unwrap();
+            }
+        }
+
+        let mut chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
+
+        // Build layer regions via the method
+        chf.build_layer_regions(0, 1).unwrap();
+
+        // Some spans should be assigned to regions
+        let assigned = chf.spans.iter().filter(|s| s.reg > 0).count();
+        assert!(assigned > 0, "Some spans should be assigned to regions");
+        assert!(chf.max_regions > 0);
+    }
 }
