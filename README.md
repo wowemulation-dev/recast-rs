@@ -225,7 +225,7 @@ This is currently a nights-and-weekends effort by one person. Funding goals:
 
 ## Contributing
 
-See the [Contributing Guide](CONTRIBUTING.md) for development setup and
+See the [Contributing Guide](https://github.com/wowemulation-dev/.github/blob/main/CONTRIBUTING.md) for development setup and
 guidelines.
 
 ## License
