@@ -17,7 +17,9 @@ recast-rs/
 └── .cargo/config.toml        # Build settings
 ```
 
-Unit tests are inline `#[cfg(test)]` modules. Integration tests in `crates/landmark/tests/` and `crates/waymark/tests/`. Examples in `examples/`. Benchmarks in per-crate `benches/` directories.
+Unit tests are inline `#[cfg(test)]` modules. Integration tests in
+`crates/landmark/tests/` and `crates/waymark/tests/`. Examples in `examples/`.
+Benchmarks in per-crate `benches/` directories.
 
 ## C++ Module Mapping
 

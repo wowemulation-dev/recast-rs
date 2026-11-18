@@ -33,6 +33,7 @@ let nav_mesh = NavMesh::build_from_recast(
 ```
 
 Key components:
+
 - **`MeshTile`**: Individual tile containing polygons, vertices, and BVH
 - **`Poly`**: Navigation polygon with flags and area type
 - **`BVNode`**: Bounding volume hierarchy node for spatial queries
@@ -60,6 +61,7 @@ let straight_path = query.find_straight_path(start_pos, end_pos, &path)?;
 ```
 
 Available queries:
+
 - `find_path()`: A* pathfinding returning polygon references
 - `find_straight_path()`: Funnel algorithm converting polygon path to waypoints
 - `find_nearest_poly()`: Find closest polygon to a world position

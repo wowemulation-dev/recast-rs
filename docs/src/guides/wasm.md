@@ -41,6 +41,7 @@ landmark-common = { version = "0.1", default-features = false }
 ```
 
 This removes:
+
 - `TriMesh::from_obj()` (use `TriMesh::from_obj_str()` instead)
 - `MeshError::Io` variant
 

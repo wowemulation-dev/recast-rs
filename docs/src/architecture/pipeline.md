@@ -55,6 +55,7 @@ remaining pipeline stages.
 **Distance Field and Regions**: Computes the distance from each cell to the
 nearest boundary, then partitions walkable cells into regions. Three algorithms
 are available:
+
 - **Watershed**: produces the best region shapes, uses flood fill from local maxima
 - **Monotone**: faster, produces elongated regions aligned to axes
 - **Layer**: used for multi-story buildings, partitions by height layers
@@ -94,6 +95,7 @@ The NavMesh is organized as a collection of tiles, each containing:
   ladders, teleporters)
 
 Polygon references (`PolyRef`) encode three components:
+
 - **Salt**: Generation counter for validity checking
 - **Tile index**: Which tile contains the polygon
 - **Polygon index**: Index within the tile

@@ -4,7 +4,9 @@ This guide explains how to profile recast-rs using flamegraphs and run tests wit
 
 ## Flamegraph Profiling
 
-Flamegraphs visualize CPU time allocation across call stacks, making it easy to identify performance bottlenecks in navmesh generation and pathfinding operations.
+Flamegraphs visualize CPU time allocation across call stacks, making it
+easy to identify performance bottlenecks in navmesh generation and
+pathfinding operations.
 
 ### Installation
 
@@ -15,6 +17,7 @@ cargo install cargo-flamegraph
 ```
 
 **Note**: On Linux, you may need `perf`:
+
 - Debian/Ubuntu: `sudo apt-get install linux-tools-common`
 - Fedora: `sudo dnf install perf`
 - Arch: `sudo pacman -S perf`
@@ -61,11 +64,13 @@ cargo flamegraph --bin landmark-cli --freq 99 -- build --input input.obj --outpu
 ### Interpreting Flamegraphs
 
 The flamegraph shows:
+
 - **X-axis**: Population (width = relative CPU time)
 - **Y-axis**: Stack depth (each level is a function call)
 - **Colors**: Random, distinguish adjacent frames
 
 Common patterns to look for:
+
 - Wide bars at the top = hot functions (optimization targets)
 - Many narrow bars = function overhead
 - Deep stacks = call chain complexity
@@ -221,6 +226,8 @@ The `--test-threads=1` flag is important for accurate profiling with flamegraph.
 
 ## Continuous Integration
 
-CI uses nextest with the `ci` profile for faster, more reliable test execution. The configuration is in `.config/nextest.toml`.
+CI uses nextest with the `ci` profile for faster, more reliable test execution.
+The configuration is in `.config/nextest.toml`.
 
-CI does not generate flamegraphs automatically due to time and resource constraints.
+CI does not generate flamegraphs automatically due to time and resource
+constraints.

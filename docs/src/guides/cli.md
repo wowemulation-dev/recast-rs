@@ -26,6 +26,7 @@ landmark-cli build --input mesh.obj --output navmesh.bin
 ```
 
 Output format is determined by file extension:
+
 - `.json`: JSON format
 - `.bin`, `.navmesh`: Binary format (C++ compatible)
 - Other/none: Binary format (default)

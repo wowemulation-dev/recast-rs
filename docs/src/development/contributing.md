@@ -71,6 +71,7 @@ workspace `Cargo.toml` but set to `allow` for the initial port. They should
 be tightened incrementally.
 
 Current `allow` settings cover:
+
 - `unsafe_code`: Used in performance-critical paths
 - `unwrap_used`, `expect_used`, `panic`: Port artifact
 - Algorithm-specific lints: Cast precision, float comparison

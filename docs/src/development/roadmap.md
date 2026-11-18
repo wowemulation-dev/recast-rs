@@ -537,6 +537,7 @@ Demonstrates end-to-end: OBJ -> navmesh -> path -> waypoints.
 9. Print: polygon path length, waypoint coordinates
 
 **Points to demonstrate**:
+
 - `QueryFilter::default()` for basic filtering
 - `set_query_extent([2.0, 4.0, 2.0])` for search radius
 - How `find_path` returns polygon refs and `find_straight_path` converts
@@ -559,6 +560,7 @@ Demonstrates multi-agent crowd simulation.
 7. Print: final agent positions, distances to targets
 
 **Points to demonstrate**:
+
 - `UpdateFlags` for enabling/disabling features
 - RVO collision avoidance (`crowd.enable_rvo()`)
 - Agent state checking (`agent.get_state()`, `agent.is_active()`)
@@ -594,6 +596,7 @@ Demonstrates save/load in multiple formats. Requires `serialization` feature.
 6. Print: JSON size, binary size, verify round-trip (compare polygon counts)
 
 **Points to demonstrate**:
+
 - JSON format is human-readable, larger
 - Binary (postcard) format is compact, faster
 - Both round-trip correctly
@@ -1173,6 +1176,7 @@ crates/recast-demo/
 #### Implementation phases
 
 **Phase A -- Minimal viewer** (~800 lines):
+
 - Window with `three-d` + `egui`
 - Load OBJ file, display wireframe
 - `RecastConfig` controls in egui panel
@@ -1181,12 +1185,14 @@ crates/recast-demo/
 - Display build statistics (timing, vertex/polygon counts)
 
 **Phase B -- Pathfinding tool** (~400 lines):
+
 - Click to place start/end positions
 - Run `find_path` + `find_straight_path`
 - Render path as line segments with waypoint markers
 - `QueryFilter` controls (area costs, include/exclude flags)
 
 **Phase C -- Crowd tool** (~500 lines):
+
 - Place agents by clicking
 - Set targets by right-clicking
 - Animate `crowd.update(dt)` each frame
@@ -1194,11 +1200,13 @@ crates/recast-demo/
 - `AgentParams` controls per agent
 
 **Phase D -- Obstacle tool** (~300 lines):
+
 - Add/remove cylinder, box, oriented box obstacles
 - Trigger `TileCache` rebuild
 - Visualize obstacle shapes and affected tiles
 
 **Phase E -- WASM target** (~200 lines):
+
 - `three-d` and `egui` both support WebGL/WASM
 - Add `wasm-bindgen` entry point
 - File loading via browser file picker or drag-and-drop
@@ -1256,6 +1264,7 @@ separately). Exclude it from workspace WASM CI checks.
 #### Dependency compatibility
 
 All major dependencies support `no_std`:
+
 - `glam` 0.31: `default-features = false` (uses `libm`)
 - `thiserror` 2.0: `default-features = false`
 - `log` 0.4: always `no_std`
@@ -1268,6 +1277,7 @@ All major dependencies support `no_std`:
 - `futures-lite` 2.6: `no_std` + alloc
 
 Problematic:
+
 - `tokio`: std-only (already optional behind `tokio` feature)
 - `web-time`: platform-specific, needs verification
 
@@ -1368,6 +1378,7 @@ rarely need crowd simulation or dynamic obstacles.
 #### How rerecast does it
 
 rerecast uses:
+
 - `#![no_std]` + `extern crate alloc;`
 - `libm` for math functions (via `glam` with `default-features = false`)
 - Feature flags separating `std` from `default_no_std`
@@ -1452,6 +1463,7 @@ pub trait NavmeshApp {
 ```
 
 Built-in backends:
+
 - `Mesh3dBackend`: Queries `Mesh3d` + `GlobalTransform` components
 - Physics backends (optional features): Avian3D, Rapier3D collider conversion
 
@@ -1506,6 +1518,7 @@ is small enough to include in the `examples/` directory.
 #### Separate repository vs monorepo
 
 Framework integrations should be **separate repositories/crates**:
+
 - Different release cadence (Bevy versions change often)
 - Different dependencies (heavy framework deps should not pollute the core)
 - Different maintainers possible

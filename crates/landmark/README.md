@@ -64,6 +64,18 @@ let (poly_mesh, detail_mesh) = builder.build_mesh(&vertices, &indices)?;
 4. **PolyMesh** - Generate navigation polygons
 5. **PolyMeshDetail** - Add height detail (optional)
 
+## Test Data
+
+Test meshes in `../../test-data/meshes/`:
+
+| File | Vertices | Triangles |
+|------|----------|-----------|
+| `nav_test.obj` | 884 | 1612 |
+| `dungeon.obj` | 5101 | 10133 |
+| `bridge.obj` | 29 | 54 |
+
+Reference output in `../../test-data/reference/` contains expected JSON values for validation.
+
 ## License
 
 Dual-licensed under either:

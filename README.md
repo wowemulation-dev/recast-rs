@@ -195,7 +195,9 @@ See [Building](docs/src/development/building.md) for nextest, flamegraphs, and c
 
 Linux (x86_64, aarch64), macOS (x86_64, aarch64), Windows (x86_64), WebAssembly.
 
-All library crates compile to `wasm32-unknown-unknown`. See the [WebAssembly guide](docs/src/guides/wasm.md) for feature compatibility and crate-specific notes.
+All library crates compile to `wasm32-unknown-unknown`.
+See the [WebAssembly guide](docs/src/guides/wasm.md) for feature
+compatibility and crate-specific notes.
 
 ## Acknowledgments
 
