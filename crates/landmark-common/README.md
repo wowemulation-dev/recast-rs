@@ -36,8 +36,8 @@ specific crate you need instead:
 
 ```toml
 [dependencies]
-landmark = "0.1"      # For navmesh generation
-waymark = "0.1"       # For pathfinding
+landmark = "0.2"      # For navmesh generation
+waymark = "0.2"       # For pathfinding
 ```
 
 ## License

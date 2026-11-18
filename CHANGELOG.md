@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-18
+
+### Added
+
+#### landmark
+
+- Added the `context` feature. It gates the `context` module (`RecastContext`, logging, timing) and the `web-time` dependency.
+- Disabling the feature removes `web-time` (and `wasm-bindgen`) from the dependency graph. This lets `landmark` compile for WASM targets without a JavaScript host (for example, SpacetimeDB modules).
+
+### Breaking changes
+
+#### landmark
+
+- The `context` feature is no longer enabled by default in the workspace.
+- Crates that use `RecastContext` must enable the feature. For example: `landmark = { version = "0.2.0", features = ["context"] }`.
+
 ### Changed
 
 #### Workspace
@@ -20,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### landmark
 
 - Moved `landmark-common` to dev-dependencies
+
+#### waymark-dynamic
+
+- Removed the unused `tokio` feature and optional `tokio` dependency. Kept the `tokio` dev-dependency for async tests.
+
+#### waymark-tilecache
+
+- Updated `lz4_flex` from 0.12.0 to 0.12.1. This fixes RUSTSEC-2026-0041 (information leak in LZ4 block decompression with invalid offset values).
 
 #### CI / GitHub workflows
 
@@ -43,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### landmark
 
 - `build_regions_monotone` and `build_layer_regions` now write region IDs into the compact heightfield, matching the C++ behavior. Added matching `CompactHeightfield` methods.
+- Contour building now uses the compact heightfield's `border_size`. It shrinks the contour bounding box by the border, removes the border offset from contour vertices, and sets the correct `border_size` on the result (previously hardcoded to 0).
+- `PolyMesh::remove_vertex` no longer removes the first edge when it removes an outer border vertex. This preserves the polygon's area.
 
 #### waymark-dynamic
 
@@ -160,6 +186,7 @@ bug fixes achieving exact output match with C++ for all three test meshes.
 - Public API uses `glam::Vec3` instead of `[f32; 3]` arrays
 - 460 tests passing, exact C++ output match for all three test meshes
 
-[Unreleased]: https://github.com/wowemulation-dev/recast-rs/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/wowemulation-dev/recast-rs/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/wowemulation-dev/recast-rs/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wowemulation-dev/recast-rs/releases/tag/v0.1.0
 [recast-cpp]: https://github.com/recastnavigation/recastnavigation

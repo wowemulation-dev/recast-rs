@@ -149,9 +149,9 @@ Add the crates you need to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-landmark = "0.1"
-waymark = "0.1"
-waymark-crowd = "0.1"  # Optional: crowd simulation
+landmark = "0.2"
+waymark = "0.2"
+waymark-crowd = "0.2"  # Optional: crowd simulation
 ```
 
 ### Example

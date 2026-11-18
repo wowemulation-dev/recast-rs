@@ -499,7 +499,7 @@ dependencies = [
 
 [[package]]
 name = "landmark"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_approx_eq",
  "criterion",
@@ -512,7 +512,7 @@ dependencies = [
 
 [[package]]
 name = "landmark-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -525,7 +525,7 @@ dependencies = [
 
 [[package]]
 name = "landmark-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_approx_eq",
  "glam",
@@ -743,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "recast-rs-examples"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "glam",
  "landmark",
@@ -1113,7 +1113,7 @@ dependencies = [
 
 [[package]]
 name = "waymark"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_approx_eq",
  "bitflags",
@@ -1133,7 +1133,7 @@ dependencies = [
 
 [[package]]
 name = "waymark-crowd"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_approx_eq",
  "bitflags",
@@ -1149,7 +1149,7 @@ dependencies = [
 
 [[package]]
 name = "waymark-dynamic"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_approx_eq",
  "async-lock",
@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "waymark-tilecache"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_approx_eq",
  "glam",
