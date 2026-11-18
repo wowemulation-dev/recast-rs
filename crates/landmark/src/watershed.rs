@@ -527,6 +527,8 @@ pub fn build_regions_watershed(
         span.reg = src_reg[i];
     }
 
+    chf.border_size = border_size;
+
     Ok(())
 }
 

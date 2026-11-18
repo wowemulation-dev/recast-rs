@@ -117,6 +117,9 @@ pub struct CompactHeightfield {
     /// Cell height (vertical resolution)
     pub(crate) ch: f32,
 
+    /// Border size used during region building
+    pub(crate) border_size: i32,
+
     /// Grid of compact cells
     pub(crate) cells: Vec<CompactCell>,
     /// Array of compact spans
@@ -170,6 +173,11 @@ impl CompactHeightfield {
     /// Cell height along the y-axis (vertical voxel resolution).
     pub fn ch(&self) -> f32 {
         self.ch
+    }
+
+    /// Border size used during region building
+    pub fn border_size(&self) -> i32 {
+        self.border_size
     }
 
     pub fn cells(&self) -> &[CompactCell] {
@@ -358,6 +366,7 @@ impl CompactHeightfield {
             bmax,
             cs,
             ch,
+            border_size: 0,
             cells,
             spans,
             span_cells,
