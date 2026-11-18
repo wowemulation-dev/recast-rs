@@ -8,7 +8,7 @@ A Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavi
 [![Sponsor](https://img.shields.io/github/sponsors/danielsreichenbach?logo=github&style=flat-square)](https://github.com/sponsors/danielsreichenbach)
 [![CI Status](https://github.com/wowemulation-dev/recast-rs/workflows/CI/badge.svg)](https://github.com/wowemulation-dev/recast-rs/actions)
 [![WASM](https://img.shields.io/badge/WASM-compatible-blueviolet.svg)](https://webassembly.org/)
-[![Rust Version](https://img.shields.io/badge/rust-1.92+-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.98+-orange.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE-APACHE)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 
@@ -193,7 +193,7 @@ See [Building](docs/src/development/building.md) for nextest, flamegraphs, and c
 
 ### Platform Support
 
-Linux (x86_64, aarch64), macOS (x86_64, aarch64), Windows (x86_64), WebAssembly.
+Linux (x86_64, aarch64), macOS (aarch64), Windows (x86_64), WebAssembly.
 
 All library crates compile to `wasm32-unknown-unknown`.
 See the [WebAssembly guide](docs/src/guides/wasm.md) for feature

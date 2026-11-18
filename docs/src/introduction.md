@@ -3,7 +3,7 @@
 recast-rs is a Rust port of [RecastNavigation](https://github.com/recastnavigation/recastnavigation),
 providing navigation mesh generation and pathfinding for games and simulations.
 
-The library uses Rust 2024 edition and targets Rust 1.92+. All library crates
+The library uses Rust 2024 edition and targets Rust 1.98+. All library crates
 compile to `wasm32-unknown-unknown`.
 
 > **Note**: This port is developed for the [WoW Emulation project](https://github.com/wowemulation-dev)

@@ -122,11 +122,11 @@ bug fixes achieving exact output match with C++ for all three test meshes.
   - `CylinderCollider`
   - `SphereCollider`
   - `CapsuleCollider`
-  - `ConvexCollider`
+  - `ConvexTrimeshCollider`
   - `TrimeshCollider`
   - `CompositeCollider`
 - Async tile rebuilding (runtime-agnostic via `async-lock`/`futures-lite`)
-- Optional Tokio integration via `tokio` feature
+- Tokio as a dev-dependency for async tests
 - Checkpoint system for incremental updates
 - Voxel-based raycasting queries
 - Collider serialization support

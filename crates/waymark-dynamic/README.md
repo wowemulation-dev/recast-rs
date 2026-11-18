@@ -28,11 +28,6 @@ and a checkpoint system. Based on [RecastNavigation][recast-cpp].
 - **Checkpoint System**: Efficient state management for incremental rebuilds
 - **Voxel-based Queries**: Precise raycasting against heightfield data
 - **Serialization**: Save and load dynamic navmesh state
-
-## Optional Features
-
-- `tokio` - Use Tokio runtime for async operations (not WASM-compatible)
-
 ## Collider Types
 
 | Collider | Description |
@@ -41,7 +36,7 @@ and a checkpoint system. Based on [RecastNavigation][recast-cpp].
 | `CylinderCollider` | Vertical cylinder |
 | `SphereCollider` | Sphere shape |
 | `CapsuleCollider` | Capsule (cylinder with hemispherical caps) |
-| `ConvexCollider` | Convex hull from points |
+| `ConvexTrimeshCollider` | Convex hull from points |
 | `TrimeshCollider` | Arbitrary triangle mesh |
 | `CompositeCollider` | Combine multiple colliders |
 
@@ -113,8 +108,8 @@ This crate is fully compatible with WebAssembly. Build for WASM with:
 cargo build --target wasm32-unknown-unknown -p waymark-dynamic
 ```
 
-Async operations work on WASM using `wasm-bindgen-futures` or similar runtimes.
-The `tokio` feature is not available on WASM.
+Async operations are runtime-agnostic and work on WASM using
+`wasm-bindgen-futures` or similar runtimes.
 
 ## License
 

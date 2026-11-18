@@ -2,7 +2,7 @@
 
 Navigation mesh generation from input triangle meshes.
 
-**Lines**: ~13,400 | **WASM**: Yes | **Depends on**: `landmark-common`
+**Lines**: ~15,400 | **WASM**: Yes | **Depends on**: `landmark-common`
 
 ## Overview
 

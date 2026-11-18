@@ -11,14 +11,11 @@ landmark-common          (base crate, no workspace deps)
     │       │       │
     │       │       ├── waymark-crowd     (depends on landmark-common, waymark)
     │       │       │
-    │       │       └── waymark-tilecache (depends on landmark-common, landmark, waymark)
-    │       │               │
-    │       │               └── waymark-dynamic   (depends on landmark-common, landmark,
-    │       │                                      waymark, waymark-tilecache)
+    │       │       ├── waymark-tilecache (depends on landmark-common, landmark, waymark)
+    │       │       │
+    │       │       └── waymark-dynamic   (depends on landmark-common, landmark, waymark)
     │       │
-    │       └───────────────────┘
-    │
-    └── landmark-cli     (depends on all workspace crates)
+    └── landmark-cli     (depends on landmark-common, landmark, waymark)
 ```
 
 ## landmark-common
@@ -53,10 +50,9 @@ regeneration when obstacles change.
 
 ## waymark-dynamic
 
-Depends on `landmark-common`, `landmark`, `waymark`, and `waymark-tilecache`.
-The most dependent crate, combining mesh generation, pathfinding, and tile
-caching for dynamic navmesh updates.
+Depends on `landmark-common`, `landmark`, and `waymark`. Combines mesh
+generation and pathfinding for dynamic navmesh updates.
 
 ## landmark-cli
 
-Binary crate depending on all workspace crates. Not published as a library.
+Binary crate depending on `landmark-common`, `landmark`, and `waymark`. Not published.

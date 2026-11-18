@@ -435,10 +435,10 @@ development allowed warnings to accumulate.
 **Action**: Uncommented the line in `.cargo/config.toml`. Fixed all resulting
 warnings.
 
-## Phase 2: Usability (High) -- MOSTLY COMPLETE
+## Phase 2: Usability (High) -- COMPLETE
 
-These issues block practical adoption. Sections 2.1-2.3 are complete and
-merged to main. Section 2.4 (crates.io publication) is pending.
+These issues block practical adoption. All sections are complete and
+merged to main.
 
 ### 2.1 Add Worked Examples -- COMPLETE
 
@@ -943,10 +943,10 @@ cargo bench -p waymark-crowd
 cargo bench -- --test
 ```
 
-### 2.4 Publish to crates.io -- PENDING
+### 2.4 Publish to crates.io -- COMPLETE
 
-> **Status**: Phase 1 blockers (error types, unwrap elimination) are
-> resolved. Publication checklist items below still need to be completed.
+> **Status**: All six library crates published to crates.io as v0.1.0 on
+> 2026-02-23. `landmark-cli` is intentionally not published.
 
 #### Pre-publication checklist
 
@@ -956,7 +956,7 @@ cargo bench -- --test
 |-------|--------|-------|
 | `version` | Set | `0.1.0` |
 | `edition` | Set | `2024` |
-| `rust-version` | Set | `1.92` |
+| `rust-version` | Set | `1.98` |
 | `license` | Set | `MIT OR Apache-2.0` |
 | `repository` | Set | GitHub URL |
 | `homepage` | Set | GitHub URL |
@@ -1554,7 +1554,7 @@ grep -rn 'unwrap()\|expect(' crates/*/src/ --include='*.rs' | grep -v '#\[cfg(te
 cargo fmt --all && cargo lint && cargo test-all
 cargo check --workspace --no-default-features
 
-# Phase 2 verification (2.1-2.3 COMPLETE, 2.4 PENDING)
+# Phase 2 verification (COMPLETE)
 cargo run -p recast-rs-examples --example basic_navmesh
 cargo run -p recast-rs-examples --example pathfinding
 cargo run -p recast-rs-examples --example crowd_simulation

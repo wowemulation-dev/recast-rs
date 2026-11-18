@@ -76,7 +76,7 @@ strip = false
 lto = false
 
 [workspace.lints.rust]
-# Allow unsafe code - navigation library uses unsafe for performance-critical paths
+# Allow unsafe code lint - no unsafe code currently remains (roadmap 4.4)
 unsafe_code = "allow"
 
 [workspace.lints.clippy]

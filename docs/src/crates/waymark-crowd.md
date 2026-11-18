@@ -66,13 +66,14 @@ Detects nearby navmesh boundaries and obstacles for local steering.
 
 ### Formations
 
-Group movement patterns. Assign agents to formations and set group targets:
+Group movement patterns. Create a formation and assign agents to it:
 
 ```rust,ignore
-use waymark_crowd::Formation;
+use waymark_crowd::{FormationConfig, FormationManager, FormationRole};
 
-let formation = Formation::new(/* ... */);
-crowd.assign_formation(agent_id, &formation)?;
+let mut manager = FormationManager::new();
+let formation_id = manager.create_formation(FormationConfig::default());
+manager.add_agent_to_formation(formation_id, agent_id, FormationRole::Leader)?;
 ```
 
 ### Behaviors

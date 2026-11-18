@@ -24,9 +24,9 @@ waymark-dynamic = "0.1"     # Dynamic navmesh generation
 | Crate | Feature | Dependencies | Default |
 |-------|---------|--------------|---------|
 | landmark-common | `std` | standard library | Yes |
+| landmark | `context` | `web-time` (timing) | Yes |
 | waymark | `serialization` | serde, serde_json, postcard, byteorder | No |
-| waymark-tilecache | `serialization` | serde, serde_json, postcard | No |
-
+| waymark-tilecache | `serialization` | serde, serde_json, postcard, waymark/serialization | No |
 Enable features in `Cargo.toml`:
 
 ```toml
@@ -94,9 +94,9 @@ define the agent's physical properties in voxel units.
 
 ## Platform Support
 
-- Linux: x86_64 (glibc, musl), aarch64 (glibc, musl), armv7 (glibc, musl)
-- macOS: aarch64, x86_64
-- Windows: x86_64 (MSVC, GNU)
+- Linux: x86_64 (glibc, musl), aarch64 (glibc, musl)
+- macOS: aarch64
+- Windows: x86_64 (MSVC)
 - WebAssembly: wasm32-unknown-unknown (library crates only)
 
 See the [WebAssembly guide](guides/wasm.md) for WASM-specific instructions.

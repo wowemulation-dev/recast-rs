@@ -2,7 +2,7 @@
 
 Dynamic navigation mesh generation with async support.
 
-**Lines**: ~6,000 | **WASM**: Yes | **Depends on**: `landmark-common`, `landmark`, `waymark`, `waymark-tilecache`
+**Lines**: ~6,000 | **WASM**: Yes | **Depends on**: `landmark-common`, `landmark`, `waymark`
 
 ## Overview
 
@@ -60,7 +60,7 @@ Seven collider types implement the `Collider` trait:
 | `SphereCollider` | Sphere |
 | `CapsuleCollider` | Capsule (cylinder with hemispherical caps) |
 | `TrimeshCollider` | Arbitrary triangle mesh |
-| `ConvexCollider` | Convex triangle mesh |
+| `ConvexTrimeshCollider` | Convex triangle mesh |
 | `CompositeCollider` | Group of multiple colliders |
 
 All colliders define an axis-aligned bounding box for spatial queries and a
@@ -73,13 +73,14 @@ Save and restore tile state for incremental rebuilds:
 ```rust,ignore
 use waymark_dynamic::CheckpointManager;
 
-let mut checkpoint_mgr = CheckpointManager::new();
+let mut checkpoint_mgr = CheckpointManager::new(8);
 
-// Save checkpoint
-let checkpoint = checkpoint_mgr.create_checkpoint(&dynamic_navmesh)?;
+// Save a checkpoint from a tile's heightfield and the active colliders
+checkpoint_mgr.create_checkpoint(&heightfield, &collider_ids);
 
-// Restore checkpoint (only dirty tiles are rebuilt)
-checkpoint_mgr.restore_checkpoint(&mut dynamic_navmesh, &checkpoint)?;
+// Find the best checkpoint for the current colliders
+// (only dirty tiles are rebuilt when restoring)
+let checkpoint = checkpoint_mgr.find_best_checkpoint(&collider_ids);
 ```
 
 ### VoxelQuery

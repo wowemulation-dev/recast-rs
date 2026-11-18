@@ -55,11 +55,7 @@ cargo nextest run test_name                      # Specific test
 
 ## Unsafe Code
 
-Unsafe code exists in three locations:
-
-- `waymark/src/nav_mesh.rs`: Disjoint mutable references, pointer offset
-- `waymark/src/node_pool.rs`: Raw pointer priority queue, manual `Send`/`Sync`
-- `waymark-dynamic/src/dynamic_tile.rs`: `get_unchecked` for span parsing
+No `unsafe` code remains in the workspace (roadmap section 4.4).
 
 New unsafe code should be avoided. If necessary, document the safety invariants
 with `// SAFETY:` comments.
@@ -72,7 +68,7 @@ be tightened incrementally.
 
 Current `allow` settings cover:
 
-- `unsafe_code`: Used in performance-critical paths
+- `unsafe_code`: Allowed but no `unsafe` code currently exists
 - `unwrap_used`, `expect_used`, `panic`: Port artifact
 - Algorithm-specific lints: Cast precision, float comparison
 

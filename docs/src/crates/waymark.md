@@ -8,7 +8,7 @@ Pathfinding and navigation queries on navigation meshes.
 
 The `waymark` crate is the largest in the workspace. It provides the NavMesh
 data structure, A* pathfinding, spatial queries, and serialization. This crate
-has 15 dedicated test modules.
+has 14 dedicated test modules.
 
 ## Main Types
 
@@ -76,20 +76,26 @@ Available queries:
 For distributing A* work across frames:
 
 ```rust,ignore
-use waymark::SlicedPathfindingQuery;
+use waymark::{SlicedPathfindingQuery, SlicedPathState};
 
-let mut sliced = SlicedPathfindingQuery::new();
-sliced.init_sliced_find_path(&query, start_ref, end_ref, &start, &end, &filter)?;
+let mut sliced = SlicedPathfindingQuery::new(
+    &mut query,
+    start_ref,
+    end_ref,
+    start_pos.to_array(),
+    end_pos.to_array(),
+    filter,
+)?;
 
-// Process a limited number of iterations per frame
+// Process a limited number of polygons per frame
 loop {
-    let status = sliced.update_sliced_find_path(&query, 10)?;
-    if status.is_complete() {
+    let status = sliced.execute_slice()?;
+    if status != SlicedPathState::InProgress {
         break;
     }
 }
 
-let path = sliced.finalize_sliced_find_path(&query)?;
+let path = sliced.get_path();
 ```
 
 ### Hierarchical Pathfinding
@@ -122,8 +128,8 @@ Polygon reference encoding salt, tile index, and polygon index:
 ```rust,ignore
 use waymark::{PolyRef, encode_poly_ref, decode_poly_ref};
 
-let poly_ref = encode_poly_ref(salt, tile_index, poly_index);
-let (salt, tile, poly) = decode_poly_ref(poly_ref);
+let poly_ref = encode_poly_ref(tile_index, poly_index);
+let (tile, poly) = decode_poly_ref(poly_ref);
 ```
 
 ### PolyFlags

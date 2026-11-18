@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Rust 1.92+ (2024 edition)
+- Rust 1.98+ (2024 edition)
 - `wasm32-unknown-unknown` target (for WASM builds)
 
 Optional tools (provisioned by `.mise.toml`):
@@ -60,13 +60,13 @@ CI sets `RUSTFLAGS="-D warnings"` to treat warnings as errors.
 
 ## Cross-Platform Builds
 
-CI verifies compilation on 10 targets:
+CI verifies compilation on 6 targets:
 
 | Platform | Targets |
 |----------|---------|
-| Linux | x86_64-gnu, x86_64-musl, aarch64-gnu, aarch64-musl, armv7-gnueabihf, armv7-musleabihf |
-| macOS | aarch64-apple-darwin, x86_64-apple-darwin |
-| Windows | x86_64-msvc, x86_64-gnu |
+| Linux | x86_64-gnu, x86_64-musl, aarch64-gnu, aarch64-musl |
+| macOS | aarch64-apple-darwin |
+| Windows | x86_64-msvc |
 | WASM | wasm32-unknown-unknown (library crates only) |
 
 ## Documentation

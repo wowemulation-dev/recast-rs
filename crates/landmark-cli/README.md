@@ -2,7 +2,6 @@
 
 Command-line tool for navigation mesh generation and pathfinding.
 
-[![Crates.io](https://img.shields.io/crates/v/landmark-cli.svg)](https://crates.io/crates/landmark-cli)
 [![License](https://img.shields.io/crates/l/landmark-cli.svg)](../LICENSE-MIT)
 
 ## Overview
@@ -14,7 +13,7 @@ on existing meshes.
 ## Installation
 
 ```bash
-cargo install landmark-cli
+cargo install --path crates/landmark-cli
 ```
 
 Or build from source:
