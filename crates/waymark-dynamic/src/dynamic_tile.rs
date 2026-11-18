@@ -537,11 +537,11 @@ impl DynamicTile {
                     )?;
                 }
                 2 => {
-                    // Layer partitioning - need to check correct signature
+                    // Layer partitioning
                     landmark::build_layer_regions(
                         compact_hf,
+                        0, // border_size - no border for single tiles
                         self.config.min_region_area as i32,
-                        self.config.region_merge_area as i32,
                     )?;
                 }
                 _ => {
