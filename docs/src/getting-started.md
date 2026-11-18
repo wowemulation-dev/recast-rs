@@ -26,7 +26,6 @@ waymark-dynamic = "0.1"     # Dynamic navmesh generation
 | landmark-common | `std` | standard library | Yes |
 | waymark | `serialization` | serde, serde_json, postcard, byteorder | No |
 | waymark-tilecache | `serialization` | serde, serde_json, postcard | No |
-| waymark-dynamic | `tokio` | tokio (spawn_blocking) | No |
 
 Enable features in `Cargo.toml`:
 

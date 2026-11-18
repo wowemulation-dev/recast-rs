@@ -112,9 +112,5 @@ works on WASM):
 
 ## Feature Flags
 
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `tokio` | No | Tokio runtime integration (not WASM-compatible) |
-
-Without the `tokio` feature, async operations use `async-lock` and
+No optional features. Async operations use `async-lock` and
 `futures-lite`, which are runtime-agnostic and WASM-compatible.

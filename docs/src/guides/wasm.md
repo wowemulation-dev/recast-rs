@@ -60,14 +60,6 @@ works on WASM without configuration.
 Async operations use `async-lock` and `futures-lite` by default. These are
 runtime-agnostic and work on WASM without tokio.
 
-The `tokio` feature flag enables tokio integration but is **not**
-WASM-compatible:
-
-```toml
-# Native only - do not use with WASM
-waymark-dynamic = { version = "0.1", features = ["tokio"] }
-```
-
 ### Timing
 
 The `landmark` crate uses `web-time` instead of `std::time::Instant`. This
@@ -80,5 +72,4 @@ WASM-incompatible features are isolated behind feature flags:
 | Feature | Crate | WASM-compatible |
 |---------|-------|-----------------|
 | `std` | landmark-common | No (file I/O) |
-| `tokio` | waymark-dynamic | No (tokio runtime) |
 | `serialization` | waymark, waymark-tilecache | Yes (in-memory) |

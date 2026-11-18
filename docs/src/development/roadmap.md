@@ -1278,7 +1278,7 @@ All major dependencies support `no_std`:
 
 Problematic:
 
-- `tokio`: std-only (already optional behind `tokio` feature)
+- `tokio`: std-only (dev-dependency only, for async tests)
 - `web-time`: platform-specific, needs verification
 
 #### Collection replacement strategy

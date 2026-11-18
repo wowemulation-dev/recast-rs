@@ -766,12 +766,10 @@ impl DynamicTile {
 
     /// Build the tile asynchronously (non-blocking)
     ///
-    /// On platforms with tokio support, this runs the build in a thread pool.
-    /// On WASM and other platforms, this runs synchronously but yields periodically.
+    /// Runs the synchronous build. A future implementation could offload
+    /// CPU-intensive work to a thread pool on native platforms.
     pub async fn build_async(&mut self) -> Result<bool, DynamicError> {
         // Run the synchronous build
-        // Note: For true async behavior on native platforms, enable the `tokio` feature
-        // which would allow using spawn_blocking for CPU-intensive builds
         log::info!("Starting async build for tile ({}, {})", self.x, self.y);
         self.build()
     }
