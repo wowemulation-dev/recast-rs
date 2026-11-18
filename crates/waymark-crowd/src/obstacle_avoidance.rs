@@ -1,7 +1,6 @@
 use glam::Vec3;
 
 use crate::error::CrowdError;
-use std::f32;
 
 pub const DT_MAX_PATTERN_DIVS: usize = 32;
 pub const DT_MAX_PATTERN_RINGS: usize = 4;

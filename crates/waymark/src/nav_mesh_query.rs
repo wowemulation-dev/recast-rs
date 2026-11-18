@@ -5,7 +5,6 @@
 
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use std::f32;
 
 use super::nav_mesh::{MeshTile, Poly, decode_poly_id};
 use super::raycast_hit::{RaycastHit, RaycastOptions, RaycastResult};

@@ -3,8 +3,6 @@
 //! This module contains the PathCorridor structure, which is used to
 //! represent and maintain a path corridor for smooth path following.
 
-use std::f32;
-
 use glam::Vec3;
 
 use crate::error::CrowdError;

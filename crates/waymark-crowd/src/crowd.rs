@@ -3,8 +3,6 @@
 //! This module contains the crowd management functionality, which
 //! allows for efficient pathfinding and movement of multiple agents.
 
-use std::f32;
-
 use glam::Vec3;
 
 use super::PathCorridor;

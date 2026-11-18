@@ -4,7 +4,6 @@
 //! efficiently store and update navigation mesh tiles.
 
 use std::collections::{HashMap, HashSet};
-use std::f32;
 
 use super::tile_cache_data::{TileCacheBuilderConfig, TileCacheLayer};
 use super::tile_cache_integration::TileCacheNavMeshIntegration;
