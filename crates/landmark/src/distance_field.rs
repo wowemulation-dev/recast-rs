@@ -411,11 +411,11 @@ fn paint_rect_region(
 
 /// Builds regions using monotone partitioning
 pub fn build_regions_monotone(
-    chf: &CompactHeightfield,
+    chf: &mut CompactHeightfield,
     border_size: i32,
     min_region_area: i32,
     merge_region_area: i32,
-) -> Result<Vec<u16>, BuildError> {
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
     let mut id = 1u16;
@@ -566,15 +566,22 @@ pub fn build_regions_monotone(
     // Compact region IDs
     compact_region_ids(&mut src_reg)?;
 
-    Ok(src_reg)
+    // Store the result into the compact heightfield (mirrors C++ "Store the result out")
+    chf.max_regions = src_reg.iter().copied().max().unwrap_or(0) & !RC_BORDER_REG;
+    chf.border_size = border_size;
+    for (i, span) in chf.spans.iter_mut().enumerate() {
+        span.reg = src_reg[i];
+    }
+
+    Ok(())
 }
 
 /// Builds layered regions for better handling of overlapping areas
 pub fn build_layer_regions(
-    chf: &CompactHeightfield,
+    chf: &mut CompactHeightfield,
     border_size: i32,
     min_region_area: i32,
-) -> Result<Vec<u16>, BuildError> {
+) -> Result<(), BuildError> {
     let w = chf.width;
     let h = chf.height;
     let mut id = 1u16;
@@ -717,7 +724,14 @@ pub fn build_layer_regions(
     // Filter and merge regions for layers
     merge_and_filter_layer_regions(chf, &mut src_reg, min_region_area)?;
 
-    Ok(src_reg)
+    // Store the result into the compact heightfield (mirrors C++ "Store the result out")
+    chf.max_regions = src_reg.iter().copied().max().unwrap_or(0) & !RC_BORDER_REG;
+    chf.border_size = border_size;
+    for (i, span) in chf.spans.iter_mut().enumerate() {
+        span.reg = src_reg[i];
+    }
+
+    Ok(())
 }
 
 /// Merges small regions for monotone region building
@@ -821,11 +835,12 @@ mod tests {
             }
         }
 
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
+        let mut chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
-        let region_ids = build_regions_monotone(&chf, 0, 1, 0).unwrap();
+        build_regions_monotone(&mut chf, 0, 1, 0).unwrap();
 
-        // Should have generated regions
+        // Should have generated regions in the compact heightfield
+        let region_ids: Vec<u16> = chf.spans.iter().map(|s| s.reg).collect();
         assert_eq!(region_ids.len(), chf.spans.len());
 
         // At least some spans should be assigned to regions
@@ -855,11 +870,12 @@ mod tests {
             }
         }
 
-        let chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
+        let mut chf = CompactHeightfield::build_from_heightfield(&heightfield, 2, 1).unwrap();
 
-        let region_ids = build_layer_regions(&chf, 0, 1).unwrap();
+        build_layer_regions(&mut chf, 0, 1).unwrap();
 
-        // Should have generated regions
+        // Should have generated regions in the compact heightfield
+        let region_ids: Vec<u16> = chf.spans.iter().map(|s| s.reg).collect();
         assert_eq!(region_ids.len(), chf.spans.len());
 
         // At least some spans should be assigned to regions

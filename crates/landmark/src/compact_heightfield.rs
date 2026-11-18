@@ -6,6 +6,7 @@
 
 use glam::Vec3;
 
+use super::distance_field;
 use super::heightfield::{Heightfield, SPAN_NULL};
 use super::watershed;
 use crate::error::BuildError;
@@ -865,6 +866,30 @@ impl CompactHeightfield {
     ) -> Result<(), BuildError> {
         // Use the proper watershed algorithm
         watershed::build_regions_watershed(self, border_size, min_region_area, merge_region_area)
+    }
+
+    /// Builds regions using monotone partitioning
+    pub fn build_regions_monotone(
+        &mut self,
+        border_size: i32,
+        min_region_area: i32,
+        merge_region_area: i32,
+    ) -> Result<(), BuildError> {
+        distance_field::build_regions_monotone(
+            self,
+            border_size,
+            min_region_area,
+            merge_region_area,
+        )
+    }
+
+    /// Builds layered regions for better handling of overlapping areas
+    pub fn build_layer_regions(
+        &mut self,
+        border_size: i32,
+        min_region_area: i32,
+    ) -> Result<(), BuildError> {
+        distance_field::build_layer_regions(self, border_size, min_region_area)
     }
 
     /// Marks border regions around the edges of the heightfield

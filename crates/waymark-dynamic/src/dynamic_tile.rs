@@ -528,18 +528,16 @@ impl DynamicTile {
                     )?;
                 }
                 1 => {
-                    // Monotone partitioning - need to check correct signature
-                    landmark::build_regions_monotone(
-                        compact_hf,
-                        0, // border_size
+                    // Monotone partitioning
+                    compact_hf.build_regions_monotone(
+                        0, // border_size - no border for single tiles
                         self.config.min_region_area as i32,
                         self.config.region_merge_area as i32,
                     )?;
                 }
                 2 => {
                     // Layer partitioning
-                    landmark::build_layer_regions(
-                        compact_hf,
+                    compact_hf.build_layer_regions(
                         0, // border_size - no border for single tiles
                         self.config.min_region_area as i32,
                     )?;
