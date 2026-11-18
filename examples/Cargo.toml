@@ -8,9 +8,11 @@ publish = false
 landmark-common = { workspace = true }
 landmark = { workspace = true }
 waymark = { workspace = true, features = ["serialization"] }
+glam = { workspace = true }
+
+[dev-dependencies]
 waymark-crowd = { workspace = true }
 waymark-tilecache = { workspace = true, features = ["serialization"] }
-glam = { workspace = true }
 
 [lints]
 workspace = true

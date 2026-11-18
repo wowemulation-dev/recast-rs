@@ -12,7 +12,6 @@ keywords = ["navmesh", "landmark", "pathfinding", "voxelization", "mesh"]
 categories = ["game-development", "algorithms"]
 
 [dependencies]
-landmark-common = { workspace = true }
 glam = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }
@@ -21,6 +20,7 @@ web-time = { workspace = true, optional = true }
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
 criterion = { workspace = true }
+landmark-common = { workspace = true }
 
 [[bench]]
 name = "generation"

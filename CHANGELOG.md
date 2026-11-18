@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Rust MSRV 1.92 → 1.98
 
+#### landmark-common
+
+- Removed the `async` feature and the `tokio` and `log` dependencies
+
+#### landmark
+
+- Moved `landmark-common` to dev-dependencies
+
 ## [0.1.0] - 2026-02-23
 
 Initial release. Rust port of [RecastNavigation][recast-cpp] with 33 pipeline
