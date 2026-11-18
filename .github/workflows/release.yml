@@ -44,14 +44,13 @@ concurrency:
   group: release-${{ github.repository }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  packages: write
+permissions: {}
 
 jobs:
   determine-release-type:
     name: Determine Release Type
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       release-libraries: ${{ steps.determine.outputs.release-libraries }}
       release-cli: ${{ steps.determine.outputs.release-cli }}
@@ -128,22 +127,28 @@ jobs:
     needs: determine-release-type
     if: needs.determine-release-type.outputs.release-libraries == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@v1
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v1
         with:
           toolchain: stable
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2
+        with:
+          lookup-only: true
 
       - name: Verify versions match
         env:
           PACKAGE_NAMES: ${{ vars.PACKAGE_NAMES || '' }}
         run: |
+          set -o pipefail
           VERSION="${{ needs.determine-release-type.outputs.version }}"
           if [ -n "$PACKAGE_NAMES" ]; then
             for crate in $(echo "$PACKAGE_NAMES" | jq -r '.[]'); do
@@ -160,6 +165,11 @@ jobs:
       - name: Run tests
         if: needs.determine-release-type.outputs.skip-tests != 'true'
         run: cargo test --all-features --workspace
+
+      - name: Authenticate with crates.io
+        id: auth
+        if: needs.determine-release-type.outputs.dry-run != 'true'
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9  # v1.0.6
 
       - name: Publish to crates.io (Dry Run)
         if: needs.determine-release-type.outputs.dry-run == 'true'
@@ -182,7 +192,7 @@ jobs:
       - name: Publish to crates.io (Production)
         if: needs.determine-release-type.outputs.dry-run != 'true'
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
           INDEPENDENT: ${{ vars.CRATE_PUBLISH_ORDER_INDEPENDENT || '[]' }}
           DEPENDENT: ${{ vars.CRATE_PUBLISH_ORDER_DEPENDENT || '[]' }}
         run: |
@@ -227,17 +237,21 @@ jobs:
     name: Release CLI
     needs: determine-release-type
     if: needs.determine-release-type.outputs.release-cli == 'true'
+    permissions:
+      contents: write
     uses: ./.github/workflows/release-cli.yml
     with:
       version: ${{ needs.determine-release-type.outputs.version }}
       dry-run: ${{ needs.determine-release-type.outputs.dry-run == 'true' }}
-    secrets: inherit
+    secrets:
+      AGE_KEY_SECRET: ${{ secrets.AGE_KEY_SECRET }}
 
   release-success:
     name: Release Success
     if: always()
     needs: [determine-release-type, release-libraries, release-cli]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check release status
         run: |

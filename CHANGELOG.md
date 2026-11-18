@@ -21,6 +21,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Moved `landmark-common` to dev-dependencies
 
+#### CI / GitHub workflows
+
+- Upgraded GitHub Actions: `actions/checkout` v4 → v7,
+  `tj-actions/changed-files` v45 → v47, `codecov/codecov-action` v5 → v7,
+  `actions/upload-artifact` v4 → v7, `actions/download-artifact` v4 → v8,
+  `actions/cache` v4 → v6
+- Pinned all actions to commit SHAs
+- Added `timeout-minutes` to all jobs
+- Scoped `permissions` to the least privilege per job
+- Pass `inputs.version` through step `env` to prevent template injection
+- Replaced `softprops/action-gh-release` with `gh release create`
+- Publish to crates.io with trusted publishing (`rust-lang/crates-io-auth-action`)
+- Removed the long-lived `CRATES_IO_TOKEN` secret from the release workflow
+- Added a concurrency group to the cross-build workflow
+- Made the release dependency cache lookup-only
+- All workflows pass `jactionlint` with zero warnings and errors
+
 ## [0.1.0] - 2026-02-23
 
 Initial release. Rust port of [RecastNavigation][recast-cpp] with 33 pipeline
