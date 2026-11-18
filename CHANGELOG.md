@@ -38,6 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Made the release dependency cache lookup-only
 - All workflows pass `jactionlint` with zero warnings and errors
 
+### Fixed
+
+#### landmark
+
+- `build_regions_monotone` and `build_layer_regions` now write region IDs into the compact heightfield, matching the C++ behavior. Added matching `CompactHeightfield` methods.
+
+#### waymark-dynamic
+
+- `DynamicTile::build_regions` now uses the region IDs from the selected partition, so the chosen partition determines the built tile's contours.
+
 ## [0.1.0] - 2026-02-23
 
 Initial release. Rust port of [RecastNavigation][recast-cpp] with 33 pipeline
